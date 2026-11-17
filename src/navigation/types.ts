@@ -1,17 +1,16 @@
-import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type AuthStackParamList = {
   SignIn: undefined;
   CreateAccount: undefined;
   VerifyOtp: { phone: string };
-  /** Temporary – removed once the real auth screens are built. */
-  Placeholder: undefined;
 };
 
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
-  // App: NavigatorScreenParams<AppStackParamList>; // added later
+  /** Placeholder – replaced by the real app stack later. */
+  Home: undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<
@@ -19,9 +18,9 @@ export type RootStackScreenProps<T extends keyof RootStackParamList> = NativeSta
   T
 >;
 
-export type AuthStackScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<
-  AuthStackParamList,
-  T
+export type AuthStackScreenProps<T extends keyof AuthStackParamList> = CompositeScreenProps<
+  NativeStackScreenProps<AuthStackParamList, T>,
+  RootStackScreenProps<keyof RootStackParamList>
 >;
 
 declare global {

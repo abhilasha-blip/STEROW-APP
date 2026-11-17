@@ -5,11 +5,12 @@ import { createTheme } from './createTheme';
 export const theme = createTheme(colors);
 
 export type { Theme } from './createTheme';
-export type { AppColors } from './colors';
+export type { AppColors, ColorToken } from './colors';
+export type { TypographyVariant } from './typography';
 export { createTheme } from './createTheme';
-export { colors } from './colors';
+export { colors, resolveColor } from './colors';
 export { typography } from './typography';
-export { spacing } from './spacing';
+export { spacing, sizes } from './spacing';
 export { radius } from './radius';
-export { ThemeProvider, useTheme } from './ThemeProvider';
+export { ThemeProvider, useTheme, useThemedStyles } from './ThemeProvider';
 export { createNavigationTheme } from './navigationTheme';

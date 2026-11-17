@@ -1,10 +1,16 @@
+import type { TextStyle } from 'react-native';
+
 /**
- * Typography tokens. No colours here.
+ * Typography tokens (Plus Jakarta Sans). No colours here – components combine a
+ * variant with a colour token.
  *
  * Font files live in src/assets/fonts and are named after their PostScript
  * names, so the same `fontFamily` string works on iOS and Android.
  * NEVER combine `fontWeight` with a custom fontFamily – pick the weight via
  * the family instead (it breaks on Android otherwise).
+ *
+ * Sizes were recovered from the Figma frames by fitting each string's ink
+ * width against the font's glyph metrics.
  */
 export const fontFamily = {
   regular: 'PlusJakartaSans-Regular',
@@ -13,25 +19,52 @@ export const fontFamily = {
   bold: 'PlusJakartaSans-Bold',
 } as const;
 
-export const fontSize = {
-  xs: 12,
-  sm: 14,
-  md: 16,
-  lg: 18,
-  xl: 22,
-  xxl: 28,
-  display: 34,
+type Variant = Pick<TextStyle, 'fontFamily' | 'fontSize' | 'lineHeight' | 'letterSpacing'>;
+
+const v = (
+  family: string,
+  fontSize: number,
+  lineHeight?: number,
+  letterSpacing?: number,
+): Variant => ({
+  fontFamily: family,
+  fontSize,
+  ...(lineHeight !== undefined && { lineHeight }),
+  ...(letterSpacing !== undefined && { letterSpacing }),
+});
+
+export const variants = {
+  /** "Sign In", "Create Account", "Verify OTP" */
+  screenTitle: v(fontFamily.semiBold, 24, 32),
+  /** Sign In subtitle */
+  subtitle: v(fontFamily.regular, 14, 20),
+  /** Create Account subtitle, OTP description */
+  bodyLarge: v(fontFamily.regular, 16, 19),
+  /** "PIN", "Mobile Number", "Code" */
+  label: v(fontFamily.regular, 16, 20),
+  /** PIN field text + placeholder (no lineHeight: it misaligns TextInput) */
+  input: v(fontFamily.regular, 16),
+  /** Mobile field text, placeholder and "+91" prefix */
+  inputLarge: v(fontFamily.regular, 18),
+  /** Primary button label */
+  button: v(fontFamily.medium, 18, 24),
+  /** "Or Log in with", "Don't have an account?" */
+  small: v(fontFamily.regular, 15, 20, 0.2),
+  /** "Sign up" link */
+  smallStrong: v(fontFamily.medium, 15, 20),
+  /** "Resend code in" */
+  caption: v(fontFamily.regular, 14, 20, 0.15),
+  /** Countdown "00:12" / "Resend code" */
+  captionStrong: v(fontFamily.medium, 15, 20),
+  /** Biometric button labels */
+  biometric: v(fontFamily.medium, 16, 20),
+  /** OTP box digit */
+  otpDigit: v(fontFamily.semiBold, 22, 28),
+  /** Inline field errors */
+  error: v(fontFamily.regular, 13, 18),
 } as const;
 
-export const lineHeight = {
-  xs: 16,
-  sm: 20,
-  md: 24,
-  lg: 26,
-  xl: 30,
-  xxl: 36,
-  display: 42,
-} as const;
+export type TypographyVariant = keyof typeof variants;
 
-export const typography = { fontFamily, fontSize, lineHeight } as const;
+export const typography = { fontFamily, variants } as const;
 export type Typography = typeof typography;

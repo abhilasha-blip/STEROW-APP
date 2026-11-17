@@ -1,6 +1,6 @@
 import type { AppColors } from './colors';
 import { radius } from './radius';
-import { spacing } from './spacing';
+import { sizes, spacing } from './spacing';
 import { typography } from './typography';
 
 /** A theme is any colour scheme plus the shared (colour-free) scales. */
@@ -8,6 +8,7 @@ export type Theme = {
   colors: AppColors;
   typography: typeof typography;
   spacing: typeof spacing;
+  sizes: typeof sizes;
   radius: typeof radius;
 };
 
@@ -16,5 +17,6 @@ export const createTheme = (schemeColors: AppColors): Theme => ({
   colors: schemeColors,
   typography,
   spacing,
+  sizes,
   radius,
 });

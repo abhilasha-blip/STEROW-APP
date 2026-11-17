@@ -21,3 +21,12 @@ export function useTheme(): Theme {
   }
   return theme;
 }
+
+/**
+ * Memoised theme-dependent styles: `const styles = useThemedStyles(makeStyles)`.
+ * `makeStyles` must be a stable (module-level) function.
+ */
+export function useThemedStyles<T>(makeStyles: (theme: Theme) => T): T {
+  const theme = useTheme();
+  return useMemo(() => makeStyles(theme), [makeStyles, theme]);
+}
