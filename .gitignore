@@ -73,3 +73,11 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Env files (only the template is committed)
+.env*
+!.env.example
+
+# HAR captures may contain tokens / phone numbers
+*.har
+docs/api/*.har

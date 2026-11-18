@@ -30,5 +30,13 @@ target 'Sterow' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # react-native-config: Debug reads .env.development, Release reads .env.production.
+    installer.pods_project.targets.each do |target|
+      next unless target.name == 'react-native-config'
+      target.build_configurations.each do |bc|
+        bc.build_settings['ENVFILE'] = bc.name == 'Release' ? '.env.production' : '.env.development'
+      end
+    end
   end
 end

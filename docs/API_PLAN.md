@@ -1,0 +1,249 @@
+# STEROW mobile — API integration plan (Phase B)
+
+> Status: **research + proposal only, awaiting approval.** No app code has been changed.
+> Date: 2026-11-18 · Inputs: `docs/api/openapi.json`, `docs/api/ENDPOINTS.md`, current `src/` (Sign In / Create Account / Verify OTP).
+
+---
+
+## 0. Where the spec came from (read this first)
+
+- `https://demo.sterow.in/swagger` is **not** a stock Swagger UI. It's a TanStack Start (Lovable) route. The route chunk `/assets/swagger-ZwAsLlDm.js` builds the OpenAPI object **in JavaScript** (`m(supabaseUrl, publishableKey, origin)`) and passes it to `SwaggerUIBundle({ spec })`. **There is no spec URL.** `/swagger.json`, `/swagger/v1/swagger.json`, `/openapi.json` and `/api-docs` all return the SPA HTML (HTTP 200, `text/html`).
+- I did **not execute** the downloaded bundle. `docs/api/openapi.json` is a hand transcription of that builder, rendered with the same inputs Swagger UI uses. Cross-check: 109 paths and 243 operations; the path names diff 1:1 against the bundle.
+- **Recommended:** ask the backend dev to commit or publish the spec (Q17). The page has no export link under the title because the spec is inline, and the Swagger UI instance isn't exposed on `window`, so a DevTools export isn't straightforward either.
+- Spec: **STEROW API v1**, OpenAPI 3.0.3.
+- **The spec is thin.** It names only one schema (`Session`). Every table and RPC response is an untyped `object`/`array<object>`, and there are no examples. Most typing will have to come from Supabase DB types (see Q14).
+
+### What the backend actually is
+| Layer | Base URL | Notes |
+|---|---|---|
+| Supabase GoTrue (auth) | `https://pasyjiqmhpdoenozscwt.supabase.co/auth/v1` | email/password, refresh, logout, current user |
+| Supabase PostgREST (data) | `…supabase.co/rest/v1` | tables + `rpc/*` functions, protected by RLS |
+| Supabase Storage | `…supabase.co/storage/v1` | private buckets, signed URLs |
+| STEROW app server ("Mobile Actions") | `https://demo.sterow.in/api/public/v1` | **mobile OTP**, mobile+password sign-in, OCR, payments (Cashfree), maps, invites |
+
+Verified live with harmless probes (no SMS sent):
+- `POST APP/auth/otp/request {}` → `400 {"error":{"code":"bad_request","message":"Required; Required"}}`
+- `POST APP/auth/otp/request {"phone":"123","purpose":"signin"}` → `400 {"error":{"code":"bad_request","message":"Enter a valid India or UAE mobile number"}}`
+- `POST APP/auth/otp/verify` with a dummy requestId → `400 {"error":{"code":"bad_request","message":"This OTP request is no longer valid. Request a new one."}}`
+- `POST APP/settings/app {}` → `200 {"data":{brand_name, logoUrl, …}}`
+
+Takeaways: the APP envelope is confirmed. **Every error code is the same `bad_request`**, so only the free-text message tells cases apart. The backend also accepts **UAE** numbers.
+
+---
+
+## 1. Auth flow mapping
+
+### 1.1 Screen → endpoint table
+
+| Screen / action | Endpoint | Request | Response | Confidence |
+|---|---|---|---|---|
+| **Create Account → Continue** (send OTP) | `POST APP/auth/otp/request` (no auth) | `{ phone: "+91XXXXXXXXXX", purpose: "signup", fullName?, referralCode?, referralToken?, inviteToken? }` | `{ data: … }`, which **presumably** includes `requestId` (verify requires it). Exact shape is undocumented. | Medium |
+| **Verify OTP → Confirm** | `POST APP/auth/otp/verify` (no auth) | `{ requestId, otp, purpose: "signup" }` | "returns a full session": `Session { access_token, refresh_token, expires_in, token_type, user }`, probably wrapped in `{ data }` | Medium |
+| **Verify OTP → Resend code** | *No resend endpoint.* Call `POST APP/auth/otp/request` again → **new `requestId`**. | same as send | same | Medium (cooldown/limits unknown) |
+| **Sign In → PIN** | ❌ **No PIN endpoint exists.** Closest match: `POST APP/auth/signin-mobile { phone, password }`. The Sign In screen has **no phone field**, and the backend password is `minLength: 8` (reset/change), while the UI PIN is 4–6 digits. | — | presumably `Session` | **Blocked: Q1–Q3** |
+| **Sign In → Face ID / Fingerprint** | ❌ **No biometric/device-token endpoint.** Proposal: after any successful login, store `refresh_token` in Keychain/Keystore behind biometric access control. Biometric success → read the token → `POST SB/auth/v1/token?grant_type=refresh_token` → new session. | `{ refresh_token }` + `apikey` | `Session` | High (standard pattern), needs your OK (Q4) |
+| Refresh token | `POST SB/auth/v1/token?grant_type=refresh_token` | header `apikey`; `{ refresh_token }` | `Session` | High |
+| Logout | `POST SB/auth/v1/logout` | `apikey` + Bearer | `204` | High |
+| Current user (auth) | `GET SB/auth/v1/user` | `apikey` + Bearer | GoTrue user (`id`, `phone`, `user_metadata`, …) | High |
+| Profile | `GET SB/rest/v1/user_details?user_id=eq.<uid>&select=*` | `apikey` + Bearer | `[ { full_name, phone, photo, department, designation, referral_code, … } ]` | Medium (columns not typed) |
+| Role (routes customer vs vendor vs technician/driver) | `GET SB/rest/v1/user_roles?user_id=eq.<uid>&select=roles(name)` and/or `POST SB/rest/v1/rpc/my_permissions` | | | Medium (Q11) |
+| Forgot PIN (future) | `APP/auth/otp/request {purpose:"recovery"}` → `APP/auth/reset-password { requestId, otp, password(min 8) }` | | | Depends on Q1 |
+| OTP sign-in for existing users (not in UI) | `APP/auth/otp/request {purpose:"signin"}` → `APP/auth/otp/verify {purpose:"signin"}` | | `Session` | Medium (Q5) |
+
+### 1.2 Phone format
+- The UI holds 10 digits (`/^[6-9]\d{9}$/`) and shows a static `+91` prefix.
+- The API example is E.164 `+919876543210`, and live validation says "India or UAE".
+- **Plan:** a single `toE164('+91', digits)` util at the service boundary. Screens keep 10 digits.
+
+### 1.3 Auth state machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Launch
+    Launch --> Hydrating: read Keychain
+    Hydrating --> Unauthenticated: no refresh_token
+    Hydrating --> Refreshing: refresh_token found
+    Refreshing --> LoadingProfile: 200 Session
+    Refreshing --> Unauthenticated: 400/401 (expired/revoked/used) → clear Keychain
+    Refreshing --> OfflineRetry: network error
+    OfflineRetry --> Refreshing: retry / back online
+
+    state Unauthenticated {
+        [*] --> SignIn
+        SignIn --> BiometricPrompt: tap Face ID / Fingerprint (only if bio-protected token stored)
+        BiometricPrompt --> SignIn: cancel / fail
+        SignIn --> PinLogin: submit PIN (needs stored phone ‑ Q2)
+        SignIn --> CreateAccount: "Create account"
+        CreateAccount --> OtpRequested: POST otp/request purpose=signup
+        OtpRequested --> VerifyOtp
+        VerifyOtp --> OtpRequested: Resend (new requestId)
+        VerifyOtp --> VerifyOtp: wrong / expired OTP
+    }
+    BiometricPrompt --> Refreshing: success → refresh with bio-protected token
+    PinLogin --> LoadingProfile: 200 Session
+    PinLogin --> SignIn: wrong PIN (lockout? Q8)
+    VerifyOtp --> LoadingProfile: 200 Session
+
+    LoadingProfile --> NeedsPinSetup: new user & PIN not set (Q3)
+    LoadingProfile --> NeedsProfile: user_details incomplete, e.g. no full_name (Q6)
+    LoadingProfile --> Authenticated: profile + role loaded
+    NeedsPinSetup --> NeedsProfile
+    NeedsProfile --> Authenticated
+
+    state Authenticated {
+        [*] --> AppStack
+        AppStack --> TokenExpired: any 401
+        TokenExpired --> AppStack: single-flight refresh OK → replay queued requests
+    }
+    TokenExpired --> Unauthenticated: refresh fails → signOut()
+    Authenticated --> Unauthenticated: Logout (POST /auth/v1/logout, wipe Keychain)
+```
+
+---
+
+## 2. Gaps & mismatches
+
+| # | UI / app needs | API provides | Impact |
+|---|---|---|---|
+| G1 | PIN login (4–6 digits, PIN field only) | No PIN concept. Mobile+**password** (min 8 on reset/change) or email+password. | **Blocker** for Sign In |
+| G2 | Sign In has no phone field | `signin-mobile` needs `phone` | Must store the last phone locally, or change the UI |
+| G3 | Biometric login | No endpoint | Client-side pattern (refresh token behind biometrics) |
+| G4 | OTP length **4** (`OTP_LENGTH = 4`, stub accepts `1234`) | Example `otp: "123456"` → likely **6** | UI constant + OtpInput box count |
+| G5 | Resend button, 30s timer | No resend endpoint; re-request gives a new `requestId`. Cooldown and max attempts undocumented. | Timer may disagree with the server's rate limit |
+| G6 | "Set PIN" after signup? | No such step in the API | Unknown whether a screen is missing |
+| G7 | Create Account asks only for the mobile number | `otp/request` accepts `fullName` (optional per spec) | Where does the name get collected? |
+| G8 | Distinct errors: wrong OTP vs expired OTP vs too many attempts | All errors `code: "bad_request"` + free text | Brittle message matching unless the backend adds codes |
+| G9 | Typed responses | Only `Session` is typed; no examples | Need DB types or sample responses |
+| G10 | +91 only | Backend also accepts UAE | Product decision |
+| G11 | Single base URL (`API_BASE_URL`) | Two servers (Supabase + app server) + mandatory `apikey` header | Architecture change (§4) |
+| G12 | Staging/production | Only `demo.sterow.in` + one Supabase project known | Env files can't be filled in yet |
+| G13 | Existing number tapping "Create Account" | `purpose=signup` behaviour for existing users undocumented | Need to know the error/redirect |
+
+### Open questions for Sumanth
+1. **PIN:** is the app PIN the same thing as the account *password* used by `POST /api/public/v1/auth/signin-mobile`? If yes, how does that square with `minLength: 8` on `reset-password`/`PUT /auth/v1/user` while the UI allows 4–6 digits? If not, is a PIN endpoint (set / verify / reset) coming?
+2. **Sign In identity:** the Sign In screen has only a PIN field. Should the app remember the last verified phone on the device, and is a "not you? / switch number" link needed? Or should the UI gain a phone field?
+3. **PIN setup:** after a signup OTP verify, must the user set a PIN? Which endpoint? Is there a screen in Figma we don't have yet?
+4. **Biometrics:** OK to implement Face ID / Fingerprint as "refresh token stored behind device biometrics", enabled only after one successful PIN/OTP login? Or does the backend plan a device-key endpoint?
+5. **Existing users:** should an existing user ever use OTP sign-in (`purpose: "signin"`)? What does `purpose: "signup"` return for an already-registered number?
+6. **Full name / referral:** where is `fullName` collected (it's optional in `otp/request`)? Do we need `referralCode` / deep-link `referralToken` on Create Account?
+7. **OTP details:** is the OTP **6 digits**? What are its expiry, resend cooldown, max resends and max wrong attempts? Is a second `otp/request` the official "resend"? Does it invalidate the previous `requestId`?
+8. **Lockout:** is there a lockout after N wrong PIN/password attempts, and what does the response look like?
+9. **Exact response shapes** for `otp/request` (is it `{ data: { requestId } }`?), `otp/verify` and `signin-mobile` (is it `{ data: Session }` or a bare Session? What's inside `user`?).
+10. **Error codes:** can the app server return distinct `error.code`s (e.g. `otp_invalid`, `otp_expired`, `otp_rate_limited`, `user_exists`, `invalid_credentials`) instead of `bad_request` for everything?
+11. **Roles:** after login, how does the app decide customer vs vendor vs technician vs driver? `user_roles → roles(name)`, `my_permissions`, or something else? Can one user hold several roles?
+12. **Token lifetimes:** access token ~1h per the docs. What are the refresh-token lifetime and rotation settings (Supabase rotation + reuse interval)? Should a session survive indefinitely while the app is used?
+13. **Environments:** what are the staging and production URLs (app server + Supabase project)? Is `demo.sterow.in` the staging environment?
+14. **Types:** can we get `supabase gen types typescript` output (or read access to run it), or at least sample JSON for `user_details`, `user_roles`, `service_bookings`, `booking_invoices_payments`? The spec has no column schemas.
+15. **Test number:** for the live smoke test, which test number should I use? Does the demo backend have a fixed test OTP for it, or will someone read the SMS?
+16. **Country:** stay +91-only in the app for now, even though the backend accepts UAE?
+17. **Spec source:** can the backend publish the spec at a stable URL (e.g. `/api/public/v1/openapi.json`) so we can regenerate types in CI?
+
+---
+
+## 3. Future features — endpoint groups
+
+| App feature (Figma) | Endpoints |
+|---|---|
+| **Onboarding / profile** | `GET/PATCH rest/v1/user_details`, `user_driving_licenses`, `PUT auth/v1/user` (password), `storage avatars`, `APP /ocr/driving-license`, `APP /settings/app`, `rpc/generate_my_reminders` |
+| **Vendor onboarding** | `APP /auth/otp/request` with `vendorSignup{…}`, `APP /vendor/register`, `rpc/vendor_signup_brands`, `APP /technician/onboard/start` + `/verify`, `APP /invites/staff` |
+| **Vendor management** | `vendor_details`, `vendor_branches`, `vendor_technicians`, `vendor_drivers`, `vendor_platform_fees`, `vendor_spare_part_prices`, `rpc/vendor_lookup_details`, `rpc/vendor_lookup_branches`, `rpc/booking_staff` |
+| **Slots management** | `vendor_weekly_hours`, `vendor_holidays` (CRUD), `rpc/booking_branch_schedule {_branch}`, `booking_controls` (read) |
+| **Lead details** | `rpc/my_booking_roles`, `service_bookings` (+ `?status=eq.requested`), `rpc/technician_respond`, `rpc/set_booking_technicians`, `booking_technicians`, `booking_status_history`, `booking_logistics`, `booking_inspections` + storage `booking-files` |
+| **Estimates** | `booking_estimations`, `rpc/respond_estimate`, `rpc/request_estimate_changes`, `rpc/set_estimate_item_status`, `APP /ocr/estimate` |
+| **Invoice details & payments** | `booking_invoices_payments`, `rpc/booking_platform_fee`, `APP /payments/order` (Cashfree, `returnUrl: sterow://payment-result`), `APP /payments/verify`, `booking_cash_collections`, `rpc/record_cash_collection`, `rpc/review_cash_collection`, `work_dues` |
+| **Booking (customer)** | `rpc/my_bookable_vehicles`, `rpc/booking_centers`, `rpc/public_service_centers`, `rpc/booking_service_catalog`, `rpc/booking_package_catalog`, `service_bookings` POST, `booking_packages` |
+| **Vehicles & documents** | `user_vehicles`, `rpc/my_vehicle_access`, `rpc/can_manage_vehicle`, `rpc/vehicle_latest_odometer`, `APP /vehicles/lookup`, `vdocs_*` (4), `APP /ocr/rc`, `APP /ocr/document`, storage `vehicle-docs`/`vehicle-rc`, vehicle masters (9 tables) |
+| **Sharing** | `vehicle_shares`, `APP /shares/otp/send`, `/shares/otp/verify`, `APP /invites/vehicle` |
+| **Addresses / pickup-drop** | `user_addresses`, `APP /places/suggest|details|reverse`, `booking_logistics`, `rpc/customer_update_drop` |
+| **Rewards & notifications** | `referrals`, `notifications` (PATCH `read_at`), `APP /invites/referral` |
+| **Permissions / menus** | `rpc/my_permissions`, `rpc/has_permission`, `menus`, `user_roles`, `roles`, `user_role_permissions`, `role_dashboards` |
+| **Files** | `POST/DELETE storage/v1/object/{bucket}/{path}`, `POST storage/v1/object/sign/{bucket}/{path}` |
+
+Each future module follows the same pattern: `ENDPOINTS.<MODULE>` → `<module>.service.ts` → zod schema → `use<Module>Queries/Mutations` → screen.
+
+---
+
+## 4. Proposed architecture (for approval)
+
+Your structure, with **four changes** driven by the spec. Each change is explained below.
+
+```
+src/
+  config/env.ts            SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, APP_API_BASE_URL, ENV_NAME
+                           via react-native-config (.env.development/.staging/.production); validated with zod at startup
+  api/
+    endpoints.ts           single registry; every entry carries its server:
+                             AUTH: {
+                               SEND_OTP:   { server: 'app', path: '/auth/otp/request' },
+                               VERIFY_OTP: { server: 'app', path: '/auth/otp/verify' },
+                               LOGIN_PIN:  { server: 'app', path: '/auth/signin-mobile' },   // pending Q1
+                               REFRESH:    { server: 'sb',  path: '/auth/v1/token?grant_type=refresh_token' },
+                               LOGOUT:     { server: 'sb',  path: '/auth/v1/logout' },
+                               ME:         { server: 'sb',  path: '/auth/v1/user' },
+                             },
+                             USER: { DETAILS: { server: 'sb', path: '/rest/v1/user_details' } },
+                             VENDOR: { BY_ID: (id: string) => ({ server: 'sb', path: `/rest/v1/vendor_details?id=eq.${id}` }) },
+    client.ts              two axios instances sharing interceptors:
+                             sbClient  – baseURL SUPABASE_URL, always sends `apikey`, Bearer when signed in
+                             appClient – baseURL APP_API_BASE_URL, Bearer when signed in, unwraps { data }
+                           timeout 15s; 401 → single-flight refresh (queue) → replay once; refresh failure → authStore.signOut()
+                           request(endpoint, config) picks the instance from endpoint.server
+    postgrest.ts           tiny typed query builder: eq/in/ilike/order/limit/offset/select → params (no string URLs in services)
+    errors.ts              ApiError + normalizeError() over 4 shapes: network/timeout, APP {error:{code,message}},
+                           PostgREST {code,message,details,hint}, GoTrue {error_code,msg}|{error,error_description}
+                           + mapping of known APP messages → stable codes (until Q10 lands)
+    types/                 generated.ts (openapi-typescript, for paths/bodies) + database.ts (supabase gen types, Q14)
+                           → friendly re-exports per module
+    schemas/               zod: Session, OtpRequestResponse, GoTrueUser, UserDetails, ApiErrorEnvelopes
+    services/auth.service.ts  sendOtp, resendOtp, verifyOtp, loginWithPin, refreshSession, logout, getMe, getProfile
+  hooks/api/               useAuthMutations.ts, useProfileQuery.ts, queryKeys.ts (TanStack Query)
+  store/auth.store.ts      zustand: status 'idle'|'hydrating'|'authenticated'|'unauthenticated', session meta, user, role,
+                           lastPhone; hydrate(), signIn(session), signOut(), setTokens()
+  storage/secureStorage.ts react-native-keychain: session (access+refresh) and a separate biometric-protected
+                           refresh-token entry (accessControl BIOMETRY_ANY_OR_DEVICE_PASSCODE)
+  storage/storage.ts       react-native-mmkv: lastPhone (masked display), biometricsEnabled, onboarding flags
+  navigation/              RootNavigator switches Auth / Onboarding / App stacks by store status (removes resetToHome)
+  utils/logger.ts          __DEV__ only; redacts Authorization, apikey, access_token, refresh_token, password, otp, pin, phone
+  utils/phone.ts           toE164 / fromE164
+```
+
+**Changes vs your proposal, and why:**
+1. **Two servers, not one `API_BASE_URL`.** The backend is Supabase plus a separate app server, with different auth headers and envelopes. Each registry entry carries `server`, so the "no URL strings elsewhere" rule still holds.
+2. **`apikey` header + publishable key in env.** Supabase rejects requests without it. The key is client-safe, but it still lives in `.env.*`, not in source.
+3. **`postgrest.ts` query builder + Supabase DB types.** openapi-typescript alone yields almost nothing (one schema), so per-table types need `supabase gen types` (Q14). Until then, zod schemas are the source of truth for the few responses we consume.
+4. **A single-flight refresh is mandatory, not just nice-to-have.** Supabase refresh tokens are rotating and single-use, so two concurrent refreshes would log the user out.
+
+Considered and **not** recommended: `@supabase/supabase-js`. It handles refresh, storage and PostgREST natively. But it would bypass the endpoint registry, the axios interceptors and msw-friendly testing, and it doesn't cover the app server. Worth revisiting if the PostgREST surface grows large.
+
+New dependencies (pending approval): `axios`, `@tanstack/react-query`, `zustand`, `zod`, `react-native-keychain`, `react-native-mmkv`, `react-native-config`. Dev: `openapi-typescript`, `msw`, `@testing-library/react-native`, `tsx` (for the smoke script). Existing `react-native-biometrics` would be replaced by keychain access control for the token-unlock flow, or kept just for `isSensorAvailable`.
+
+Rules (unchanged): screens → hooks only; no `any`; every service function unit-tested; the existing `src/services/auth.ts` stub is deleted once the hooks land.
+
+---
+
+## 5. Testing & quality plan
+
+**Unit (jest)**
+- `auth.service`: correct endpoint + body (E.164 phone, purpose), `{data}` unwrap, zod failure → `ApiError('SCHEMA_MISMATCH')`.
+- `normalizeError`: one table-driven test per shape (network, timeout `ECONNABORTED`, APP 400, PostgREST 401/403, GoTrue 400, 500, non-JSON body) plus friendly message mapping.
+- `client` refresh queue: 3 concurrent 401s → exactly **one** refresh call → all 3 replayed; refresh 400 → `signOut` once, every queued request rejected; a replayed request returning 401 again doesn't loop.
+- `auth.store`: hydrate with/without/expired tokens, signIn persists to Keychain, signOut wipes Keychain + query cache.
+- `validation`/`phone` utils, `postgrest` builder, logger redaction.
+
+**Integration (msw/node + @testing-library/react-native)**
+- The spec has no examples, so handlers come from **recorded fixtures**: the live envelopes captured in §0, plus real success payloads captured once by the smoke test. They live in `__fixtures__/` and are validated against the zod schemas.
+- Flows: Create Account → Verify → Authenticated; wrong OTP; expired OTP (`"no longer valid"`); resend issues a new requestId; offline; timeout; 500; 401 → refresh → retry; refresh failure → back on SignIn; PIN success/wrong; biometric success/cancel/unavailable.
+
+**Live smoke test** `scripts/smoke-auth.ts` (run with `npx tsx`, reads `.env.staging` + `SMOKE_PHONE`, refuses to run without it)
+- `settings/app` → `otp/request (signin)` → prompts for the OTP on stdin (or a fixed test OTP, Q15) → `otp/verify` → `auth/v1/user` → `user_details` → `refresh` → `logout`. Prints PASS/FAIL + status + latency per step, redacted. Never part of CI.
+
+**Gates:** `npm run typecheck`, `npm run lint`, `npm run check:colors`, `jest --coverage` with thresholds of **≥ 80%** lines/branches on `src/api/**`, `src/store/**`, `src/hooks/api/**` (enforced in `jest.config.js` `coverageThreshold`).
+
+**Edge cases explicitly covered**
+- Double-tap submit: the mutation's `isPending` disables the button, and the service dedupes in-flight `sendOtp`.
+- Leaving a screen mid-request: `AbortController` signal from the hook; no state update after unmount; aborts aren't surfaced as errors.
+- App backgrounded during the countdown: timer based on a stored `expiresAt` timestamp, not on ticks, so it survives background/foreground (current `useCountdown` ticks; it'll be adapted).
+- Slow network: spinner after 300 ms, 15 s timeout → friendly retry message.
+- Keyboard + loading: inputs disabled while pending, keyboard dismissed on submit, errors announced for accessibility.
+- Expired token at launch: hydrate → refresh before showing the App stack; offline at launch → cached session with a retry banner, never a silent logout.
+- Server rotates the refresh token while the app is killed mid-refresh: new tokens are persisted before the request resolves.
