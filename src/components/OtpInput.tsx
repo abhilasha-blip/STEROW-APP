@@ -24,6 +24,8 @@ type OtpInputProps = {
   length?: number;
   error?: boolean;
   autoFocus?: boolean;
+  /** Space between boxes; defaults to the Figma gap (sized for 4 boxes). */
+  gap?: number;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -36,7 +38,7 @@ const SHAKE_STEP_MS = 50; // 6 steps = 300ms
  * The input covers the boxes, so tapping any box focuses it.
  */
 const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>(function OtpInputInner(
-  { value, onChange, length = 4, error = false, autoFocus = true, style },
+  { value, onChange, length = 4, error = false, autoFocus = true, gap, style },
   ref,
 ) {
   const { colors } = useTheme();
@@ -83,7 +85,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>(function OtpInputInne
 
   return (
     <View style={style}>
-      <Animated.View style={[styles.row, rowStyle]}>
+      <Animated.View style={[styles.row, gap !== undefined && { gap }, rowStyle]}>
         {Array.from({ length }, (_, i) => {
           const digit = value[i];
           return (
@@ -115,6 +117,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>(function OtpInputInne
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         accessibilityLabel={`${strings.verifyOtp.codeLabel}, ${length} digits`}
+        testID="otp-input"
         style={[StyleSheet.absoluteFill, styles.hiddenInput, { color: colors.text.primary }]}
       />
     </View>

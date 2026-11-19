@@ -29,6 +29,7 @@ export const strings = {
     invalidMobile: 'Enter a valid 10-digit mobile number',
     invalidReferral: 'Referral code can only contain letters and numbers',
   },
+  /** PARKED PIN sign-in (out of navigation). */
   signIn: {
     title: 'Sign In',
     subtitle: 'Enter your STEROW PIN to access your console',
@@ -48,16 +49,6 @@ export const strings = {
     biometricUnavailable: "Biometric login isn't set up on this device",
     biometricFailed: "We couldn't verify you. Please try again or use your PIN.",
   },
-  createAccount: {
-    title: 'Create Account',
-    subtitle: 'Enter your mobile number',
-    mobileLabel: 'Mobile Number',
-    countryCode: '+91',
-    mobilePlaceholder: 'mobile number',
-    // Figma shows "Log In" here; product decision is "Continue".
-    submit: 'Continue',
-    invalidMobile: 'Enter a valid 10-digit mobile number',
-  },
   verifyOtp: {
     title: 'Verify OTP',
     description: (maskedPhone: string) =>
@@ -67,6 +58,7 @@ export const strings = {
     resend: 'Resend code',
     submit: 'Confirm',
     incompleteCode: `Enter the ${OTP_LENGTH}-digit code`,
+    resendInA11y: (seconds: number) => `Resend code in ${seconds} seconds`,
     resent: 'A new code has been sent',
     invalidCode: 'Invalid code. Please try again.',
     otpBoxLabel: (index: number, digit?: string) =>
@@ -76,10 +68,6 @@ export const strings = {
     back: 'Go back',
     genericError: 'Something went wrong. Please try again.',
     ok: 'OK',
-  },
-  /** Removed with HomeScreen in step 4.5. */
-  home: {
-    title: 'Home (placeholder)',
   },
   dashboard: {
     welcome: (name: string) => `Welcome, ${name}`,

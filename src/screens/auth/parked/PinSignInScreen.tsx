@@ -9,9 +9,7 @@ import PrimaryButton from '@/components/PrimaryButton';
 import ScreenContainer, { type ViewRef } from '@/components/ScreenContainer';
 import TextField from '@/components/TextField';
 import { strings } from '@/constants/strings';
-import { resetToHome } from '@/navigation/actions';
-import type { AuthStackScreenProps } from '@/navigation/types';
-import { AuthError, authService } from '@/services/auth';
+import { AuthError, authService } from '@/services/parkedPinAuth';
 import { authenticateWithBiometrics } from '@/services/biometrics';
 import { haptics } from '@/services/haptics';
 import { useScale } from '@/utils/scale';
@@ -30,7 +28,14 @@ const GAP = {
   footer: 29.2,
 };
 
-export default function SignInScreen({ navigation }: AuthStackScreenProps<'SignIn'>) {
+/**
+ * PARKED (out of navigation, Phase B scope): PIN + Face ID / fingerprint sign-in.
+ * The backend has no PIN or biometric endpoint yet (see docs/API_PLAN.md). Kept compiling and
+ * navigation-agnostic so it can be wired back in later.
+ */
+type PinSignInScreenProps = { onSignUp?: () => void; onSignedIn?: () => void };
+
+export default function PinSignInScreen({ onSignUp, onSignedIn }: PinSignInScreenProps) {
   const { s, vs } = useScale();
   const buttonRef = useRef<ViewRef>(null);
   const [pin, setPin] = useState('');
@@ -52,7 +57,7 @@ export default function SignInScreen({ navigation }: AuthStackScreenProps<'SignI
     setLoading(true);
     try {
       await authService.loginWithPin(pin);
-      resetToHome(navigation);
+      onSignedIn?.();
     } catch (e) {
       setError(
         e instanceof AuthError && e.code === 'INVALID_PIN'
@@ -71,7 +76,7 @@ export default function SignInScreen({ navigation }: AuthStackScreenProps<'SignI
     const result = await authenticateWithBiometrics(t.biometricPrompt);
     if (result.status === 'success') {
       await authService.loginWithBiometrics();
-      resetToHome(navigation);
+      onSignedIn?.();
       return;
     }
     setBiometricBusy(false);
@@ -143,7 +148,7 @@ export default function SignInScreen({ navigation }: AuthStackScreenProps<'SignI
       <View style={[styles.footer, { marginTop: vs(GAP.footer) }]}>
         <AppText variant="small">{`${t.noAccount} `}</AppText>
         <Pressable
-          onPress={() => navigation.navigate('CreateAccount')}
+          onPress={() => onSignUp?.()}
           hitSlop={{ top: 12, bottom: 12, left: 8, right: 16 }}
           accessibilityRole="link"
           accessibilityLabel={t.signUp}

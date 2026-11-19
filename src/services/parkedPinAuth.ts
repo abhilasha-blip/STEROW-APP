@@ -1,4 +1,7 @@
 /**
+ * PARKED: stubs used only by the parked PinSignInScreen (no PIN/biometric endpoint exists yet).
+ * The real auth flow lives in src/api/services/auth.service.ts.
+ *
  * Auth service – typed stubs with simulated network latency.
  * Swap the bodies for real API calls; the screens only depend on these signatures.
  */
