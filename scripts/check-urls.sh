@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Fails if a URL or backend path string appears in src/ outside the two allowed files:
-#   src/api/endpoints.ts (every path) and src/config/env.ts (base URLs come from .env).
+#   src/api/endpoints.ts (every path) and src/config/env.ts (base URLs come from .env),
+#   plus env.test.ts, which tests URL validation with sample URLs.
 # Also bans the website's /_serverFn/ routes everywhere.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 pattern="https?://|\.supabase\.co|['\"\`]/(auth|rest|api|storage|functions|_serverFn)(/|['\"\`])|_serverFn"
 matches=$(grep -rnE --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
   "$pattern" src \
-  --exclude=endpoints.ts --exclude=env.ts || true)
+  --exclude=endpoints.ts --exclude=env.ts --exclude=env.test.ts || true)
 serverfn=$(grep -rn --include='*.ts' --include='*.tsx' '_serverFn' src scripts --exclude=check-urls.sh || true)
 status=0
 if [ -n "$matches" ]; then

@@ -77,6 +77,10 @@ export const strings = {
     genericError: 'Something went wrong. Please try again.',
     ok: 'OK',
   },
+  /** Removed with HomeScreen in step 4.5. */
+  home: {
+    title: 'Home (placeholder)',
+  },
   dashboard: {
     welcome: (name: string) => `Welcome, ${name}`,
     fallbackName: 'there',

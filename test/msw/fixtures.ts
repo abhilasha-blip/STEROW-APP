@@ -1,0 +1,63 @@
+/**
+ * Fixtures derived from the redacted live captures in docs/api/examples/ (2026-11-19).
+ * Tokens are fake but structurally valid (supabase-js decodes the JWT `exp`).
+ */
+import authUserExample from '../../docs/api/examples/auth-user.json';
+import permissionsExample from '../../docs/api/examples/my_permissions.json';
+import otpRequestExample from '../../docs/api/examples/otp-request.signin.response.json';
+import userDetailsExample from '../../docs/api/examples/user_details.json';
+import userRolesExample from '../../docs/api/examples/user_roles.json';
+
+// Node 22 (the jest runtime) provides btoa; the RN type environment doesn't declare it.
+declare function btoa(data: string): string;
+const b64url = (s: string) => btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/[=]+$/, '');
+
+export const UID = authUserExample.id;
+export const TEST_OTP = '123456';
+export const TEST_PHONE = '9999999999';
+
+let tokenCounter = 0;
+/** Unsigned JWT with the claims supabase-js reads. */
+export function makeAccessToken(expiresInS = 3600, sub = UID): string {
+  tokenCounter += 1;
+  const now = Math.floor(Date.now() / 1000);
+  const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = b64url(
+    JSON.stringify({ sub, exp: now + expiresInS, iat: now, role: 'authenticated', n: tokenCounter }),
+  );
+  return `${header}.${payload}.c2lnbmF0dXJl`;
+}
+
+export const authUser = {
+  ...authUserExample,
+  email: '9999999999@phone.local',
+  user_metadata: { ...authUserExample.user_metadata, full_name: 'Test User', phone: TEST_PHONE },
+};
+
+export function makeSession(expiresInS = 3600) {
+  return {
+    access_token: makeAccessToken(expiresInS),
+    refresh_token: `refresh-${Math.random().toString(36).slice(2, 10)}`,
+    expires_in: expiresInS,
+    expires_at: Math.floor(Date.now() / 1000) + expiresInS,
+    token_type: 'bearer',
+    user: authUser,
+  };
+}
+
+export const otpRequestData = otpRequestExample.body.data;
+
+export const userDetailsRow = { ...userDetailsExample[0], full_name: 'Test User', phone: TEST_PHONE };
+export const userRolesRows = userRolesExample;
+export const permissionsRows = permissionsExample;
+
+export const backendMessages = {
+  alreadyRegistered: 'This mobile number is already registered. Please sign in.',
+  noAccount: 'No account found for this mobile number.',
+  cooldown: 'Please wait 30 seconds before requesting another OTP.',
+  incorrectOtp: 'Incorrect OTP.',
+  expired: 'OTP expired. Request a new one.',
+  invalidPhone: 'Enter a valid India or UAE mobile number',
+} as const;
+
+export const appError = (message: string) => ({ error: { code: 'bad_request', message } });

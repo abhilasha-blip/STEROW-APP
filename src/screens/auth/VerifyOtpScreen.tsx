@@ -12,7 +12,9 @@ import type { AuthStackScreenProps } from '@/navigation/types';
 import { AuthError, authService } from '@/services/auth';
 import { haptics } from '@/services/haptics';
 import { useScale } from '@/utils/scale';
-import { formatCountdown, isValidOtp, maskPhone, OTP_LENGTH } from '@/utils/validation';
+import { OTP_LENGTH } from '@/constants/auth';
+import { mask as maskPhone } from '@/utils/phone';
+import { formatCountdown, isValidOtp } from '@/utils/validation';
 
 const t = strings.verifyOtp;
 const RESEND_SECONDS = 30;
