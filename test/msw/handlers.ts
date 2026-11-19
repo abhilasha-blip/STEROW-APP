@@ -26,6 +26,11 @@ async function log(request: Request) {
 }
 
 let requestCounter = 0;
+/** Each test starts at req-1. */
+export function resetHandlerState(): void {
+  requestCounter = 0;
+  requestLog.length = 0;
+}
 
 /** Happy-path defaults; tests override with server.use(...). */
 export const handlers = [

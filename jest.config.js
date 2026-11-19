@@ -3,8 +3,9 @@
  * 'react-native' export condition, so they're transformed with babel like RN packages.
  */
 const ESM_PACKAGES = [
-  '(jest-)?react-native',
+  '(jest-)?react-native(-[a-z-]+)?',
   '@react-native(-community)?',
+  '@react-navigation',
   'rettime',
   'until-async',
   '@open-draft',
@@ -30,7 +31,9 @@ module.exports = {
       '@react-native/jest-preset/jest/assetFileTransformer.js',
     ),
   },
+  setupFiles: ['<rootDir>/node_modules/react-native-gesture-handler/jestSetup.js'],
   moduleNameMapper: {
+    '\\.svg$': '<rootDir>/__mocks__/svgMock.tsx',
     // msw/node is excluded under the 'react-native' export condition; tests run in Node.
     '^msw/node$': '<rootDir>/node_modules/msw/lib/node/index.js',
   },

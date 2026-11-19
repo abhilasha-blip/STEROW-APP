@@ -24,6 +24,8 @@ export function getSupabase(): SupabaseClient {
         persistSession: true,
         detectSessionInUrl: false,
       },
+      // One retry policy for the app (React Query), and the same 15 s budget as the app server.
+      db: { retry: false, timeout: 15_000 },
       global: { fetch: offlineAwareFetch },
     });
   }

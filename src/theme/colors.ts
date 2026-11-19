@@ -33,6 +33,10 @@ export const colors = {
     cardBorder: alpha(palette.mist100, 0.16),
     iconButton: palette.navy600,
     iconButtonBorder: palette.navy500,
+    /** Toasts: the darkest backdrop tone so they read above the gradient. */
+    toast: palette.indigo950,
+    toastBorder: alpha(palette.mist100, 0.16),
+    shadow: palette.black,
   },
   accent: {
     biometric: palette.lime400,

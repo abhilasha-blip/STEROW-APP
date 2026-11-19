@@ -1,5 +1,13 @@
 /* Global jest setup: native module mocks + msw lifecycle. */
-import { server } from './msw/server';
+import { queryClient } from '@/api/queryClient';
+import { resetHandlerState, server } from './msw/server';
+
+// gcTime: Infinity → React Query schedules no 5-minute GC timers that would keep Jest alive.
+const defaults = queryClient.getDefaultOptions();
+queryClient.setDefaultOptions({
+  queries: { ...defaults.queries, gcTime: Infinity },
+  mutations: { ...defaults.mutations, gcTime: Infinity },
+});
 
 jest.mock('@react-native-community/netinfo', () =>
   require('@react-native-community/netinfo/jest/netinfo-mock.js'),
@@ -14,6 +22,11 @@ jest.mock('react-native-haptic-feedback', () => ({
   __esModule: true,
   default: { trigger: jest.fn() },
 }));
+jest.mock('react-native-reanimated', () => require('./reanimatedMock'));
+jest.mock('react-native-linear-gradient', () => {
+  const { View } = require('react-native');
+  return { __esModule: true, default: View };
+});
 jest.mock('react-native-safe-area-context', () =>
   require('react-native-safe-area-context/jest/mock').default,
 );
@@ -21,6 +34,7 @@ jest.mock('react-native-safe-area-context', () =>
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 // The dev logger is verbose by design; keep test output readable (logger.test.ts re-spies).
 beforeEach(() => {
+  resetHandlerState();
   jest.spyOn(console, 'log').mockImplementation(() => undefined);
   jest.spyOn(console, 'info').mockImplementation(() => undefined);
   jest.spyOn(console, 'warn').mockImplementation(() => undefined);

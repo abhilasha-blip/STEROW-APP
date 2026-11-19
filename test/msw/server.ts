@@ -1,5 +1,5 @@
 import { setupServer } from 'msw/node';
-import { handlers, requestLog } from './handlers';
+import { handlers, requestLog, resetHandlerState } from './handlers';
 
 export const server = setupServer(...handlers);
-export { requestLog };
+export { requestLog, resetHandlerState };
