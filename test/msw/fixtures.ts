@@ -56,6 +56,7 @@ export const backendMessages = {
   noAccount: 'No account found for this mobile number.',
   cooldown: 'Please wait 30 seconds before requesting another OTP.',
   incorrectOtp: 'Incorrect OTP.',
+  incorrectTestOtp: 'Incorrect, expired or disabled test OTP.',
   expired: 'OTP expired. Request a new one.',
   invalidPhone: 'Enter a valid India or UAE mobile number',
 } as const;

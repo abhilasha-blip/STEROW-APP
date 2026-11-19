@@ -45,6 +45,7 @@ export function getAppClient(): AxiosInstance {
       // A 2xx carrying { error } is still a failure.
       if (isRecord(body) && isRecord(body.error)) {
         const { message, code } = body.error;
+        logger.info(`✖ ${response.status} ${config.url} (error envelope)`);
         throw new ApiError({
           kind: 'validation',
           message: typeof message === 'string' ? message : 'Unknown error',
@@ -60,8 +61,12 @@ export function getAppClient(): AxiosInstance {
     },
     (error: unknown) => {
       const apiError = normalizeError(error);
-      if (apiError.kind !== 'cancelled') {
-        logger.warn(`✖ ${apiError.kind} ${apiError.status ?? ''} ${apiError.message}`);
+      const line = `✖ ${apiError.kind} ${apiError.status ?? ''} ${apiError.message}`;
+      // Expected backend rejections (wrong OTP, already registered…) are normal flow: no LogBox warning.
+      if (apiError.kind === 'validation') {
+        logger.info(line);
+      } else if (apiError.kind !== 'cancelled') {
+        logger.warn(line);
       }
       return Promise.reject(apiError);
     },

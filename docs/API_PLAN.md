@@ -263,7 +263,7 @@ Rules (unchanged): screens → hooks only; no `any`; every service function unit
 | `user_details` | Key is **`id` = auth uid**; columns `id, email, full_name, phone, department, designation, avatar_url, is_active, created_at, updated_at, referral_code, deleted_at, deleted_by` | ⚠ Swagger text says `user_id=eq.<uid>`; that column does not exist (PostgREST 42703). |
 | `user_roles` | `select=roles(name)&user_id=eq.<uid>` → `[{ roles: { name } }]` | Test user: `user`. |
 | `my_permissions` | `[{ menu_id, can_view, can_create, can_edit, can_delete }]` | No menu path in the row; join with `menus` later. |
-| Fixed test login | phone `9999999999`, OTP `123456`, no SMS | Smoke script + simulator QA only. `TEST_OTP` lives in `.env.development` and is never read by app code. |
+| Fixed test login | phone `9999999999`, OTP `123456`, no SMS; a wrong code returns `"Incorrect, expired or disabled test OTP."` (mapped to "Incorrect OTP.") | Smoke script + simulator QA only. `TEST_OTP` lives in `.env.development` and is never read by app code. |
 
 ---
 

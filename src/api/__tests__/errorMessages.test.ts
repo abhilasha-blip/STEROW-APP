@@ -11,6 +11,7 @@ describe('toUserError', () => {
     ['No account found for this mobile number.', e.noAccount, 'GO_SIGN_UP', undefined],
     ['Please wait 30 seconds before requesting another OTP.', e.cooldown, 'WAIT_COOLDOWN', undefined],
     ['Incorrect OTP.', e.incorrectOtp, undefined, 'otp'],
+    ['Incorrect, expired or disabled test OTP.', e.incorrectOtp, undefined, 'otp'],
     ['OTP expired. Request a new one.', e.otpExpired, 'RESEND_OTP', 'otp'],
     ['This OTP request is no longer valid. Request a new one.', e.otpExpired, 'RESEND_OTP', 'otp'],
     ['Enter a valid India or UAE mobile number', e.invalidPhone, undefined, 'phone'],

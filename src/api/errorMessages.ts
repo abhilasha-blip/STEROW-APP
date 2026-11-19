@@ -31,6 +31,11 @@ const RULES: ReadonlyArray<{ match: RegExp; error: Omit<UserError, 'kind'> }> = 
     error: { userMessage: e.cooldown, action: 'WAIT_COOLDOWN' },
   },
   {
+    // Fixed test login (9999999999) wording for any wrong code.
+    match: /incorrect, expired or disabled test otp/i,
+    error: { userMessage: e.incorrectOtp, field: 'otp' },
+  },
+  {
     match: /incorrect otp/i,
     error: { userMessage: e.incorrectOtp, field: 'otp' },
   },

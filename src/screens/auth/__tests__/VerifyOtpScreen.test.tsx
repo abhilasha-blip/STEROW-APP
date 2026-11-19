@@ -68,6 +68,16 @@ describe('VerifyOtp', () => {
     expect(bodies(urls.otpVerify).map(b => b.requestId)).toEqual(['req-1', 'req-1', 'req-1']);
   });
 
+  it('test-login wording for a wrong code is shown as "Incorrect OTP." inline', async () => {
+    server.use(
+      http.post(urls.otpVerify, () => HttpResponse.json(appError(backendMessages.incorrectTestOtp), { status: 400 })),
+    );
+    await start();
+    await typeOtp('000000');
+    expect(await screen.findByTestId('otp-error')).toHaveTextContent(strings.errors.incorrectOtp);
+    expect(screen.queryByText(strings.errors.generic)).toBeNull();
+  });
+
   it('expired OTP: mapped message and Resend enabled right away', async () => {
     server.use(http.post(urls.otpVerify, () => HttpResponse.json(appError(backendMessages.expired), { status: 400 })));
     await start();
