@@ -4,6 +4,8 @@ import { server } from './msw/server';
 jest.mock('@react-native-community/netinfo', () =>
   require('@react-native-community/netinfo/jest/netinfo-mock.js'),
 );
+// Node already implements URL; the polyfill is ESM and only needed on device.
+jest.mock('react-native-url-polyfill/auto', () => ({}));
 jest.mock('react-native-bootsplash', () => ({
   __esModule: true,
   default: { hide: jest.fn(() => Promise.resolve()), isVisible: jest.fn(() => false) },
@@ -17,7 +19,14 @@ jest.mock('react-native-safe-area-context', () =>
 );
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+// The dev logger is verbose by design; keep test output readable (logger.test.ts re-spies).
+beforeEach(() => {
+  jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  jest.spyOn(console, 'info').mockImplementation(() => undefined);
+  jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+});
 afterEach(() => {
+  jest.restoreAllMocks();
   server.resetHandlers();
   require('react-native-keychain').__store.clear();
 });
