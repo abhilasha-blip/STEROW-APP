@@ -264,3 +264,27 @@ Rules (unchanged): screens → hooks only; no `any`; every service function unit
 | `user_roles` | `select=roles(name)&user_id=eq.<uid>` → `[{ roles: { name } }]` | Test user: `user`. |
 | `my_permissions` | `[{ menu_id, can_view, can_create, can_edit, can_delete }]` | No menu path in the row; join with `menus` later. |
 | Fixed test login | phone `9999999999`, OTP `123456`, no SMS | Smoke script + simulator QA only. `TEST_OTP` lives in `.env.development` and is never read by app code. |
+
+---
+
+## 7. Phase B endpoint status (2026-11-19)
+
+✅ = used by the app, covered by msw tests and confirmed live · ⏳ = not used yet / later phase
+
+| Endpoint | Status | Used by | Mirrors web? |
+|---|---|---|---|
+| `POST APP/auth/otp/request` (signin, signup) | ✅ | `auth.service.requestOtp` | Yes: same body (`phone` 10 digits, `purpose`, `fullName`, `referralCode?`); empty optionals omitted |
+| `POST APP/auth/otp/verify` | ✅ | `auth.service.verifyOtp` | **No**: public API returns a session; the web gets `{tokenHash}` → `verifyOtp(magiclink)`. App handles both. |
+| Resend | ✅ | same `otp/request` call; newest `requestId` wins | Yes |
+| `POST SB/auth/v1/token?grant_type=refresh_token` | ✅ | supabase-js auto-refresh (foreground only, AppState-bound) | Yes (supabase-js) |
+| `POST SB/auth/v1/logout?scope=local` | ✅ | `auth.service.signOut` (this device only) | Web default is global; app is local by design |
+| `GET SB/auth/v1/user` | ✅ | `user.service.fetchBootstrap` (+ supabase-js `setSession`) | Yes |
+| `GET SB/rest/v1/user_details?id=eq.<uid>` | ✅ | bootstrap: full name, phone | Yes (key `id`, not `user_id`) |
+| `GET SB/rest/v1/user_roles?select=roles(name)&user_id=eq.<uid>` | ✅ | bootstrap: role names (best-effort) | Yes |
+| `POST SB/rest/v1/rpc/my_permissions` | ✅ | bootstrap: permissions (best-effort, not shown yet) | Yes |
+| `POST SB/auth/v1/verify` (token_hash) | ✅ (fallback) | only if `otp/verify` ever returns `tokenHash` | Yes |
+| PIN / biometric / password / email sign-in | ⏳ | parked (`PinSignInScreen`, out of navigation) | No backend endpoint for PIN/biometrics |
+| `APP/auth/reset-password`, vendor sign-up, invites | ⏳ | later phase | — |
+| Everything else in ENDPOINTS.md | ⏳ | later phases (§3) | — |
+
+**Still to confirm with backend:** OTP expiry window (the app relies on the "OTP expired" message); refresh-token lifetime/rotation settings; whether `otp/verify` will stay a session or switch to `tokenHash` like the web.
