@@ -1,0 +1,17 @@
+[
+  {
+    "id": "48274838-4462-4e64-bc5e-aae61157cf93",
+    "email": "test-user@sterow.test",
+    "full_name": "User",
+    "phone": "XXXXXX9999",
+    "department": null,
+    "designation": null,
+    "avatar_url": null,
+    "is_active": true,
+    "created_at": "2026-11-18T08:29:04.061368+00:00",
+    "updated_at": "2026-11-18T08:29:05.103873+00:00",
+    "referral_code": "STRWNWJR7",
+    "deleted_at": null,
+    "deleted_by": null
+  }
+]

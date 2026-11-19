@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "body": {
+    "data": {
+      "requestId": "5c080642-8914-4310-aab0-83f08f2596af",
+      "isNewUser": false
+    }
+  }
+}

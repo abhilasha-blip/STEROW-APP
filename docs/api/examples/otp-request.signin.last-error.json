@@ -1,0 +1,9 @@
+{
+  "status": 400,
+  "body": {
+    "error": {
+      "code": "bad_request",
+      "message": "Please wait 30 seconds before requesting another OTP."
+    }
+  }
+}

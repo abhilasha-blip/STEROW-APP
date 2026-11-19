@@ -1,6 +1,6 @@
 # STEROW mobile — API integration plan (Phase B)
 
-> Status: **research + proposal only, awaiting approval.** No app code has been changed.
+> Status: **Phase B in progress** (branch `feat/auth-phase-b`). §6 holds facts confirmed live on 2026-11-19 and supersedes earlier guesses in §1–§2.
 > Date: 2026-11-18 · Inputs: `docs/api/openapi.json`, `docs/api/ENDPOINTS.md`, current `src/` (Sign In / Create Account / Verify OTP).
 
 ---
@@ -247,3 +247,20 @@ Rules (unchanged): screens → hooks only; no `any`; every service function unit
 - Keyboard + loading: inputs disabled while pending, keyboard dismissed on submit, errors announced for accessibility.
 - Expired token at launch: hydrate → refresh before showing the App stack; offline at launch → cached session with a retry banner, never a silent logout.
 - Server rotates the refresh token while the app is killed mid-refresh: new tokens are persisted before the request resolves.
+
+---
+
+## 6. Live-confirmed facts (2026-11-19, `scripts/smoke-auth.ts`, test login 9999999999)
+
+| Topic | Confirmed | Notes |
+|---|---|---|
+| Phone format | **10 digits, no `+91`** (`"9876543210"`) | Same as the web. `utils/phone.ts#formatForApi` is the single place. |
+| `otp/request` response | `{ data: { requestId: uuid, isNewUser: boolean } }` | **No success message in the body**; toasts use app copy. "OTP request ready" is also treated as success if a message ever appears. |
+| `otp/verify` response | `{ data: { access_token, refresh_token, expires_in: 3600, token_type, user } }` | **Session variant, not tokenHash.** The app still accepts `{tokenHash}` (→ `verifyOtp({token_hash, type:'magiclink'})`) in case the public API changes to mirror the web. |
+| Cooldown | 30 s per number, **also for the test number**; a rejected request does not reset it | `"Please wait 30 seconds before requesting another OTP."` |
+| OTP expiry | Exists: `"OTP expired. Request a new one."` | **Expiry window unconfirmed: ask backend.** The app does not hard-code it; on this message it shows "This code has expired. Please request a new one." and enables Resend immediately. |
+| Auth user | Supabase **email** user; `user.phone === ""`; `user_metadata = { full_name, phone, email_verified }` | Test user's email is `test-user@sterow.test` (real users: `<10digits>@phone.local`). |
+| `user_details` | Key is **`id` = auth uid**; columns `id, email, full_name, phone, department, designation, avatar_url, is_active, created_at, updated_at, referral_code, deleted_at, deleted_by` | ⚠ Swagger text says `user_id=eq.<uid>`; that column does not exist (PostgREST 42703). |
+| `user_roles` | `select=roles(name)&user_id=eq.<uid>` → `[{ roles: { name } }]` | Test user: `user`. |
+| `my_permissions` | `[{ menu_id, can_view, can_create, can_edit, can_delete }]` | No menu path in the row; join with `menus` later. |
+| Fixed test login | phone `9999999999`, OTP `123456`, no SMS | Smoke script + simulator QA only. `TEST_OTP` lives in `.env.development` and is never read by app code. |

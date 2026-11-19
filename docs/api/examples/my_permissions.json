@@ -1,0 +1,23 @@
+[
+  {
+    "menu_id": "3398266f-ddfd-4e6b-af8f-683f762842bb",
+    "can_view": false,
+    "can_create": false,
+    "can_edit": false,
+    "can_delete": false
+  },
+  {
+    "menu_id": "9e9bd3b7-cca8-4a9e-949b-3bd0ce46a03d",
+    "can_view": false,
+    "can_create": false,
+    "can_edit": false,
+    "can_delete": false
+  },
+  {
+    "menu_id": "47892a99-6b3f-4558-a650-68a01b5db1d2",
+    "can_view": false,
+    "can_create": false,
+    "can_edit": false,
+    "can_delete": false
+  }
+]

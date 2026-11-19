@@ -1,0 +1,43 @@
+{
+  "id": "48274838-4462-4e64-bc5e-aae61157cf93",
+  "aud": "authenticated",
+  "role": "authenticated",
+  "email": "test-user@sterow.test",
+  "email_confirmed_at": "2026-11-18T08:29:04.100664Z",
+  "phone": "",
+  "confirmed_at": "2026-11-18T08:29:04.100664Z",
+  "recovery_sent_at": "2026-11-19T06:05:47.561947Z",
+  "last_sign_in_at": "2026-11-19T06:05:47.653434Z",
+  "app_metadata": {
+    "provider": "email",
+    "providers": [
+      "email"
+    ]
+  },
+  "user_metadata": {
+    "email_verified": true,
+    "full_name": "User",
+    "phone": "XXXXXX9999"
+  },
+  "identities": [
+    {
+      "identity_id": "d504e31e-3434-4b81-a8fd-6856a000642f",
+      "id": "48274838-4462-4e64-bc5e-aae61157cf93",
+      "user_id": "48274838-4462-4e64-bc5e-aae61157cf93",
+      "identity_data": {
+        "email": "test-user@sterow.test",
+        "email_verified": false,
+        "phone_verified": false,
+        "sub": "48274838-4462-4e64-bc5e-aae61157cf93"
+      },
+      "provider": "email",
+      "last_sign_in_at": "2026-11-18T08:29:04.086208Z",
+      "created_at": "2026-11-18T08:29:04.086277Z",
+      "updated_at": "2026-11-18T08:29:04.086277Z",
+      "email": "test-user@sterow.test"
+    }
+  ],
+  "created_at": "2026-11-18T08:29:04.061779Z",
+  "updated_at": "2026-11-19T06:05:47.659898Z",
+  "is_anonymous": false
+}

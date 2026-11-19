@@ -9,9 +9,11 @@
     "start:reset": "react-native start --reset-cache",
     "pods": "cd ios && pod install",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
     "check:colors": "bash scripts/check-colors.sh",
-    "test": "jest"
+    "test": "jest",
+    "smoke:auth": "tsx scripts/smoke-auth.ts",
+    "check:urls": "bash scripts/check-urls.sh"
   },
   "dependencies": {
     "@react-native-community/netinfo": "^12.0.1",
@@ -52,6 +54,7 @@
     "@react-native/typescript-config": "0.88.1",
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "^29.5.13",
+    "@types/node": "^22.20.5",
     "@types/react": "^19.2.0",
     "@types/react-test-renderer": "^19.1.0",
     "babel-plugin-module-resolver": "^5.0.3",
