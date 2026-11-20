@@ -21,7 +21,8 @@ export type AuthStackParamList = {
 export type OnboardingStackParamList = {
   /** Step 1 "My Profile". Tomorrow: initial values from user_details / OCR. */
   Step1Profile: { initialValues?: OnboardingProfileInitialValues } | undefined;
-  Step2Vehicle: undefined;
+  /** `qaOpenMakeSheet`: dev QA screenshots only (src/dev/QaOnboarding). */
+  Step2Vehicle: { qaOpenMakeSheet?: boolean } | undefined;
   Step3Documents: undefined;
   Step4Service: undefined;
   /** Placeholder until the API saves onboarding. */

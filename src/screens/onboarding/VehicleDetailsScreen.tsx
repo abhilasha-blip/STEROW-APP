@@ -37,10 +37,12 @@ const FOOTER_GAP = { autofilled: 55, manual: 59 } as const;
 
 export type VehicleDetailsScreenProps = UseVehicleDetailsFormOptions & {
   onBack?: () => void;
+  /** Dev QA screenshots: open the Make list on mount. */
+  qaOpenMakeSheet?: boolean;
 };
 
 /** Onboarding step 2 "Your Vehicle details" (UI only; the lookup is mocked). */
-export default function VehicleDetailsScreen({ onBack, ...options }: VehicleDetailsScreenProps) {
+export default function VehicleDetailsScreen({ onBack, qaOpenMakeSheet, ...options }: VehicleDetailsScreenProps) {
   const toast = useToast();
   const vehicle = useVehicleDetailsForm({
     onLookupNotFound: () => toast.error(v.notFound),
@@ -71,12 +73,12 @@ export default function VehicleDetailsScreen({ onBack, ...options }: VehicleDeta
         </>
       }
     >
-      <VehicleFields vehicle={vehicle} />
+      <VehicleFields vehicle={vehicle} qaOpenMakeSheet={qaOpenMakeSheet} />
     </OnboardingLayout>
   );
 }
 
-function VehicleFields({ vehicle }: { vehicle: VehicleDetailsForm }) {
+function VehicleFields({ vehicle, qaOpenMakeSheet }: { vehicle: VehicleDetailsForm; qaOpenMakeSheet?: boolean }) {
   const reveal = useRevealOnFocus();
   const { control, values, visibility, state } = vehicle;
 
@@ -131,6 +133,7 @@ function VehicleFields({ vehicle }: { vehicle: VehicleDetailsForm }) {
             options={MOCK_VEHICLE_MAKES}
             value={values.make}
             onChange={vehicle.setMake}
+            defaultOpen={qaOpenMakeSheet}
           />
           <Controller
             control={control}

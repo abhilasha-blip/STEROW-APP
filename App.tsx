@@ -13,6 +13,12 @@ import { ThemeProvider, createNavigationTheme, useTheme } from '@/theme';
 
 bindOnlineManagerToNetInfo();
 
+/** DEV only: `-qaScenario <name>` opens a seeded onboarding step for screenshots (src/dev/QaOnboarding). */
+const qa = __DEV__
+  ? (require('@/dev/QaOnboarding') as typeof import('@/dev/QaOnboarding'))
+  : null;
+const qaScenario = qa?.getQaScenarioName() ?? null;
+
 function ThemedNavigation() {
   const theme = useTheme();
   const navigationTheme = useMemo(() => createNavigationTheme(theme), [theme]);
@@ -34,7 +40,7 @@ export default function App() {
           <QueryClientProvider client={queryClient}>
             <ToastProvider>
               <AppEffects />
-              <ThemedNavigation />
+              {qa && qaScenario ? <qa.default name={qaScenario} /> : <ThemedNavigation />}
             </ToastProvider>
           </QueryClientProvider>
         </ThemeProvider>

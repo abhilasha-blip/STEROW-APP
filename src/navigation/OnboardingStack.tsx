@@ -82,7 +82,7 @@ function Step1ProfileRoute({ navigation, route }: OnboardingStackScreenProps<'St
   );
 }
 
-function Step2VehicleRoute({ navigation }: OnboardingStackScreenProps<'Step2Vehicle'>) {
+function Step2VehicleRoute({ navigation, route }: OnboardingStackScreenProps<'Step2Vehicle'>) {
   const setVehicle = useOnboardingStore(s => s.setVehicle);
   const setVehicleMode = useOnboardingStore(s => s.setVehicleMode);
   const snapshot = useInitialSnapshot();
@@ -90,6 +90,7 @@ function Step2VehicleRoute({ navigation }: OnboardingStackScreenProps<'Step2Vehi
     <VehicleDetailsScreen
       initialValues={snapshot.vehicle}
       initialMode={snapshot.vehicleMode}
+      qaOpenMakeSheet={__DEV__ && route.params?.qaOpenMakeSheet}
       onBack={() => navigation.goBack()}
       onValuesChange={setVehicle}
       onModeChange={setVehicleMode}
