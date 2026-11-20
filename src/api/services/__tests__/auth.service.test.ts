@@ -27,23 +27,28 @@ const failWith = (message: string) =>
 
 describe('requestOtp', () => {
   it('signin: sends only phone (10 digits) + purpose', async () => {
-    const r = await requestOtp({ phone: '9876543210', purpose: 'signin', fullName: 'Ignored' });
+    const r = await requestOtp({ country: 'IN', phone: '9876543210', purpose: 'signin', fullName: 'Ignored' });
     expect(r).toEqual({ requestId: 'req-1', isNewUser: false });
     expect(lastBody(urls.otpRequest)).toEqual({ phone: '9876543210', purpose: 'signin' });
   });
 
   it('signup: sends normalized fullName and referralCode, omitting empty optionals', async () => {
-    await requestOtp({ phone: '9876543210', purpose: 'signup', fullName: '  Ravi   Kumar ', referralCode: 'str ab12' });
+    await requestOtp({ country: 'IN', phone: '9876543210', purpose: 'signup', fullName: '  Ravi   Kumar ', referralCode: 'str ab12' });
     expect(lastBody(urls.otpRequest)).toEqual({
       phone: '9876543210',
       purpose: 'signup',
       fullName: 'Ravi Kumar',
       referralCode: 'STRAB12',
     });
-    expect(buildOtpRequestBody({ phone: '9876543210', purpose: 'signup', fullName: ' ', referralCode: '' })).toEqual({
+    expect(buildOtpRequestBody({ country: 'IN', phone: '9876543210', purpose: 'signup', fullName: ' ', referralCode: '' })).toEqual({
       phone: '9876543210',
       purpose: 'signup',
     });
+  });
+
+  it('UAE: sends "971" + 9 digits, no "+", no trunk 0, no country field', async () => {
+    await requestOtp({ country: 'AE', phone: '0501234567', purpose: 'signin' });
+    expect(lastBody(urls.otpRequest)).toEqual({ phone: '971501234567', purpose: 'signin' });
   });
 
   it.each([
@@ -52,23 +57,23 @@ describe('requestOtp', () => {
     [backendMessages.cooldown, strings.errors.cooldown, 'WAIT_COOLDOWN'],
   ])('maps "%s"', async (backend, userMessage, action) => {
     failWith(backend);
-    const error = await requestOtp({ phone: '9876543210', purpose: 'signin' }).catch((e: unknown) => e);
+    const error = await requestOtp({ country: 'IN', phone: '9876543210', purpose: 'signin' }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ApiError);
     expect(toUserError(error)).toMatchObject({ userMessage, action });
   });
 
   it('maps a raw-JSON validation error to the inline phone error', async () => {
     failWith(JSON.stringify([{ code: 'custom', message: backendMessages.invalidPhone, path: ['phone'] }]));
-    const error = await requestOtp({ phone: '9876543210', purpose: 'signin' }).catch((e: unknown) => e);
+    const error = await requestOtp({ country: 'IN', phone: '9876543210', purpose: 'signin' }).catch((e: unknown) => e);
     expect(toUserError(error)).toMatchObject({ field: 'phone', userMessage: strings.errors.invalidPhone });
   });
 
   it('maps network failure and a schema mismatch', async () => {
     server.use(http.post(urls.otpRequest, () => HttpResponse.error()));
-    await expect(requestOtp({ phone: '9876543210', purpose: 'signin' })).rejects.toMatchObject({ kind: 'network' });
+    await expect(requestOtp({ country: 'IN', phone: '9876543210', purpose: 'signin' })).rejects.toMatchObject({ kind: 'network' });
 
     server.use(http.post(urls.otpRequest, () => HttpResponse.json({ data: { nope: true } })));
-    await expect(requestOtp({ phone: '9876543210', purpose: 'signin' })).rejects.toMatchObject({
+    await expect(requestOtp({ country: 'IN', phone: '9876543210', purpose: 'signin' })).rejects.toMatchObject({
       kind: 'server',
       code: 'SCHEMA_MISMATCH',
     });

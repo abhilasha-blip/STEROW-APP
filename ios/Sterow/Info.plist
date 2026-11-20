@@ -33,8 +33,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>STEROW uses the camera to capture your driving licence and profile photo.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>STEROW uses Face ID to log you in securely.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>STEROW needs access to your photos to upload your driving licence and profile photo.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string/>
 	<key>RCTNewArchEnabled</key>
@@ -73,7 +77,7 @@
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<false/>
+	<true/>
 	<key>UIAppFonts</key>
 	<array>
 		<string>PlusJakartaSans-Medium.ttf</string>

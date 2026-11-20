@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import DashboardScreen from '@/screens/app/DashboardScreen';
+import OnboardingStack from './OnboardingStack';
 import { useTheme } from '@/theme';
 import type { AppStackParamList } from './types';
 
@@ -16,6 +17,7 @@ export default function AppStack() {
       }}
     >
       <Stack.Screen name="Dashboard" component={DashboardScreen} />
+      <Stack.Screen name="Onboarding" component={OnboardingStack} options={{ animation: 'slide_from_right' }} />
     </Stack.Navigator>
   );
 }

@@ -1,9 +1,17 @@
-import { mask, formatForApi, redactPhone } from '@/utils/phone';
+import { COUNTRIES, COUNTRY_LIST, isCountryCode } from '@/constants/countries';
+import {
+  display,
+  formatForApi,
+  isValidMobile,
+  mask,
+  normalizeNational,
+  parseApiPhone,
+  redactPhone,
+} from '@/utils/phone';
 import {
   digitsOnly,
   formatCountdown,
   isValidFullName,
-  isValidIndianMobile,
   isValidOtp,
   isValidPin,
   isValidReferralCode,
@@ -12,15 +20,6 @@ import {
 } from '@/utils/validation';
 
 describe('validation', () => {
-  it.each([
-    ['9876543210', true],
-    ['6000000000', true],
-    ['5876543210', false],
-    ['987654321', false],
-    ['98765432101', false],
-    ['98765abcde', false],
-  ])('isValidIndianMobile(%s) = %s', (v, ok) => expect(isValidIndianMobile(v)).toBe(ok));
-
   it.each([
     ['Ravi Kumar', true],
     ["D'Souza", true],
@@ -68,13 +67,72 @@ describe('validation', () => {
   });
 });
 
-describe('phone', () => {
-  it('formats for the API as 10 digits without +91', () => {
-    expect(formatForApi('9876543210')).toBe('9876543210');
-    expect(formatForApi('+91 98765 43210')).toBe('9876543210');
+describe('countries', () => {
+  it('India is the default and listed first; config matches the spec', () => {
+    expect(COUNTRY_LIST.map(c => c.code)).toEqual(['IN', 'AE']);
+    expect(COUNTRIES.IN).toMatchObject({ dialCode: '91', flag: '🇮🇳', length: 10, stripTrunkZero: false });
+    expect(COUNTRIES.AE).toMatchObject({ dialCode: '971', flag: '🇦🇪', length: 9, stripTrunkZero: true });
+    expect(isCountryCode('AE')).toBe(true);
+    expect(isCountryCode('US')).toBe(false);
+    expect(isCountryCode('toString')).toBe(false);
   });
-  it('masks for display and logs', () => {
-    expect(mask('9876544567')).toBe('XXXXX X4567');
+});
+
+describe('phone', () => {
+  it.each([
+    ['9876543210', true],
+    ['6000000000', true],
+    ['5876543210', false],
+    ['987654321', false],
+    ['98765432101', false],
+    ['98765abcde', false],
+  ])('isValidMobile(IN, %s) = %s', (v, ok) => expect(isValidMobile('IN', v)).toBe(ok));
+
+  it.each([
+    ['501234567', true],
+    ['521234567', true],
+    ['541234567', true],
+    ['551234567', true],
+    ['561234567', true],
+    ['581234567', true],
+    ['531234567', false], // not a UAE mobile prefix (backend rejects it)
+    ['0501234567', false], // trunk 0 must be stripped first
+    ['50123456', false],
+    ['5012345678', false],
+    ['401234567', false],
+  ])('isValidMobile(AE, %s) = %s', (v, ok) => expect(isValidMobile('AE', v)).toBe(ok));
+
+  it('normalizes typed / pasted input per country', () => {
+    expect(normalizeNational('IN', '98765-43210')).toBe('9876543210');
+    expect(normalizeNational('IN', '+91 98765 43210')).toBe('9876543210');
+    expect(normalizeNational('IN', '0')).toBe('0'); // India keeps a leading 0 (then fails validation)
+    expect(normalizeNational('AE', '050 123 4567')).toBe('501234567');
+    expect(normalizeNational('AE', '+971 50 123 4567')).toBe('501234567');
+    expect(normalizeNational('AE', '0')).toBe('');
+    expect(normalizeNational('AE', '5012345678')).toBe('501234567');
+  });
+
+  it('formatForApi: India = 10 digits, UAE = "971" + 9 digits (no "+", no trunk 0)', () => {
+    expect(formatForApi('IN', '9876543210')).toBe('9876543210');
+    expect(formatForApi('IN', '+91 98765 43210')).toBe('9876543210');
+    expect(formatForApi('AE', '501234567')).toBe('971501234567');
+    expect(formatForApi('AE', '0501234567')).toBe('971501234567');
+    expect(formatForApi('AE', '+971 50 123 4567')).toBe('971501234567');
+  });
+
+  it('parses numbers as stored by the backend', () => {
+    expect(parseApiPhone('9876543210')).toEqual({ country: 'IN', national: '9876543210' });
+    expect(parseApiPhone('971501234567')).toEqual({ country: 'AE', national: '501234567' });
+  });
+
+  it('masks and displays per country', () => {
+    expect(mask('IN', '9876544567')).toBe('XXXXX X4567');
+    expect(mask('AE', '501234567')).toBe('+971 XX XXX 4567');
+    expect(display('IN', '9876543210')).toBe('+91 98765 43210');
+    expect(display('AE', '501234567')).toBe('+971 50 123 4567');
+  });
+
+  it('redacts for logs', () => {
     expect(redactPhone('9876544567')).toBe('********67');
     expect(redactPhone('1')).toBe('**');
   });

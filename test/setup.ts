@@ -27,6 +27,30 @@ jest.mock('react-native-linear-gradient', () => {
   const { View } = require('react-native');
   return { __esModule: true, default: View };
 });
+// Worklets run on the JS thread under Jest.
+jest.mock('react-native-worklets', () => ({
+  scheduleOnRN: (fn: (...args: unknown[]) => void, ...args: unknown[]) => fn(...args),
+  scheduleOnUI: (fn: (...args: unknown[]) => void, ...args: unknown[]) => fn(...args),
+}));
+// GH3 gesture hooks need the real Reanimated runtime; drags aren't exercised in unit tests.
+// Only what src/ imports (spreading requireActual trips RN's DrawerLayoutAndroid deprecation warning).
+jest.mock('react-native-gesture-handler', () => {
+  const { View } = require('react-native');
+  return {
+    GestureHandlerRootView: View,
+    GestureDetector: ({ children }: { children: unknown }) => children,
+    usePanGesture: () => ({}),
+  };
+});
+jest.mock('@react-native-community/datetimepicker', () => {
+  const { View } = require('react-native');
+  const Picker = (props: object) => require('react').createElement(View, props);
+  return { __esModule: true, default: Picker, DateTimePickerAndroid: { open: jest.fn(), dismiss: jest.fn() } };
+});
+jest.mock('react-native-image-picker', () => ({
+  launchCamera: jest.fn(() => Promise.resolve({ didCancel: true })),
+  launchImageLibrary: jest.fn(() => Promise.resolve({ didCancel: true })),
+}));
 jest.mock('react-native-safe-area-context', () =>
   require('react-native-safe-area-context/jest/mock').default,
 );

@@ -30,7 +30,7 @@ const OTP_GAP_DIVISOR = OTP_LENGTH > 4 ? 2 : 1;
 type ErrorState = { message: string; wrongCode: boolean };
 
 export default function VerifyOtpScreen({ route }: AuthStackScreenProps<'VerifyOtp'>) {
-  const { mode, phone, fullName, referralCode } = route.params;
+  const { mode, country, phone, fullName, referralCode } = route.params;
   const { s, vs } = useScale();
   const { sizes } = useTheme();
   const toast = useToast();
@@ -115,7 +115,7 @@ export default function VerifyOtpScreen({ route }: AuthStackScreenProps<'VerifyO
     }
     setError(undefined);
     resend.mutate(
-      { phone, purpose: mode, fullName, referralCode },
+      { country, phone, purpose: mode, fullName, referralCode },
       {
         onSuccess: res => {
           setRequestId(res.requestId);
@@ -148,7 +148,7 @@ export default function VerifyOtpScreen({ route }: AuthStackScreenProps<'VerifyO
         {t.title}
       </AppText>
       <AppText variant="bodyLarge" color="text.secondary" style={{ marginTop: vs(GAP.description) }}>
-        {t.description(mask(phone))}
+        {t.description(mask(country, phone))}
       </AppText>
 
       <AppText variant="label" style={{ marginTop: vs(GAP.label) }} importantForAccessibility="no">

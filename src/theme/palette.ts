@@ -44,6 +44,7 @@ export function alpha(hex: string, opacity: number): string {
 
 const brandViolet = '#6C47FF';
 const white = '#FFFFFF';
+const black = '#000000';
 
 export const palette = {
   // Background gradient (top-left highlight -> diagonal mid -> bottom).
@@ -60,14 +61,25 @@ export const palette = {
 
   // Accents & neutrals.
   lime400: '#C8F135',
+  /** Onboarding light content sheet (design/onboarding). */
+  mist50: '#F4F4F8',
   mist100: '#E8E8F0',
+  /** Round close / remove buttons on the light sheet. */
+  mist200: '#DFDFE7',
   slate400: '#9B9BB0',
   navy600: '#2F4A75',
   navy500: '#344C72',
+  /** Dark text on light surfaces (onboarding labels and input text). */
+  ink900: '#0D0F2B',
 
   white,
-  black: '#000000',
+  black,
   red400: '#FF6B6B',
+  /**
+   * Error text on light surfaces: red400 darkened 30% so it reaches WCAG AA (4.8:1 on mist50).
+   * Not in Figma – red400 alone is only 2.5:1 there.
+   */
+  red600: mix('#FF6B6B', black, 0.3),
 } as const;
 
 export type PaletteColor = (typeof palette)[keyof typeof palette];

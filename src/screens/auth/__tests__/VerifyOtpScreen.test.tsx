@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { appError, backendMessages, makeSession, TEST_OTP } from '../../../../test/msw/fixtures';
 import { requestLog, server } from '../../../../test/msw/server';
 import { urls } from '../../../../test/msw/urls';
-import { confirmButton, goToVerify, typeOtp } from '../../../../test/flows';
+import { chooseCountry, confirmButton, goToVerify, sendOtpButton, typeOtp } from '../../../../test/flows';
 import { renderApp, resetAppState } from '../../../../test/render';
 
 const t = strings.verifyOtp;
@@ -100,6 +100,23 @@ describe('VerifyOtp', () => {
     await typeOtp(TEST_OTP);
     await screen.findByTestId('welcome');
     expect(bodies(urls.otpVerify)[0].requestId).toBe('req-2');
+  });
+
+  it('UAE: Resend re-sends the "971…" number with the UAE mask on screen', async () => {
+    await renderApp();
+    await screen.findByText(strings.mobileEntry.signin.title);
+    await chooseCountry('AE');
+    await fireEvent.changeText(screen.getByTestId('phone'), '501234567');
+    await fireEvent.press(sendOtpButton());
+    expect(await screen.findByText(t.description('+971 XX XXX 4567'))).toBeTruthy();
+    skipCooldown();
+    await waitFor(() => expect(screen.getByTestId('resend')).toBeTruthy(), { timeout: 2500 });
+    await fireEvent.press(screen.getByTestId('resend'));
+    expect(await screen.findByText(t.resent)).toBeTruthy();
+    expect(bodies(urls.otpRequest)).toEqual([
+      { phone: '971501234567', purpose: 'signin' },
+      { phone: '971501234567', purpose: 'signin' },
+    ]);
   });
 
   it('Resend hitting the server cooldown → toast and the countdown restarts', async () => {

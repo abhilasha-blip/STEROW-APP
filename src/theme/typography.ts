@@ -62,6 +62,30 @@ export const variants = {
   otpDigit: v(fontFamily.semiBold, 22, 28),
   /** Inline field errors */
   error: v(fontFamily.regular, 13, 18),
+
+  // Onboarding (design/onboarding – sizes and weights fitted from the outlined glyphs).
+  /** Current step "1" in "1/4" */
+  stepCurrent: v(fontFamily.bold, 16, 20),
+  /** "/4" */
+  stepTotal: v(fontFamily.regular, 14, 20),
+  /** Light field labels: "DL Number", "Full Name", "Upload your DL"; also "Or" */
+  fieldLabel: v(fontFamily.regular, 14, 18),
+  /** Light field text + placeholder (no lineHeight: it misaligns TextInput) */
+  inputSmall: v(fontFamily.regular, 14),
+  /** "Profile image" */
+  avatarLabel: v(fontFamily.medium, 16, 20),
+  /** "Edit Profile Image" */
+  sheetTitle: v(fontFamily.semiBold, 16, 20),
+  /** "Next", "Select" (onboarding buttons are SemiBold; auth buttons stay Medium) */
+  buttonStrong: v(fontFamily.semiBold, 18, 24),
+  /** "Skip for now", "Cancel" */
+  link: v(fontFamily.bold, 14, 20),
+  /** "Browse File" */
+  linkSmall: v(fontFamily.semiBold, 14, 20),
+  /** "Upload DL image" */
+  body: v(fontFamily.regular, 14, 20),
+  /** "JPEG, PNG … Upto 10 MB" */
+  hint: v(fontFamily.regular, 12, 16),
 } as const;
 
 export type TypographyVariant = keyof typeof variants;

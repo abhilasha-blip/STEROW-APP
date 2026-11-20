@@ -1,4 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
+import type { CountryCode } from '@/constants/countries';
 import { formatForApi } from '@/utils/phone';
 import { normalizeFullName, normalizeReferralCode } from '@/utils/validation';
 import { appPost } from '../appClient';
@@ -8,7 +9,8 @@ import { OtpRequestResponse, OtpVerifyResponse, parseOrThrow } from '../schemas/
 import { getSupabase } from '../supabase';
 
 export type RequestOtpInput = {
-  /** 10 digits as typed; formatted for the API here. */
+  country: CountryCode;
+  /** National number as typed; formatted for the API here (utils/phone#formatForApi). */
   phone: string;
   purpose: OtpPurpose;
   fullName?: string;
@@ -23,7 +25,7 @@ const cancelled = () => new ApiError({ kind: 'cancelled', message: 'Request canc
 
 /** Body exactly as the backend expects it: empty optional fields are omitted (never null / ""). */
 export function buildOtpRequestBody(input: RequestOtpInput): Record<string, string> {
-  const body: Record<string, string> = { phone: formatForApi(input.phone), purpose: input.purpose };
+  const body: Record<string, string> = { phone: formatForApi(input.country, input.phone), purpose: input.purpose };
   if (input.purpose === 'signup') {
     const fullName = input.fullName ? normalizeFullName(input.fullName) : '';
     if (fullName) {

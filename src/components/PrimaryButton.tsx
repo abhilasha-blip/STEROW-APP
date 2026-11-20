@@ -20,7 +20,10 @@ type PrimaryButtonProps = {
   /** While loading the button shows a spinner and ignores presses (no faded state). */
   loading?: boolean;
   showArrow?: boolean;
+  /** 'button' (Medium 18, auth screens) or 'buttonStrong' (SemiBold 18, onboarding). */
+  labelVariant?: 'button' | 'buttonStrong';
   accessibilityLabel?: string;
+  testID?: string;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -31,7 +34,9 @@ export default function PrimaryButton({
   onPress,
   loading = false,
   showArrow = true,
+  labelVariant = 'button',
   accessibilityLabel,
+  testID,
   style,
 }: PrimaryButtonProps) {
   const { colors, sizes } = useTheme();
@@ -56,6 +61,7 @@ export default function PrimaryButton({
         onPressOut={() => {
           pressed.value = withTiming(0, { duration: PRESS_MS });
         }}
+        testID={testID}
         disabled={loading}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
@@ -73,7 +79,7 @@ export default function PrimaryButton({
           <ActivityIndicator color={colors.primary.contrastText} />
         ) : (
           <View style={styles.row}>
-            <AppText variant="button" color="primary.contrastText">
+            <AppText variant={labelVariant} color="primary.contrastText">
               {label}
             </AppText>
             {showArrow && (

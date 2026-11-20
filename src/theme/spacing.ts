@@ -30,6 +30,20 @@ export const sizes = {
   arrowIconWidth: 14,
   arrowIconHeight: 12,
   minTouchTarget: 44,
+
+  // Onboarding (design/onboarding, 402 pt wide frames).
+  inputHeightLight: 48,
+  /** Inner padding of light fields (16) – the 1pt border makes the text start 17pt in. */
+  inputPaddingLight: 16,
+  progressHeight: 8,
+  avatarLarge: 120,
+  avatarGrid: 64,
+  avatarBadge: 36,
+  /** Round X buttons (sheet close, remove upload). */
+  iconButtonSmall: 32,
+  /** Calendar, upload, pencil, close glyphs. */
+  iconSmall: 16,
+  uploadBoxHeight: 218,
 } as const;
 
 export type Sizes = typeof sizes;

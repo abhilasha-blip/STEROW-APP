@@ -35,3 +35,21 @@ Launch screen: ![launch](screens/00-launch.png)
 - *"Sending `onAnimatedValueUpdate` with no listeners registered."*: a known React Native dev-only
   message, not from app code.
 - Real SMS delivery to a real number: pending (one final check, per plan).
+
+---
+
+# QA: India + UAE country picker (2026-11-19)
+
+- **Build:** Debug (JS-only change, served by Metro), iPhone 18 Pro simulator (iOS 27.2)
+- **UAE wire format:** see `docs/API_PLAN.md` §8. **No OTP was sent to any UAE number.**
+
+| # | Scenario | Expected | Result |
+|---|---|---|---|
+| 7 | Launch → Sign In (fresh install / no saved country) | `🇮🇳 +91 ▾` + thin divider inside the existing pill; same height and style | ✅ Pass ![signin](screens/10-signin-india-default.png) |
+| 8 | Tap the prefix | Bottom sheet: "Select country", 🇮🇳 India +91 ✓, 🇦🇪 United Arab Emirates +971 | ⏳ Needs manual tap → save as `screens/11-country-sheet.png` |
+| 9 | Pick UAE, type `050 123 4567` | Prefix `🇦🇪 +971 ▾`, field shows `501234567`; a typed Indian number is cleared on switch; `53…` → "Enter a valid UAE mobile number". **Don't press Send OTP.** | ⏳ Manual → `screens/12-uae-number.png` |
+| 10 | Kill + relaunch | UAE is still selected (remembered on the device) | ⏳ Manual |
+| 11 | Switch back to India → `9999999999` → Send OTP → `123456` | Verify OTP shows "…ending XXXXX X9999" → Dashboard | ⏳ Manual → `screens/13-verify-india.png` |
+
+Automated coverage for 8–11 (incl. the msw request body per country, VerifyOtp mask + resend for UAE, persistence) is in
+`MobileEntryScreen.test.tsx` and `VerifyOtpScreen.test.tsx`.

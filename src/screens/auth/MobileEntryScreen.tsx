@@ -1,22 +1,25 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { toUserError } from '@/api/errorMessages';
 import AppText from '@/components/AppText';
+import CountryPrefix from '@/components/CountryPrefix';
+import CountrySheet from '@/components/CountrySheet';
 import Logo from '@/components/Logo';
 import PrimaryButton from '@/components/PrimaryButton';
 import ScreenContainer, { type ViewRef } from '@/components/ScreenContainer';
 import TextField from '@/components/TextField';
 import { useToast } from '@/components/Toast';
-import { MOBILE_LENGTH, REFERRAL_MAX } from '@/constants/auth';
+import { REFERRAL_MAX } from '@/constants/auth';
+import { COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from '@/constants/countries';
 import { strings } from '@/constants/strings';
 import { useRequestOtp } from '@/hooks/api/useRequestOtp';
 import type { AuthMode, AuthStackScreenProps } from '@/navigation/types';
 import { haptics } from '@/services/haptics';
+import { loadCountry, saveCountry } from '@/storage/countryPreference';
+import { isValidMobile, normalizeNational } from '@/utils/phone';
 import { useScale } from '@/utils/scale';
 import {
-  digitsOnly,
   isValidFullName,
-  isValidIndianMobile,
   isValidReferralCode,
   normalizeReferralCode,
 } from '@/utils/validation';
@@ -39,11 +42,48 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
 
   const [mode, setMode] = useState<AuthMode>(route.params?.mode ?? 'signin');
   const [fullName, setFullName] = useState('');
+  const [country, setCountry] = useState<CountryCode>(route.params?.country ?? DEFAULT_COUNTRY);
+  const [countrySheetOpen, setCountrySheetOpen] = useState(false);
+  /** Set once the user picks a country, so a late preference read never overrides that choice. */
+  const countryTouched = useRef(!!route.params?.country);
   const [phone, setPhone] = useState(route.params?.phone ?? '');
   const [referralCode, setReferralCode] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const requestOtp = useRequestOtp();
   const copy = t[mode];
+
+  /** Updates maxLength/validation; a number that isn't valid for the new country is cleared. */
+  const applyCountry = (next: CountryCode) => {
+    setCountry(next);
+    setPhone(prev => {
+      const n = normalizeNational(next, prev);
+      return isValidMobile(next, n) ? n : '';
+    });
+    setErrors(e => ({ ...e, phone: undefined }));
+  };
+
+  // Remembered country (default India). Skipped when the route or the user already chose one.
+  useEffect(() => {
+    let active = true;
+    loadCountry().then(saved => {
+      if (active && !countryTouched.current && saved !== DEFAULT_COUNTRY) {
+        applyCountry(saved);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const onSelectCountry = (next: CountryCode) => {
+    countryTouched.current = true;
+    setCountrySheetOpen(false);
+    if (next !== country) {
+      haptics.light();
+      applyCountry(next);
+      saveCountry(next);
+    }
+  };
 
   const switchMode = (next: AuthMode) => {
     setMode(next);
@@ -55,8 +95,8 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
     if (mode === 'signup' && !isValidFullName(fullName)) {
       next.fullName = t.invalidFullName;
     }
-    if (!isValidIndianMobile(phone)) {
-      next.phone = t.invalidMobile;
+    if (!isValidMobile(country, phone)) {
+      next.phone = t.invalidMobile[country];
     }
     if (mode === 'signup' && !isValidReferralCode(referralCode)) {
       next.referralCode = t.invalidReferral;
@@ -77,6 +117,7 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
     const submittedMode = mode;
     const signup = submittedMode === 'signup';
     const input = {
+      country,
       phone,
       purpose: submittedMode,
       fullName: signup ? fullName : undefined,
@@ -94,7 +135,7 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
         }
         haptics.error();
         if (e.field === 'phone') {
-          setErrors({ phone: e.userMessage });
+          setErrors({ phone: t.invalidMobile[country] });
           return;
         }
         toast.error(e.userMessage);
@@ -108,6 +149,7 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
   };
 
   const isSignup = mode === 'signup';
+  const { length: phoneLength, stripTrunkZero } = COUNTRIES[country];
 
   return (
     <ScreenContainer car designTop={104} keyboardAnchorRef={buttonRef}>
@@ -154,17 +196,24 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
         testID="phone"
         style={{ marginTop: vs(isSignup ? GAP.nextField : GAP.field) }}
         label={t.mobileLabel}
-        prefix={t.countryCode}
+        prefix={
+          <CountryPrefix
+            country={country}
+            onPress={() => setCountrySheetOpen(true)}
+            disabled={requestOtp.isPending}
+          />
+        }
         inputVariant="inputLarge"
         paddingStart={16}
         placeholder={t.mobilePlaceholder}
         value={phone}
         onChangeText={v => {
-          setPhone(digitsOnly(v).slice(0, MOBILE_LENGTH));
+          setPhone(normalizeNational(country, v));
           setErrors(e => ({ ...e, phone: undefined }));
         }}
         keyboardType="phone-pad"
-        maxLength={MOBILE_LENGTH}
+        // +1 lets a UAE number be typed with its trunk 0 ("050…"); normalizeNational strips it.
+        maxLength={phoneLength + (stripTrunkZero ? 1 : 0)}
         textContentType="telephoneNumber"
         autoComplete="tel"
         returnKeyType={isSignup ? 'next' : 'done'}
@@ -212,6 +261,13 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
           </AppText>
         </Pressable>
       </View>
+
+      <CountrySheet
+        visible={countrySheetOpen}
+        selected={country}
+        onSelect={onSelectCountry}
+        onClose={() => setCountrySheetOpen(false)}
+      />
     </ScreenContainer>
   );
 }

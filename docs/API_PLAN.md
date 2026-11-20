@@ -114,7 +114,7 @@ stateDiagram-v2
 | G7 | Create Account asks only for the mobile number | `otp/request` accepts `fullName` (optional per spec) | Where does the name get collected? |
 | G8 | Distinct errors: wrong OTP vs expired OTP vs too many attempts | All errors `code: "bad_request"` + free text | Brittle message matching unless the backend adds codes |
 | G9 | Typed responses | Only `Session` is typed; no examples | Need DB types or sample responses |
-| G10 | +91 only | Backend also accepts UAE | Product decision |
+| G10 | ~~+91 only~~ → India + UAE picker (2026-11-19, §8) | Backend also accepts UAE | Done |
 | G11 | Single base URL (`API_BASE_URL`) | Two servers (Supabase + app server) + mandatory `apikey` header | Architecture change (§4) |
 | G12 | Staging/production | Only `demo.sterow.in` + one Supabase project known | Env files can't be filled in yet |
 | G13 | Existing number tapping "Create Account" | `purpose=signup` behaviour for existing users undocumented | Need to know the error/redirect |
@@ -135,7 +135,7 @@ stateDiagram-v2
 13. **Environments:** what are the staging and production URLs (app server + Supabase project)? Is `demo.sterow.in` the staging environment?
 14. **Types:** can we get `supabase gen types typescript` output (or read access to run it), or at least sample JSON for `user_details`, `user_roles`, `service_bookings`, `booking_invoices_payments`? The spec has no column schemas.
 15. **Test number:** for the live smoke test, which test number should I use? Does the demo backend have a fixed test OTP for it, or will someone read the SMS?
-16. **Country:** stay +91-only in the app for now, even though the backend accepts UAE?
+16. ~~**Country:** stay +91-only in the app for now, even though the backend accepts UAE?~~ → Answered: India + UAE (§8).
 17. **Spec source:** can the backend publish the spec at a stable URL (e.g. `/api/public/v1/openapi.json`) so we can regenerate types in CI?
 
 ---
@@ -254,7 +254,8 @@ Rules (unchanged): screens → hooks only; no `any`; every service function unit
 
 | Topic | Confirmed | Notes |
 |---|---|---|
-| Phone format | **10 digits, no `+91`** (`"9876543210"`) | Same as the web. `utils/phone.ts#formatForApi` is the single place. |
+| Phone format (India) | **10 digits, no `+91`** (`"9876543210"`) | Same as the web. `utils/phone.ts#formatForApi` is the single place. |
+| Phone format (UAE) | **`"971"` + 9 digits, no `+`, trunk `0` stripped** (`"971501234567"`); **no country field** | See §8. Confirmed from the web bundles only; no UAE OTP was sent. |
 | `otp/request` response | `{ data: { requestId: uuid, isNewUser: boolean } }` | **No success message in the body**; toasts use app copy. "OTP request ready" is also treated as success if a message ever appears. |
 | `otp/verify` response | `{ data: { access_token, refresh_token, expires_in: 3600, token_type, user } }` | **Session variant, not tokenHash.** The app still accepts `{tokenHash}` (→ `verifyOtp({token_hash, type:'magiclink'})`) in case the public API changes to mirror the web. |
 | Cooldown | 30 s per number, **also for the test number**; a rejected request does not reset it | `"Please wait 30 seconds before requesting another OTP."` |
@@ -288,3 +289,35 @@ Rules (unchanged): screens → hooks only; no `any`; every service function unit
 | Everything else in ENDPOINTS.md | ⏳ | later phases (§3) | — |
 
 **Still to confirm with backend:** OTP expiry window (the app relies on the "OTP expired" message); refresh-token lifetime/rotation settings; whether `otp/verify` will stay a session or switch to `tokenHash` like the web.
+
+---
+
+## 8. UAE (+971) phone format (confirmed 2026-11-19 from the web bundles, no SMS sent)
+
+**Source:** `demo.sterow.in/auth` JS chunks (read, not executed):
+- `phone-*.js` (shared normaliser):
+  ```js
+  function e(e){let t=(e??``).replace(/\D/g,``);
+    t.length===12&&t.startsWith(`91`)&&(t=t.slice(2));
+    t.length===11&&t.startsWith(`0`)&&(t=t.slice(1));
+    return /^[6-9]\d{9}$/.test(t)?t:null}
+  function t(t){let n=t.replace(/\D/g,``);
+    return /^9715[024568]\d{7}$/.test(n)?n:e(t)}
+  ```
+- `phone-otp-form-*.js` (sign-up OTP form): country select `IN +91` / `UAE +971`, then
+  `phone = cc === '971' ? `971${number.replace(/^0/, '')}` : number` → `otp/request { phone, purpose, … }`.
+- `auth-*.js` (sign-in): `otp/request { phone: t(input), purpose }` with the error "Enter a valid India or UAE mobile number, or email."
+
+**Wire format**
+
+| Country | User types | `phone` sent | Other fields |
+|---|---|---|---|
+| India | `9876543210` | `"9876543210"` | none |
+| UAE | `501234567` or `0501234567` | `"971501234567"` | **none**: no `country`/`dialCode` field; the `971` prefix carries it |
+
+**Validation:** UAE mobiles are `5` + one of `0 2 4 5 6 8` + 7 digits (`/^5[024568]\d{7}$/` on the national number). That's stricter than `/^5\d{8}$/` and matches the web/backend, so numbers like `53…` are rejected client-side rather than by the server.
+
+**App implementation:** `src/constants/countries.ts` (config) · `src/utils/phone.ts#formatForApi(country, national)` (the only place that knows the wire format) · `parseApiPhone()` reads stored numbers (`971…` 12 digits → UAE) for the Dashboard mask. Covered by msw request-body tests per country (`auth.service.test.ts`, `MobileEntryScreen.test.tsx`, `VerifyOtpScreen.test.tsx`).
+
+**Not verified live:** a real UAE OTP round trip (no UAE test number). Ask the backend for a UAE test login if one is needed.
+

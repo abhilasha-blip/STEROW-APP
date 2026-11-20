@@ -1,4 +1,5 @@
 import { fireEvent, screen } from '@testing-library/react-native';
+import type { CountryCode } from '@/constants/countries';
 import { strings } from '@/constants/strings';
 
 export const sendOtpButton = () => screen.getByRole('button', { name: strings.mobileEntry.submit });
@@ -13,3 +14,9 @@ export async function goToVerify(phone = '9999999999') {
 }
 
 export const typeOtp = (code: string) => fireEvent.changeText(screen.getByTestId('otp-input'), code);
+
+/** Opens the country sheet on MobileEntry and picks a country. */
+export async function chooseCountry(country: CountryCode) {
+  await fireEvent.press(screen.getByTestId('country-prefix'));
+  await fireEvent.press(screen.getByTestId(`country-option-${country}`));
+}

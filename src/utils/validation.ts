@@ -1,12 +1,16 @@
 import {
   FULL_NAME_MAX,
   FULL_NAME_MIN,
-  MOBILE_LENGTH,
   OTP_LENGTH,
   REFERRAL_MAX,
 } from '@/constants/auth';
-
-export { MOBILE_LENGTH };
+import {
+  DL_BODY_MAX,
+  DL_BODY_MIN,
+  DL_MAX_LENGTH,
+  DL_PREFIX_LETTERS,
+  EMAIL_MAX_LENGTH,
+} from '@/constants/onboarding';
 
 /** Parked PIN sign-in (out of navigation) still uses these. */
 export const PIN_MIN_LENGTH = 4;
@@ -18,9 +22,6 @@ export const digitsOnly = (value: string): string => value.replace(/\D/g, '');
 /** 4–6 digit PIN (parked PIN sign-in). */
 export const isValidPin = (pin: string): boolean =>
   new RegExp(`^\\d{${PIN_MIN_LENGTH},${PIN_MAX_LENGTH}}$`).test(pin);
-
-/** Indian mobile number: 10 digits starting with 6–9. */
-export const isValidIndianMobile = (phone: string): boolean => /^[6-9]\d{9}$/.test(phone);
 
 /** Full name: 2–60 chars, letters (incl. combining marks, e.g. Devanagari vowel signs), spaces and . ' - only, starting with a letter. */
 export const isValidFullName = (name: string): boolean => {
@@ -53,4 +54,73 @@ export const formatCountdown = (totalSeconds: number): string => {
   const mm = String(Math.floor(s / 60)).padStart(2, '0');
   const ss = String(s % 60).padStart(2, '0');
   return `${mm}:${ss}`;
+};
+
+// ── Onboarding: DL number, email, date of birth ──────────────────────────────────────────────
+
+/** Upper-cases and drops everything but A–Z / 0–9 (users often type "TS01 2011…" or "TS-01-…"). */
+export const normalizeDlNumber = (value: string): string =>
+  value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, DL_MAX_LENGTH);
+
+const DL_PATTERN = new RegExp(
+  `^[A-Z]{${DL_PREFIX_LETTERS}}[A-Z0-9]{${DL_BODY_MIN},${DL_BODY_MAX}}$`,
+);
+
+/** Indian DL: 2-letter state code + 13–14 alphanumerics (15–16 chars after normalising). */
+export const isValidDlNumber = (value: string): boolean => DL_PATTERN.test(normalizeDlNumber(value));
+
+/**
+ * Pragmatic email check (the server is the source of truth): one "@", no spaces, a dot in the
+ * domain, a 2+ letter TLD, no leading/trailing/double dots.
+ */
+export const isValidEmail = (value: string): boolean => {
+  const v = value.trim();
+  return (
+    v.length <= EMAIL_MAX_LENGTH &&
+    /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(v) &&
+    !/\.\./.test(v) &&
+    !/^\.|\.@|@\./.test(v)
+  );
+};
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** Local calendar date → "YYYY-MM-DD" (no time zone shift, unlike toISOString()). */
+export const toIsoDate = (date: Date): string =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+/** "YYYY-MM-DD" → local Date at midnight, or null when it isn't a real calendar date. */
+export const parseIsoDate = (iso: string): Date | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) {
+    return null;
+  }
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(y, mo - 1, d);
+  return date.getFullYear() === y && date.getMonth() === mo - 1 && date.getDate() === d
+    ? date
+    : null;
+};
+
+/** "1990-01-31" → "31-01-1990" (the design's DD-MM-YYYY). Invalid input → "". */
+export const formatDob = (iso: string | null | undefined): string => {
+  const date = iso ? parseIsoDate(iso) : null;
+  return date ? `${pad2(date.getDate())}-${pad2(date.getMonth() + 1)}-${date.getFullYear()}` : '';
+};
+
+/** Latest birth date that is at least `minAge` years before `today` (Feb 29 → Feb 28). */
+export const latestDobFor = (minAge: number, today: Date = new Date()): Date => {
+  const y = today.getFullYear() - minAge;
+  const m = today.getMonth();
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  return new Date(y, m, Math.min(today.getDate(), lastDay));
+};
+
+/** True when the ISO date is a real date and the person is at least `minAge` today. */
+export const isOldEnough = (iso: string, minAge: number, today: Date = new Date()): boolean => {
+  const date = parseIsoDate(iso);
+  return !!date && date.getTime() <= latestDobFor(minAge, today).getTime();
 };

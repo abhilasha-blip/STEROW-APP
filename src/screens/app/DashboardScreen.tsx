@@ -3,18 +3,25 @@ import { StyleSheet, View } from 'react-native';
 import AppText from '@/components/AppText';
 import Logo from '@/components/Logo';
 import PrimaryButton from '@/components/PrimaryButton';
+import LinkButton from '@/components/LinkButton';
 import ScreenContainer from '@/components/ScreenContainer';
 import { strings } from '@/constants/strings';
 import { useBootstrap } from '@/hooks/api/useBootstrap';
+import type { AppStackScreenProps } from '@/navigation/types';
 import { useAuthStore } from '@/store/auth.store';
 import { useThemedStyles, type Theme } from '@/theme';
-import { mask } from '@/utils/phone';
+import { mask, parseApiPhone } from '@/utils/phone';
 import { useScale } from '@/utils/scale';
 
 const t = strings.dashboard;
 
 /** Placeholder home: who is signed in + log out. Widgets/menus come in a later phase. */
-export default function DashboardScreen() {
+const maskStored = (stored: string) => {
+  const { country, national } = parseApiPhone(stored);
+  return mask(country, national);
+};
+
+export default function DashboardScreen({ navigation }: AppStackScreenProps<'Dashboard'>) {
   const { vs } = useScale();
   const styles = useThemedStyles(makeStyles);
   const storeUser = useAuthStore(st => st.user);
@@ -44,7 +51,7 @@ export default function DashboardScreen() {
             {t.phoneLabel}
           </AppText>
           <AppText testID="masked-phone" variant="label">
-            {user?.phone ? mask(user.phone) : '–'}
+            {user?.phone ? maskStored(user.phone) : '–'}
           </AppText>
         </View>
         <View style={styles.row}>
@@ -68,6 +75,17 @@ export default function DashboardScreen() {
           signOut();
         }}
       />
+
+      {/* TEMPORARY dev entry until the post-login routing decides when onboarding is shown. */}
+      {__DEV__ && (
+        <LinkButton
+          testID="start-onboarding"
+          label={t.startOnboarding}
+          color="text.primary"
+          style={{ marginTop: vs(24) }}
+          onPress={() => navigation.navigate('Onboarding', { screen: 'Step1Profile' })}
+        />
+      )}
     </ScreenContainer>
   );
 }
