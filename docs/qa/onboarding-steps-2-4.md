@@ -20,23 +20,31 @@ xcrun simctl launch booted com.sterow.app -qaScenario step3-rc -qaFile "$PWD/des
 xcrun simctl io booted screenshot docs/qa/screens/onboarding/step3-rc.png
 ```
 
-Scenarios: `step2-empty`, `step2-rc`, `step2-autofilled`, `step2-manual`, `step2-make-sheet`, `step3-empty`,
-`step3-rc`, `step4-empty`, `step4-filled`.
+Scenarios: `step2-empty`, `step2-rc`, `step2-found`, `step2-form-prefilled`, `step2-form-empty`,
+`step2-make-sheet`, `step3-empty`, `step3-rc`, `step4-empty`, `step4-filled`.
 
 **Release builds:** verified with `react-native bundle --platform ios --dev false --minify true`. The bundle
 contains none of `QaOnboarding`, `qaScenario`, `qaFile`, the scenario names, `sample-rc` or `Settings.get`. The
 only leftover is the `qaOpenMakeSheet` prop name, passed as the constant `false`. The side-by-side images in `screens/onboarding/compare/` show the
 design (left) and the simulator (right) at the same scale, first viewport only.
 
-| Screen | Screenshot | vs design |
-|---|---|---|
-| Step 3 – empty | `screens/onboarding/step3-empty.png` | `compare/step3-empty.png` ✅ |
-| Step 3 – RC attached (from step 2) | `screens/onboarding/step3-rc.png` | `compare/step3-rc.png` ✅ (2a's RC preview geometry) |
-| Step 4 – empty | `screens/onboarding/step4-empty.png` | `compare/step4-empty.png` ✅ |
-| Step 4 – filled (chip selected) | `screens/onboarding/step4-filled.png` | `compare/step4-filled.png` – no filled design |
-| SelectField sheet (Vehicle Make, 12 items → search) | `screens/onboarding/step2-make-sheet.png` | not designed |
-| Step 2 – 2b auto-filled (chips selected) | `screens/onboarding/step2-autofilled.png` | `compare/step2-autofilled.png` ✅ |
-| Step 2 – A empty / B RC / D manual | `step2-empty.png`, `step2-rc.png`, `step2-manual.png` | `compare/…` ✅ |
+**Meeting updates (2026-11-20):** step 2 is now two screens (entry + form), step 3 has no DL card and step 4 has
+Odometer instead of Mileage. All screenshots below were retaken on 2026-11-20 after that change. The old
+`compare/` side-by-sides showed the previous layouts and were removed. There is no Figma frame yet for the step 2
+entry screen, so new comparisons need the designer's frames.
+
+| Screen | Screenshot |
+|---|---|
+| Step 2 entry – empty (Next disabled) | `screens/onboarding/step2-empty.png` |
+| Step 2 entry – RC attached | `screens/onboarding/step2-rc.png` |
+| Step 2 entry – number found by the lookup (check icon) | `screens/onboarding/step2-found.png` |
+| Step 2 form – prefilled (2b) | `screens/onboarding/step2-form-prefilled.png` |
+| Step 2 form – empty, "Add your vehicle details manually" (2c) | `screens/onboarding/step2-form-empty.png` |
+| SelectField sheet (Vehicle Make) | `screens/onboarding/step2-make-sheet.png` |
+| Step 3 – empty (RC, Insurance, Pollution Certificate) | `screens/onboarding/step3-empty.png` |
+| Step 3 – RC attached (from step 2) | `screens/onboarding/step3-rc.png` |
+| Step 4 – empty | `screens/onboarding/step4-empty.png` |
+| Step 4 – filled (Odometer) | `screens/onboarding/step4-filled.png` |
 
 ## Differences from the designs
 
@@ -76,14 +84,13 @@ Remaining (intentional or out of scope):
 | # | Topic | Decision / behaviour |
 |---|---|---|
 | 1 | Step 3 Next rule | ≥ 1 document (`MIN_DOCUMENTS_TO_CONTINUE = 1`); the RC is not mandatory. |
-| 2 | Step 4 required fields | Last Service Date + Service Type. |
-| 3 | Manual entry | "Enter details manually" keeps the vehicle number and clears only the looked-up fields. In manual mode "Find my vehicle by number" returns to lookup mode (hand-typed details are cleared; a valid number is looked up again). Required: Number + Make + Model + Fuel + Transmission; Colour optional. |
-| 4 | Lookup not found | Manual mode with the number kept, plus a toast "We couldn't find this vehicle. Please enter details manually." (Mock: numbers ending in `0000`.) |
+| 2 | Step 4 required fields | Last Service Date + Service Type + Odometer (digits only, max 5; replaces Mileage). |
+| 3 | Step 2 (meeting update) | Entry: Vehicle Number, "Or", Upload RC (optional), outlined "Add your vehicle details manually". Lookup found or RC attached → Next → the form, prefilled (RC only: RC + typed number; OCR comes with the API). Manual → the form, empty (the RC stays attached for step 3). Form required: Number + Make + Model + Fuel + Transmission; Colour optional. "Skip for now" on either 2/4 screen → Dashboard. |
+| 4 | Lookup not found | Toast "We couldn't find this vehicle. Upload the RC or add the details manually."; the user stays on the entry screen. (Mock: numbers ending in `0000`.) |
 | 5 | Undesigned pieces | Kept as built (select sheet, suggestions dropdown, inline upload errors, PDF tile, step 4 filled, completion placeholder); designer sign-off from these screenshots. |
 | 6 | Copy | "Amount" (not Figma's "Ammount"); "JPEG, PNG, PDF. Up to 10 MB" (not "Upto"). |
-| 7 | Step 1 licence → step 3 | Prefills "Upload License" (removable on step 3 without touching step 1). |
-| 8 | Disabled SelectField | Muted text and chevron, field at 50% opacity, `accessibilityState.disabled`; used for Model until a Make is chosen (visible in `step2-manual.png`). |
+| 7 | Step 3 documents | RC, Insurance, Pollution Certificate only. The DL upload was removed (it is collected on step 1). |
+| 8 | Disabled SelectField | Muted text and chevron, field at 50% opacity, `accessibilityState.disabled`; used for Model until a Make is chosen (visible in `step2-form-empty.png`). |
 
 Still open for the designer: step 1's lighter header base (#1B1F5E vs #14163A), the "MG ZS" / "Essence" make–model
-taxonomy (the API will define the lists), and the "Find my vehicle by number" link, which has no design (placed where 2b's
-"Not your vehicle?" line sits).
+taxonomy (the API will define the lists), the step 2 entry screen (outlined button and the "found" check icon have no Figma frame yet).

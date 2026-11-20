@@ -13,7 +13,7 @@ import SelectField from '@/components/SelectField';
 import TextField from '@/components/TextField';
 import {
   AMOUNT_MAX_DIGITS,
-  MILEAGE_MAX_DIGITS,
+  ODOMETER_MAX_DIGITS,
   ONBOARDING_TOTAL_STEPS,
   SERVICE_CENTRE_MAX_LENGTH,
   SERVICE_CENTRE_SUGGESTIONS_MAX,
@@ -42,7 +42,7 @@ const CENTRE_TYPE_OPTIONS = [
 
 export type ServiceDetailsScreenProps = {
   initialValues?: Partial<ServiceFormValues>;
-  /** "Next →" with the required fields filled. */
+  /** "Next →" with the required fields filled (date, service type, odometer). */
   onNext: (values: ServiceFormValues) => void;
   /** "Skip for now" (finishes onboarding). */
   onSkip: () => void;
@@ -152,8 +152,8 @@ export default function ServiceDetailsScreen({
       />
       <Controller
         control={control}
-        name="mileage"
-        render={({ field }) => <MileageField value={field.value} onChange={field.onChange} />}
+        name="odometer"
+        render={({ field }) => <OdometerField value={field.value} onChange={field.onChange} />}
       />
       <Controller
         control={control}
@@ -164,24 +164,25 @@ export default function ServiceDetailsScreen({
   );
 }
 
-function MileageField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+/** Odometer reading (required): digits only, at most ODOMETER_MAX_DIGITS, "km" suffix once typed. */
+function OdometerField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const reveal = useRevealOnFocus();
   return (
     <TextField
-      testID="service-mileage"
+      testID="service-odometer"
       variant="light"
       style={styles.field}
-      label={sv.mileageLabel}
-      placeholder={sv.mileagePlaceholder}
-      value={formatIndianNumber(value)}
-      onChangeText={text => onChange(digitsOnly(text).slice(0, MILEAGE_MAX_DIGITS))}
+      label={sv.odometerLabel}
+      placeholder={sv.odometerPlaceholder}
+      value={value}
+      onChangeText={text => onChange(digitsOnly(text).slice(0, ODOMETER_MAX_DIGITS))}
       onFocus={reveal}
       keyboardType="number-pad"
       returnKeyType="done"
       rightAccessory={
         value ? (
           <AppText variant="inputSmall" color="text.onLightMuted" style={styles.suffix}>
-            {sv.mileageUnit}
+            {sv.odometerUnit}
           </AppText>
         ) : null
       }

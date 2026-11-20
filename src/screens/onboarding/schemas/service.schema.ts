@@ -10,8 +10,8 @@ export const serviceFieldsSchema = z.object({
   /** Free text from the search box, or the picked suggestion's name. */
   centreName: z.string(),
   serviceType: z.string().nullable(),
-  /** Digits only; shown with a "km" suffix. */
-  mileage: z.string(),
+  /** Odometer reading in km: digits only (max ODOMETER_MAX_DIGITS), shown with a "km" suffix. Required. */
+  odometer: z.string(),
   /** Rupees, digits only; shown with Indian grouping (1,23,456). */
   amount: z.string(),
 });
@@ -22,10 +22,10 @@ export const EMPTY_SERVICE: ServiceFormValues = {
   centreType: null,
   centreName: '',
   serviceType: null,
-  mileage: '',
+  odometer: '',
   amount: '',
 };
 
-/** Step 4 "Next": Last Service Date + Service Type (the rest is optional). */
+/** Step 4 "Next": Last Service Date + Service Type + Odometer (the rest is optional). */
 export const canProceedService = (v: ServiceFormValues): boolean =>
-  !!v.lastServiceDate && !!parseIsoDate(v.lastServiceDate) && !!v.serviceType;
+  !!v.lastServiceDate && !!parseIsoDate(v.lastServiceDate) && !!v.serviceType && /^\d+$/.test(v.odometer);

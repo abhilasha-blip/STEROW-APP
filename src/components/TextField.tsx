@@ -116,7 +116,7 @@ const TextField = forwardRef<TextInputRef, TextFieldProps>(function TextFieldInn
           {...inputProps}
           editable={disabled ? false : inputProps.editable}
           accessibilityLabel={accessibilityLabel ?? label}
-          accessibilityHint={error}
+          accessibilityHint={error ?? inputProps.accessibilityHint}
           accessibilityState={loading || disabled ? { busy: loading, disabled } : undefined}
           style={[
             styles.input,

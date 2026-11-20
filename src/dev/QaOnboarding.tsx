@@ -39,10 +39,14 @@ const store = () => useOnboardingStore.getState();
 export const QA_SCENARIOS: Record<string, Scenario> = {
   'step2-empty': { route: 'Step2Vehicle' },
   'step2-rc': { route: 'Step2Vehicle', seed: f => store().setVehicle({ ...EMPTY_VEHICLE, rcFile: f }) },
-  'step2-autofilled': { route: 'Step2Vehicle', seed: () => store().setVehicle(AUTOFILLED) },
-  'step2-manual': { route: 'Step2Vehicle', seed: () => store().setVehicleMode('manual') },
+  /** Entry with a number the lookup already found (check icon, Next enabled). */
+  'step2-found': { route: 'Step2Vehicle', seed: () => store().setVehicle(AUTOFILLED) },
+  /** The form prefilled by the lookup (2b). */
+  'step2-form-prefilled': { route: 'Step2VehicleForm', seed: () => store().setVehicle(AUTOFILLED) },
+  /** The empty form ("Add your vehicle details manually", 2c). */
+  'step2-form-empty': { route: 'Step2VehicleForm', seed: () => store().startManualVehicle() },
   'step2-make-sheet': {
-    route: 'Step2Vehicle',
+    route: 'Step2VehicleForm',
     params: { qaOpenMakeSheet: true },
     seed: () => store().setVehicle(AUTOFILLED),
   },
@@ -58,7 +62,7 @@ export const QA_SCENARIOS: Record<string, Scenario> = {
         centreType: 'authorised',
         centreName: 'MG Hitech City',
         serviceType: 'general-service',
-        mileage: '12450',
+        odometer: '12450',
         amount: '123456',
       }),
   },

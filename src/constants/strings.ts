@@ -169,20 +169,21 @@ export const strings = {
       numberLabel: 'Vehicle Number',
       numberPlaceholder: 'e.g.: TS09EV1234',
       numberLookupA11y: 'Looking up your vehicle',
+      /** The lookup found the number (check icon in the field; no design yet). */
+      numberFoundA11y: 'Vehicle found',
       numberInvalid: 'Enter a valid vehicle number, e.g. TS09EV1234',
-      /** Toast when the lookup doesn't know the number (then manual entry, number kept). */
-      notFound: "We couldn't find this vehicle. Please enter details manually.",
-      rcLabel: 'Upload Vehicle RC',
+      /** Toast when the lookup doesn't know the number (the user stays on the entry screen). */
+      notFound: "We couldn't find this vehicle. Upload the RC or add the details manually.",
+      rcLabel: 'Upload Vehicle RC (optional)',
       rcTitle: 'Upload RC image',
+      /** Entry screen: outlined button → the empty vehicle form. */
+      addManually: 'Add your vehicle details manually',
       makeLabel: 'Vehicle Make',
       modelLabel: 'Vehicle Model',
       fuelLabel: 'Fuel Type',
       transmissionLabel: 'Transmission',
       colourLabel: 'Colour',
       colourPlaceholder: 'Enter your vehicle colour',
-      notYours: 'Not your vehicle?',
-      enterManually: 'Enter details manually',
-      findByNumber: 'Find my vehicle by number',
       fuel: {
         petrol: 'Petrol',
         diesel: 'Diesel',
@@ -201,14 +202,10 @@ export const strings = {
       subtitle: 'Upload your vehicle documents below',
       rcLabel: 'Upload Vehicle RC',
       rcTitle: 'Upload RC image',
-      licenseLabel: 'Upload License',
-      licenseTitle: 'Upload License',
       insuranceLabel: 'Upload Insurance',
       insuranceTitle: 'Upload Insurance',
-      pollutionLabel: 'Upload Pollution',
-      pollutionTitle: 'Upload Pollution File',
-      /** File name shown for the licence photo carried over from step 1. */
-      licenseFromStep1: 'Driving licence',
+      pollutionLabel: 'Upload Pollution Certificate',
+      pollutionTitle: 'Upload Pollution Certificate',
     },
     service: {
       title: 'Vehicle Service Details',
@@ -223,9 +220,9 @@ export const strings = {
       centreNoResults: 'No service centres found',
       centreSuggestionsA11y: 'Service centre suggestions',
       serviceTypeLabel: 'Service Type',
-      mileageLabel: 'Mileage',
-      mileagePlaceholder: 'Enter mileage',
-      mileageUnit: 'km',
+      odometerLabel: 'Odometer',
+      odometerPlaceholder: 'Enter odometer reading',
+      odometerUnit: 'km',
       /** Figma spells it "Ammount" (typo). */
       amountLabel: 'Amount',
       amountPlaceholder: 'Enter amount',

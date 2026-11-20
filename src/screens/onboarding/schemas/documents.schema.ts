@@ -5,7 +5,6 @@ import { uploadedFileSchema, type UploadedFile } from '@/utils/uploadFile';
 /** Step 3 form state: one optional file per document. */
 export const documentsFieldsSchema = z.object({
   rc: uploadedFileSchema.nullable(),
-  license: uploadedFileSchema.nullable(),
   insurance: uploadedFileSchema.nullable(),
   pollution: uploadedFileSchema.nullable(),
 });
@@ -20,21 +19,20 @@ export type StoredDocuments = Partial<Record<DocumentKey, UploadedFile | null>>;
 export type DocumentPrefill = {
   /** The RC attached on step 2. */
   vehicleRc: UploadedFile | null;
-  /** The DL photo uploaded on step 1. */
-  profileDl: UploadedFile | null;
 };
 
-/** Step 3 values: its own choices, else the RC from step 2 and the licence from step 1. */
+/** Step 3 values: its own choices, else the RC from step 2. */
 export function resolveDocuments(stored: StoredDocuments, prefill: DocumentPrefill): DocumentsFormValues {
   const pick = (key: DocumentKey, fallback: UploadedFile | null) =>
     stored[key] === undefined ? fallback : stored[key] ?? null;
   return {
     rc: pick('rc', prefill.vehicleRc),
-    license: pick('license', prefill.profileDl),
     insurance: pick('insurance', null),
     pollution: pick('pollution', null),
   };
 }
+
+export const EMPTY_DOCUMENTS: DocumentsFormValues = { rc: null, insurance: null, pollution: null };
 
 export const countAttachedDocuments = (v: DocumentsFormValues): number =>
   DOCUMENT_KEYS.filter(key => !!v[key]).length;

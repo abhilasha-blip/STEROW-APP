@@ -3,9 +3,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import OnboardingCompleteScreen from '@/screens/onboarding/OnboardingCompleteScreen';
 import OnboardingProfileScreen from '@/screens/onboarding/OnboardingProfileScreen';
 import ServiceDetailsScreen from '@/screens/onboarding/ServiceDetailsScreen';
-import VehicleDetailsScreen from '@/screens/onboarding/VehicleDetailsScreen';
 import VehicleDocumentsScreen from '@/screens/onboarding/VehicleDocumentsScreen';
-import type { OnboardingValues, ProfileFormValues } from '@/screens/onboarding/schemas';
+import VehicleEntryScreen from '@/screens/onboarding/VehicleEntryScreen';
+import VehicleFormScreen from '@/screens/onboarding/VehicleFormScreen';
+import {
+  hasRequiredVehicleDetails,
+  type OnboardingValues,
+  type ProfileFormValues,
+} from '@/screens/onboarding/schemas';
 import {
   selectOnboardingValues,
   selectResolvedDocuments,
@@ -45,7 +50,7 @@ const summarizeAll = (v: OnboardingValues) => ({
     centreType: v.service.centreType,
     centreName: !!v.service.centreName,
     serviceType: v.service.serviceType,
-    mileage: !!v.service.mileage,
+    odometer: !!v.service.odometer,
     amount: !!v.service.amount,
   },
 });
@@ -82,24 +87,62 @@ function Step1ProfileRoute({ navigation, route }: OnboardingStackScreenProps<'St
   );
 }
 
-function Step2VehicleRoute({ navigation, route }: OnboardingStackScreenProps<'Step2Vehicle'>) {
+/** "Skip for now" on step 2: straight to the Dashboard (leaving onboarding clears what was entered). */
+const skipToDashboard = (navigation: OnboardingStackScreenProps<'Step2Vehicle' | 'Step2VehicleForm'>['navigation']) => {
+  logger.info('onboarding step 2: skip to dashboard');
+  navigation.popTo('Dashboard');
+};
+
+function Step2VehicleRoute({ navigation }: OnboardingStackScreenProps<'Step2Vehicle'>) {
+  const setVehicleEntry = useOnboardingStore(s => s.setVehicleEntry);
+  const prefillVehicleFromEntry = useOnboardingStore(s => s.prefillVehicleFromEntry);
+  const startManualVehicle = useOnboardingStore(s => s.startManualVehicle);
+  const { vehicle, vehicleMode } = useInitialSnapshot();
+  // Back from step 3 / the form to a number that was looked up: show it as found, no new lookup.
+  const restoredLookup =
+    vehicleMode === 'lookup' && hasRequiredVehicleDetails(vehicle)
+      ? {
+          make: vehicle.make!,
+          model: vehicle.model!,
+          fuelType: vehicle.fuelType!,
+          transmission: vehicle.transmission!,
+          colour: vehicle.colour,
+        }
+      : null;
+  return (
+    <VehicleEntryScreen
+      initialNumber={vehicle.vehicleNumber}
+      initialRcFile={vehicle.rcFile}
+      initialLookup={restoredLookup}
+      onBack={() => navigation.goBack()}
+      onChange={setVehicleEntry}
+      onNext={(entry, lookup) => {
+        prefillVehicleFromEntry(entry, lookup);
+        navigation.navigate('Step2VehicleForm');
+      }}
+      onManual={() => {
+        startManualVehicle();
+        navigation.navigate('Step2VehicleForm');
+      }}
+      onSkip={() => skipToDashboard(navigation)}
+    />
+  );
+}
+
+function Step2VehicleFormRoute({ navigation, route }: OnboardingStackScreenProps<'Step2VehicleForm'>) {
   const setVehicle = useOnboardingStore(s => s.setVehicle);
-  const setVehicleMode = useOnboardingStore(s => s.setVehicleMode);
   const snapshot = useInitialSnapshot();
   return (
-    <VehicleDetailsScreen
+    <VehicleFormScreen
       initialValues={snapshot.vehicle}
-      initialMode={snapshot.vehicleMode}
       qaOpenMakeSheet={__DEV__ && route.params?.qaOpenMakeSheet}
       onBack={() => navigation.goBack()}
       onValuesChange={setVehicle}
-      onModeChange={setVehicleMode}
-      onNext={(values, mode) => {
+      onNext={values => {
         setVehicle(values);
-        setVehicleMode(mode);
         navigation.navigate('Step3Documents');
       }}
-      onSkip={() => navigation.navigate('Step3Documents')}
+      onSkip={() => skipToDashboard(navigation)}
     />
   );
 }
@@ -159,6 +202,7 @@ export default function OnboardingStack() {
     >
       <Stack.Screen name="Step1Profile" component={Step1ProfileRoute} />
       <Stack.Screen name="Step2Vehicle" component={Step2VehicleRoute} />
+      <Stack.Screen name="Step2VehicleForm" component={Step2VehicleFormRoute} />
       <Stack.Screen name="Step3Documents" component={Step3DocumentsRoute} />
       <Stack.Screen name="Step4Service" component={Step4ServiceRoute} />
       <Stack.Screen

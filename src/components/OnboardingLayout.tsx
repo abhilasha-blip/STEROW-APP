@@ -91,10 +91,13 @@ export default function OnboardingLayout({
   const footerRef = useRef<ViewRef>(null);
   const viewportHeight = useRef(0);
   const scrollY = useRef(0);
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(revealTimer.current), []);
 
   const reveal = useCallback(() => {
     // Let KeyboardAvoidingView shrink the viewport first.
-    setTimeout(() => {
+    clearTimeout(revealTimer.current);
+    revealTimer.current = setTimeout(() => {
       const content = contentRef.current;
       const focused = TextInput.State.currentlyFocusedInput() as unknown as ViewRef | null;
       if (!content || !focused) {

@@ -1,115 +1,116 @@
-import { MIN_DOCUMENTS_TO_CONTINUE } from '@/constants/onboarding';
+import { DOCUMENT_KEYS, MIN_DOCUMENTS_TO_CONTINUE } from '@/constants/onboarding';
+import { useOnboardingStore } from '@/store/onboarding.store';
 import type { UploadedFile } from '@/utils/uploadFile';
 import {
+  EMPTY_DOCUMENTS,
   EMPTY_SERVICE,
   EMPTY_VEHICLE,
   canProceedDocuments,
   canProceedService,
-  canProceedVehicle,
+  canProceedVehicleEntry,
   countAttachedDocuments,
-  getVehicleScreenState,
+  hasRequiredVehicleDetails,
   resolveDocuments,
-  vehicleStateVisibility,
   type VehicleFormValues,
 } from '../schemas';
 
 const file = (name: string): UploadedFile => ({ uri: `file:///${name}`, name, mimeType: 'image/jpeg' });
 const RC = file('rc.jpg');
-const DETAILS: VehicleFormValues = {
-  ...EMPTY_VEHICLE,
-  vehicleNumber: 'TS09EV1234',
-  make: 'mg-zs',
-  model: 'essence',
-  fuelType: 'electric',
-  transmission: 'automatic',
-};
-
-describe('step 2 screen state', () => {
-  it.each([
-    [{ vehicleNumber: '', rcFile: null }, 'lookup', 'idle', 'empty'],
-    [{ vehicleNumber: '', rcFile: RC }, 'lookup', 'idle', 'rcUploaded'],
-    [{ vehicleNumber: 'TS09', rcFile: null }, 'lookup', 'idle', 'typing'],
-    [{ vehicleNumber: 'TS09', rcFile: RC }, 'lookup', 'idle', 'typing'],
-    [{ vehicleNumber: 'TS09EV1234', rcFile: null }, 'lookup', 'loading', 'lookingUp'],
-    [{ vehicleNumber: 'TS09EV1234', rcFile: null }, 'lookup', 'found', 'autofilled'],
-    [{ vehicleNumber: 'TS09EV1234', rcFile: null }, 'lookup', 'notFound', 'typing'],
-    [{ vehicleNumber: '', rcFile: null }, 'manual', 'idle', 'manual'],
-  ] as const)('%j / %s / %s → %s', (values, mode, lookup, expected) => {
-    expect(getVehicleScreenState(values, mode, lookup)).toBe(expected);
-  });
-
-  it('upload before a number is typed, details in C/D, "manual" link in C, "find by number" link in D', () => {
-    const none = { showUpload: false, showDetails: false, showManualLink: false, showLookupLink: false };
-    expect(vehicleStateVisibility('empty')).toEqual({ ...none, showUpload: true });
-    expect(vehicleStateVisibility('rcUploaded')).toEqual({ ...none, showUpload: true });
-    expect(vehicleStateVisibility('typing')).toEqual(none);
-    expect(vehicleStateVisibility('lookingUp')).toEqual(none);
-    expect(vehicleStateVisibility('autofilled')).toEqual({ ...none, showDetails: true, showManualLink: true });
-    expect(vehicleStateVisibility('manual')).toEqual({ ...none, showDetails: true, showLookupLink: true });
-  });
-});
+const LOOKUP = { make: 'mg-zs', model: 'essence', fuelType: 'electric', transmission: 'automatic', colour: 'White' } as const;
+const DETAILS: VehicleFormValues = { ...EMPTY_VEHICLE, vehicleNumber: 'TS09EV1234', ...LOOKUP };
+const store = () => useOnboardingStore.getState();
 
 describe('Next enable rules', () => {
-  describe('step 2', () => {
-    it('A: nothing entered → disabled', () => {
-      expect(canProceedVehicle(EMPTY_VEHICLE, 'lookup')).toBe(false);
+  describe('step 2 entry', () => {
+    it('needs a found lookup or an attached RC', () => {
+      expect(canProceedVehicleEntry({ lookupFound: false, rcFile: null })).toBe(false);
+      expect(canProceedVehicleEntry({ lookupFound: true, rcFile: null })).toBe(true);
+      expect(canProceedVehicleEntry({ lookupFound: false, rcFile: RC })).toBe(true);
     });
-    it('B: RC uploaded, no number → enabled', () => {
-      expect(canProceedVehicle({ ...EMPTY_VEHICLE, rcFile: RC }, 'lookup')).toBe(true);
-    });
-    it('RC uploaded but a half-typed number → disabled', () => {
-      expect(canProceedVehicle({ ...EMPTY_VEHICLE, rcFile: RC, vehicleNumber: 'TS09' }, 'lookup')).toBe(false);
-    });
-    it('C: valid number with the auto-filled details → enabled', () => {
-      expect(canProceedVehicle(DETAILS, 'lookup')).toBe(true);
-    });
-    it('D: needs Number + Make + Model + Fuel Type + Transmission (Colour optional)', () => {
-      expect(canProceedVehicle(DETAILS, 'manual')).toBe(true);
-      expect(canProceedVehicle({ ...EMPTY_VEHICLE, rcFile: RC }, 'manual')).toBe(false);
+  });
+
+  describe('step 2 form', () => {
+    it('needs Number + Make + Model + Fuel Type + Transmission (Colour optional)', () => {
+      expect(hasRequiredVehicleDetails(DETAILS)).toBe(true);
+      expect(hasRequiredVehicleDetails({ ...DETAILS, colour: '' })).toBe(true);
+      expect(hasRequiredVehicleDetails({ ...EMPTY_VEHICLE, rcFile: RC })).toBe(false);
       for (const key of ['make', 'model', 'fuelType', 'transmission'] as const) {
-        expect(canProceedVehicle({ ...DETAILS, [key]: null }, 'manual')).toBe(false);
+        expect(hasRequiredVehicleDetails({ ...DETAILS, [key]: null })).toBe(false);
       }
-      expect(canProceedVehicle({ ...DETAILS, vehicleNumber: 'TS09EV' }, 'manual')).toBe(false);
+      expect(hasRequiredVehicleDetails({ ...DETAILS, vehicleNumber: 'TS09EV' })).toBe(false);
     });
   });
 
   describe('step 3', () => {
-    const none = { rc: null, license: null, insurance: null, pollution: null };
+    it('has RC, Insurance and Pollution Certificate only (no DL)', () => {
+      expect(DOCUMENT_KEYS).toEqual(['rc', 'insurance', 'pollution']);
+    });
     it(`needs at least ${MIN_DOCUMENTS_TO_CONTINUE} document`, () => {
-      expect(canProceedDocuments(none)).toBe(false);
-      expect(canProceedDocuments({ ...none, pollution: file('p.pdf') })).toBe(true);
-      expect(countAttachedDocuments({ ...none, rc: RC, insurance: file('i.png') })).toBe(2);
+      expect(canProceedDocuments(EMPTY_DOCUMENTS)).toBe(false);
+      expect(canProceedDocuments({ ...EMPTY_DOCUMENTS, pollution: file('p.pdf') })).toBe(true);
+      expect(countAttachedDocuments({ ...EMPTY_DOCUMENTS, rc: RC, insurance: file('i.png') })).toBe(2);
     });
   });
 
   describe('step 4', () => {
-    it('needs Last Service Date + Service Type', () => {
+    const FILLED = { ...EMPTY_SERVICE, lastServiceDate: '2026-10-12', serviceType: 'repair', odometer: '12450' };
+    it('needs Last Service Date + Service Type + Odometer', () => {
       expect(canProceedService(EMPTY_SERVICE)).toBe(false);
-      expect(canProceedService({ ...EMPTY_SERVICE, lastServiceDate: '2026-10-12' })).toBe(false);
-      expect(canProceedService({ ...EMPTY_SERVICE, serviceType: 'repair' })).toBe(false);
-      expect(canProceedService({ ...EMPTY_SERVICE, lastServiceDate: '2026-10-12', serviceType: 'repair' })).toBe(true);
-      expect(canProceedService({ ...EMPTY_SERVICE, lastServiceDate: 'not-a-date', serviceType: 'repair' })).toBe(false);
+      expect(canProceedService(FILLED)).toBe(true);
+      expect(canProceedService({ ...FILLED, lastServiceDate: null })).toBe(false);
+      expect(canProceedService({ ...FILLED, serviceType: null })).toBe(false);
+      expect(canProceedService({ ...FILLED, odometer: '' })).toBe(false);
+      expect(canProceedService({ ...FILLED, lastServiceDate: 'not-a-date' })).toBe(false);
     });
   });
 });
 
 describe('step 3 prefill (resolveDocuments)', () => {
-  const DL = file('dl.jpg');
-  it('inherits the step 2 RC and the step 1 DL while untouched on step 3', () => {
-    expect(resolveDocuments({}, { vehicleRc: RC, profileDl: DL })).toEqual({
-      rc: RC,
-      license: DL,
-      insurance: null,
-      pollution: null,
-    });
+  it('inherits the step 2 RC while untouched on step 3', () => {
+    expect(resolveDocuments({}, { vehicleRc: RC })).toEqual({ rc: RC, insurance: null, pollution: null });
   });
   it("keeps step 3's own choices, including a removal", () => {
     const other = file('other.png');
-    expect(resolveDocuments({ rc: null, license: other }, { vehicleRc: RC, profileDl: DL })).toEqual({
+    expect(resolveDocuments({ rc: null, insurance: other }, { vehicleRc: RC })).toEqual({
       rc: null,
-      license: other,
-      insurance: null,
+      insurance: other,
       pollution: null,
     });
+  });
+});
+
+describe('step 2 entry → form (store)', () => {
+  beforeEach(() => store().reset());
+
+  it('lookup found → the form is prefilled with the lookup', () => {
+    store().prefillVehicleFromEntry({ vehicleNumber: 'TS09EV1234', rcFile: null }, LOOKUP);
+    expect(store().vehicle).toEqual(DETAILS);
+    expect(store().vehicleMode).toBe('lookup');
+  });
+
+  it('RC only → the form gets the RC and the typed number, no details', () => {
+    store().prefillVehicleFromEntry({ vehicleNumber: 'TS09', rcFile: RC }, null);
+    expect(store().vehicle).toEqual({ ...EMPTY_VEHICLE, vehicleNumber: 'TS09', rcFile: RC });
+    expect(store().vehicleMode).toBe('rc');
+  });
+
+  it('back on the entry with the same number: edits made in the form are kept', () => {
+    store().prefillVehicleFromEntry({ vehicleNumber: 'TS09EV1234', rcFile: null }, LOOKUP);
+    store().setVehicle({ ...store().vehicle, colour: 'Red' });
+    store().prefillVehicleFromEntry({ vehicleNumber: 'TS09EV1234', rcFile: null }, LOOKUP);
+    expect(store().vehicle.colour).toBe('Red');
+  });
+
+  it("a different number drops the old number's details", () => {
+    store().prefillVehicleFromEntry({ vehicleNumber: 'TS09EV1234', rcFile: RC }, LOOKUP);
+    store().setVehicleEntry({ vehicleNumber: 'TS09', rcFile: RC });
+    expect(store().vehicle).toEqual({ ...EMPTY_VEHICLE, vehicleNumber: 'TS09', rcFile: RC });
+  });
+
+  it('"Add your vehicle details manually" → an empty form, the RC kept for step 3', () => {
+    store().prefillVehicleFromEntry({ vehicleNumber: 'TS09EV1234', rcFile: RC }, LOOKUP);
+    store().startManualVehicle();
+    expect(store().vehicle).toEqual({ ...EMPTY_VEHICLE, rcFile: RC });
+    expect(store().vehicleMode).toBe('manual');
   });
 });

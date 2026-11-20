@@ -1,33 +1,19 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { Controller, useForm, useWatch } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import FileUploadCard from '@/components/FileUploadCard';
+import DocumentsUploadList from '@/components/DocumentsUploadList';
 import LinkButton from '@/components/LinkButton';
 import OnboardingLayout, { FIRST_LABEL_OFFSET } from '@/components/OnboardingLayout';
 import PrimaryButton from '@/components/PrimaryButton';
-import { DOCUMENT_KEYS, ONBOARDING_TOTAL_STEPS, type DocumentKey } from '@/constants/onboarding';
+import { ONBOARDING_TOTAL_STEPS, type DocumentKey } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
 import type { UploadedFile } from '@/utils/uploadFile';
-import {
-  canProceedDocuments,
-  documentsFieldsSchema,
-  type DocumentsFormValues,
-} from './schemas/documents.schema';
-import { useFormMirror } from './useFormMirror';
+import { canProceedDocuments, type DocumentsFormValues } from './schemas/documents.schema';
 
 const t = strings.onboarding;
 const d = t.documents;
 
-const CARDS: Record<DocumentKey, { label: string; title: string }> = {
-  rc: { label: d.rcLabel, title: d.rcTitle },
-  license: { label: d.licenseLabel, title: d.licenseTitle },
-  insurance: { label: d.insuranceLabel, title: d.insuranceTitle },
-  pollution: { label: d.pollutionLabel, title: d.pollutionTitle },
-};
-
 export type VehicleDocumentsScreenProps = {
-  /** Prefilled: the RC from step 2 and the DL photo from step 1 (see resolveDocuments). */
+  /** Prefilled: the RC from step 2 (see resolveDocuments). */
   initialValues: DocumentsFormValues;
   onNext: (values: DocumentsFormValues) => void;
   onSkip: () => void;
@@ -36,7 +22,7 @@ export type VehicleDocumentsScreenProps = {
   onDocumentChange?: (key: DocumentKey, file: UploadedFile | null) => void;
 };
 
-/** Onboarding step 3 "Your Vehicle documents" (UI only). */
+/** Onboarding step 3 "Your Vehicle documents": RC, Insurance, Pollution Certificate (UI only). */
 export default function VehicleDocumentsScreen({
   initialValues,
   onNext,
@@ -44,17 +30,14 @@ export default function VehicleDocumentsScreen({
   onBack,
   onDocumentChange,
 }: VehicleDocumentsScreenProps) {
-  const form = useForm<DocumentsFormValues>({
-    resolver: zodResolver(documentsFieldsSchema),
-    defaultValues: initialValues,
-  });
-  const { control, handleSubmit, watch } = form;
-  useFormMirror(watch, (values, name) => {
-    if (name && (DOCUMENT_KEYS as readonly string[]).includes(name)) {
-      onDocumentChange?.(name as DocumentKey, values[name as DocumentKey] ?? null);
-    }
-  });
-  const values = useWatch({ control }) as DocumentsFormValues;
+  const [values, setValues] = useState(initialValues);
+  const onChange = useCallback(
+    (key: DocumentKey, file: UploadedFile | null) => {
+      setValues(prev => ({ ...prev, [key]: file }));
+      onDocumentChange?.(key, file);
+    },
+    [onDocumentChange],
+  );
   const canProceed = canProceedDocuments(values);
 
   return (
@@ -65,7 +48,7 @@ export default function VehicleDocumentsScreen({
       title={d.title}
       subtitle={d.subtitle}
       onBack={onBack}
-      // step3-documents: last card bottom (1309) → Next (1368).
+      // step3-documents: last card bottom → Next is 59pt.
       footerGap={59}
       footer={
         <>
@@ -74,36 +57,18 @@ export default function VehicleDocumentsScreen({
             label={t.next}
             labelVariant="buttonStrong"
             disabled={!canProceed}
-            onPress={handleSubmit(onNext)}
+            onPress={() => onNext(values)}
           />
           <LinkButton testID="documents-skip" label={t.skip} onPress={onSkip} style={styles.skip} />
         </>
       }
     >
-      {DOCUMENT_KEYS.map((key, index) => (
-        <Controller
-          key={key}
-          control={control}
-          name={key}
-          render={({ field }) => (
-            <FileUploadCard
-              testID={`document-${key}`}
-              style={index > 0 ? styles.card : styles.first}
-              label={CARDS[key].label}
-              title={CARDS[key].title}
-              value={field.value}
-              onChange={file => field.onChange(file)}
-            />
-          )}
-        />
-      ))}
+      <DocumentsUploadList values={values} onChange={onChange} style={styles.first} />
     </OnboardingLayout>
   );
 }
 
 const styles = StyleSheet.create({
   first: { marginTop: FIRST_LABEL_OFFSET },
-  // Card bottom → next label's line box: 55pt between boxes − 18 (label) − 8 (label gap).
-  card: { marginTop: 29 },
   skip: { marginTop: 16 },
 });

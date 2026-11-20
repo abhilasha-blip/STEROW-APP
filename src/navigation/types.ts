@@ -21,8 +21,10 @@ export type AuthStackParamList = {
 export type OnboardingStackParamList = {
   /** Step 1 "My Profile". Tomorrow: initial values from user_details / OCR. */
   Step1Profile: { initialValues?: OnboardingProfileInitialValues } | undefined;
-  /** `qaOpenMakeSheet`: dev QA screenshots only (src/dev/QaOnboarding). */
-  Step2Vehicle: { qaOpenMakeSheet?: boolean } | undefined;
+  /** Step 2 entry: Vehicle Number, "Or", Upload RC, "Add your vehicle details manually". */
+  Step2Vehicle: undefined;
+  /** Step 2 form (2b/2c), prefilled from the store. `qaOpenMakeSheet`: dev QA screenshots only. */
+  Step2VehicleForm: { qaOpenMakeSheet?: boolean } | undefined;
   Step3Documents: undefined;
   Step4Service: undefined;
   /** Placeholder until the API saves onboarding. */

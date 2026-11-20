@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { FUEL_TYPES, TRANSMISSIONS } from '@/constants/onboarding';
 import { uploadedFileSchema } from '@/utils/uploadFile';
-import { isValidVehicleNumber, normalizeVehicleNumber } from '@/utils/validation';
+import { isValidVehicleNumber } from '@/utils/validation';
 
 /** Step 2 form state (what the inputs hold). */
 export const vehicleFieldsSchema = z.object({
@@ -16,10 +16,15 @@ export const vehicleFieldsSchema = z.object({
 });
 export type VehicleFormValues = z.infer<typeof vehicleFieldsSchema>;
 
-/** 'lookup': number → auto-fill (states A–C). 'manual': "Enter details manually" (state D). */
-export const vehicleEntryModeSchema = z.enum(['lookup', 'manual']);
+/**
+ * How the vehicle form was reached from the step 2 entry screen:
+ * 'lookup' – the number lookup filled it; 'rc' – an RC was uploaded (no lookup; details from OCR later);
+ * 'manual' – "Add your vehicle details manually" (empty form).
+ */
+export const vehicleEntryModeSchema = z.enum(['lookup', 'rc', 'manual']);
 export type VehicleEntryMode = z.infer<typeof vehicleEntryModeSchema>;
 
+/** Entry screen lookup: debounced after a valid number is typed. */
 export type VehicleLookupStatus = 'idle' | 'loading' | 'found' | 'notFound';
 
 export const EMPTY_VEHICLE: VehicleFormValues = {
@@ -38,59 +43,10 @@ export const EMPTY_VEHICLE_DETAILS: Pick<
   'make' | 'model' | 'fuelType' | 'transmission' | 'colour'
 > = { make: null, model: null, fuelType: null, transmission: null, colour: '' };
 
-/**
- * Screen states (design/onboarding step 2):
- * A 'empty'      – no number, no RC: number, "Or", empty upload card.
- * B 'rcUploaded' – RC attached (number empty): preview + X.
- *   'typing'     – a number is being typed (not valid yet) or awaiting the debounce: upload hidden.
- *   'lookingUp'  – valid number, lookup running: spinner in the field.
- * C 'autofilled' – lookup found the vehicle: details + "Not your vehicle? Enter details manually".
- * D 'manual'     – all fields editable; switching from C keeps the number and clears the looked-up fields.
- */
-export type VehicleScreenState = 'empty' | 'rcUploaded' | 'typing' | 'lookingUp' | 'autofilled' | 'manual';
-
-export function getVehicleScreenState(
-  v: Pick<VehicleFormValues, 'vehicleNumber' | 'rcFile'>,
-  mode: VehicleEntryMode,
-  lookup: VehicleLookupStatus,
-): VehicleScreenState {
-  if (mode === 'manual') {
-    return 'manual';
-  }
-  const typed = normalizeVehicleNumber(v.vehicleNumber).length > 0;
-  if (!typed) {
-    return v.rcFile ? 'rcUploaded' : 'empty';
-  }
-  if (lookup === 'loading') {
-    return 'lookingUp';
-  }
-  if (lookup === 'found' && isValidVehicleNumber(v.vehicleNumber)) {
-    return 'autofilled';
-  }
-  return 'typing';
-}
-
-export const vehicleStateVisibility = (state: VehicleScreenState) => ({
-  /** "Or" + the RC card: only before a number is typed (the RC stays attached either way). */
-  showUpload: state === 'empty' || state === 'rcUploaded',
-  showDetails: state === 'autofilled' || state === 'manual',
-  showManualLink: state === 'autofilled',
-  /** "Find my vehicle by number" (back to lookup) in state D. */
-  showLookupLink: state === 'manual',
-});
-
-/** Number + Make + Model + Fuel Type + Transmission (Colour optional). */
+/** The form's Next (2b/2c): Number + Make + Model + Fuel Type + Transmission (Colour optional). */
 export const hasRequiredVehicleDetails = (v: VehicleFormValues): boolean =>
   isValidVehicleNumber(v.vehicleNumber) && !!v.make && !!v.model && !!v.fuelType && !!v.transmission;
 
-/**
- * Step 2 "Next":
- * - an RC is attached and no number is typed (B), or
- * - the required details are complete (C after the lookup, D once filled in).
- */
-export function canProceedVehicle(v: VehicleFormValues, mode: VehicleEntryMode): boolean {
-  if (mode === 'lookup' && v.rcFile && normalizeVehicleNumber(v.vehicleNumber) === '') {
-    return true;
-  }
-  return hasRequiredVehicleDetails(v);
-}
+/** The entry screen's Next: the lookup found the number, or an RC is attached. */
+export const canProceedVehicleEntry = (e: { lookupFound: boolean; rcFile: unknown }): boolean =>
+  e.lookupFound || !!e.rcFile;

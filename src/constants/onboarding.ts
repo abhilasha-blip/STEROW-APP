@@ -37,8 +37,8 @@ export const TRANSMISSIONS = ['manual', 'automatic', 'cvt'] as const;
 export type Transmission = (typeof TRANSMISSIONS)[number];
 export const VEHICLE_COLOUR_MAX_LENGTH = 30;
 
-/** Step 3 documents, in screen order. */
-export const DOCUMENT_KEYS = ['rc', 'license', 'insurance', 'pollution'] as const;
+/** Step 3 documents, in screen order (the DL is collected on step 1 only). */
+export const DOCUMENT_KEYS = ['rc', 'insurance', 'pollution'] as const;
 export type DocumentKey = (typeof DOCUMENT_KEYS)[number];
 /**
  * Step 3 "Next" rule: how many documents must be attached. ASSUMPTION (no rule in the design):
@@ -48,8 +48,8 @@ export const MIN_DOCUMENTS_TO_CONTINUE = 1;
 
 export const SERVICE_CENTRE_TYPES = ['authorised', 'other'] as const;
 export type ServiceCentreType = (typeof SERVICE_CENTRE_TYPES)[number];
-/** Step 4 digit limits: 9,99,999 km; ₹99,99,99,999. */
-export const MILEAGE_MAX_DIGITS = 7;
+/** Step 4 digit limits: odometer up to 99999 km (digits only, required); ₹99,99,99,999. */
+export const ODOMETER_MAX_DIGITS = 5;
 export const AMOUNT_MAX_DIGITS = 9;
 export const SERVICE_CENTRE_MAX_LENGTH = 80;
 /** Suggestions shown under the service-centre search. */
