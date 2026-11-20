@@ -1,5 +1,6 @@
 import React, { forwardRef, useState, type ReactNode } from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   TextInput,
   View,
@@ -14,6 +15,8 @@ type InputVariant = 'input' | 'inputLarge' | 'inputSmall';
 
 export type TextFieldProps = Omit<TextInputProps, 'style'> & {
   label: string;
+  /** Don't draw the label (it still names the input for screen readers), e.g. a search box. */
+  labelHidden?: boolean;
   /**
    * 'dark' (default): the auth screens' translucent pill on the gradient.
    * 'light': the onboarding sheet's 48pt field (light bg, dark text, radius 8, label flush left).
@@ -23,6 +26,18 @@ export type TextFieldProps = Omit<TextInputProps, 'style'> & {
   rightAccessory?: ReactNode;
   /** Rendered before the input, e.g. "+91". Strings get input typography in text.primary. */
   prefix?: ReactNode;
+  /**
+   * A 16pt glyph before the input (search icon, "₹"). Figma (step4-service): the glyph starts 17pt in
+   * and the text 49pt in, i.e. 16pt after the glyph.
+   */
+  leftIcon?: ReactNode;
+  /** Small violet spinner on the right (vehicle-number lookup, step2-number-autofill.svg); replaces rightAccessory. */
+  loading?: boolean;
+  /**
+   * Not available yet (e.g. "Vehicle Model" before a make): muted text and a faded field. The label stays
+   * as is. Implies editable={false}.
+   */
+  disabled?: boolean;
   error?: string;
   /** Typography for the typed text, placeholder and prefix. */
   inputVariant?: InputVariant;
@@ -36,9 +51,13 @@ type TextInputRef = React.ComponentRef<typeof TextInput>;
 const TextField = forwardRef<TextInputRef, TextFieldProps>(function TextFieldInner(
   {
     label,
+    labelHidden = false,
     variant = 'dark',
     rightAccessory,
     prefix,
+    leftIcon,
+    loading = false,
+    disabled = false,
     error,
     inputVariant,
     paddingStart,
@@ -60,23 +79,31 @@ const TextField = forwardRef<TextInputRef, TextFieldProps>(function TextFieldInn
 
   return (
     <View style={style}>
-      <AppText
-        variant={isLight ? 'fieldLabel' : 'label'}
-        color={isLight ? 'text.onLight' : 'text.primary'}
-        style={styles.label}
-        accessibilityElementsHidden
-        importantForAccessibility="no"
-      >
-        {label}
-      </AppText>
+      {!labelHidden && (
+        <AppText
+          variant={isLight ? 'fieldLabel' : 'label'}
+          color={isLight ? 'text.onLight' : 'text.primary'}
+          style={styles.label}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        >
+          {label}
+        </AppText>
+      )}
       <View
         style={[
           styles.container,
           focused && styles.containerFocused,
           !!error && styles.containerError,
+          disabled && styles.containerDisabled,
           paddingStart !== undefined && { paddingLeft: paddingStart },
         ]}
       >
+        {leftIcon ? (
+          <View style={styles.leftIcon} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+            {leftIcon}
+          </View>
+        ) : null}
         {typeof prefix === 'string' ? (
           <AppText variant={textVariant} style={styles.prefix} importantForAccessibility="no">
             {prefix}
@@ -87,9 +114,15 @@ const TextField = forwardRef<TextInputRef, TextFieldProps>(function TextFieldInn
         <TextInput
           ref={ref}
           {...inputProps}
+          editable={disabled ? false : inputProps.editable}
           accessibilityLabel={accessibilityLabel ?? label}
           accessibilityHint={error}
-          style={[styles.input, theme.typography.variants[textVariant]]}
+          accessibilityState={loading || disabled ? { busy: loading, disabled } : undefined}
+          style={[
+            styles.input,
+            theme.typography.variants[textVariant],
+            disabled && { color: isLight ? theme.colors.text.onLightMuted : theme.colors.text.placeholder },
+          ]}
           placeholderTextColor={isLight ? theme.colors.text.onLightMuted : theme.colors.text.placeholder}
           selectionColor={theme.colors.primary.main}
           cursorColor={theme.colors.primary.main}
@@ -102,7 +135,16 @@ const TextField = forwardRef<TextInputRef, TextFieldProps>(function TextFieldInn
             onBlur?.(e);
           }}
         />
-        {rightAccessory}
+        {loading ? (
+          <ActivityIndicator
+            testID={inputProps.testID ? `${inputProps.testID}-loading` : undefined}
+            size="small"
+            color={theme.colors.input.lightSpinner}
+            style={styles.spinner}
+          />
+        ) : (
+          rightAccessory
+        )}
       </View>
       {!!error && (
         <AppText
@@ -135,7 +177,10 @@ const makeStyles = ({ colors, sizes, radius }: Theme) =>
     },
     containerFocused: { borderColor: colors.input.borderFocused },
     containerError: { borderColor: colors.status.error },
+    containerDisabled: { opacity: 0.5 },
     prefix: { marginRight: 8 },
+    leftIcon: { width: 16, alignItems: 'center', marginRight: 16 },
+    spinner: { marginLeft: 8, marginRight: 4 },
     input: {
       flex: 1,
       height: '100%',
@@ -162,9 +207,14 @@ const makeLightStyles = ({ colors, sizes, radius }: Theme) =>
       flexDirection: 'row',
       alignItems: 'center',
     },
-    containerFocused: { borderColor: colors.input.borderFocused },
+    // step2-number-autofill.svg: the focused field keeps its fill and gets a 1pt indigo border.
+    containerFocused: { borderColor: colors.input.lightBorderFocused },
     containerError: { borderColor: colors.status.errorOnLight },
+    containerDisabled: { opacity: 0.5 },
     prefix: { marginRight: 8 },
+    leftIcon: { width: 16, alignItems: 'center', marginRight: 16 },
+    // The 20pt indicator is centred where Figma's 16pt spinner sits (right edge 25pt from the field edge).
+    spinner: { marginLeft: 8, marginRight: 6 },
     input: {
       flex: 1,
       height: '100%',

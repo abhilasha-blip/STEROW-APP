@@ -10,6 +10,8 @@ import {
   DL_MAX_LENGTH,
   DL_PREFIX_LETTERS,
   EMAIL_MAX_LENGTH,
+  VEHICLE_NUMBER_MAX_LENGTH,
+  VEHICLE_NUMBER_PATTERN,
 } from '@/constants/onboarding';
 
 /** Parked PIN sign-in (out of navigation) still uses these. */
@@ -123,4 +125,26 @@ export const latestDobFor = (minAge: number, today: Date = new Date()): Date => 
 export const isOldEnough = (iso: string, minAge: number, today: Date = new Date()): boolean => {
   const date = parseIsoDate(iso);
   return !!date && date.getTime() <= latestDobFor(minAge, today).getTime();
+};
+
+/** Vehicle registration number as typed: upper-case A–Z / 0–9 only ("ts 09 ev-1234" → "TS09EV1234"). */
+export const normalizeVehicleNumber = (value: string): string =>
+  value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, VEHICLE_NUMBER_MAX_LENGTH);
+
+/** Indian registration number (standard "TS09EV1234" or BH series "22BH1234AB"). */
+export const isValidVehicleNumber = (value: string): boolean =>
+  VEHICLE_NUMBER_PATTERN.test(normalizeVehicleNumber(value));
+
+/** Indian digit grouping for a string of digits: "123456" → "1,23,456", "1234567" → "12,34,567". */
+export const formatIndianNumber = (digits: string): string => {
+  const d = digitsOnly(digits).replace(/^0+(?=\d)/, '');
+  if (d.length <= 3) {
+    return d;
+  }
+  const last3 = d.slice(-3);
+  const rest = d.slice(0, -3).replace(/\B(?=(\d{2})+$)/g, ',');
+  return `${rest},${last3}`;
 };

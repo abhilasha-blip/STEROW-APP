@@ -86,6 +86,10 @@ export const variants = {
   body: v(fontFamily.regular, 14, 20),
   /** "JPEG, PNG … Upto 10 MB" */
   hint: v(fontFamily.regular, 12, 16),
+  /** Unselected chip ("Petrol"). */
+  chip: v(fontFamily.regular, 14, 18),
+  /** Selected chip ("Electric ✓"). */
+  chipSelected: v(fontFamily.semiBold, 14, 18),
 } as const;
 
 export type TypographyVariant = keyof typeof variants;

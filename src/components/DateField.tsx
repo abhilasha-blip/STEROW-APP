@@ -23,6 +23,8 @@ type DateFieldProps = {
   maximumDate?: Date;
   minimumDate?: Date;
   error?: string;
+  /** Screen-reader hint for the field (default: step 1's date of birth). */
+  pickerA11yHint?: string;
   testID?: string;
   style?: StyleProp<ViewStyle>;
 };
@@ -42,6 +44,7 @@ export default function DateField({
   maximumDate,
   minimumDate,
   error,
+  pickerA11yHint = t.dobPickerA11y,
   testID = 'date-field',
   style,
 }: DateFieldProps) {
@@ -85,7 +88,7 @@ export default function DateField({
         onPress={open}
         accessibilityRole="button"
         accessibilityLabel={`${label}, ${display || placeholder}`}
-        accessibilityHint={error ?? t.dobPickerA11y}
+        accessibilityHint={error ?? pickerA11yHint}
       >
         <View pointerEvents="none">
           <TextField

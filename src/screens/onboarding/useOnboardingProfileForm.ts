@@ -9,7 +9,8 @@ import {
   createProfileSchema,
   getProfileVisibility,
   type ProfileFormValues,
-} from './profile.schema';
+} from './schemas/profile.schema';
+import { useFormMirror } from './useFormMirror';
 
 export type OnboardingProfileInitialValues = Partial<ProfileFormValues>;
 
@@ -19,6 +20,8 @@ export type UseOnboardingProfileFormOptions = {
   /** Receives the validated, normalised values. */
   onNext: (values: ProfileFormValues) => void;
   onSkip: () => void;
+  /** Every change (mirrored into the onboarding store so step 3 can reuse the DL photo). */
+  onValuesChange?: (values: ProfileFormValues) => void;
   /** Injectable clock (tests). */
   today?: () => Date;
 };
@@ -38,6 +41,7 @@ export function useOnboardingProfileForm({
   initialValues,
   onNext,
   onSkip,
+  onValuesChange,
   today = () => new Date(),
 }: UseOnboardingProfileFormOptions) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the clock is read at validation time
@@ -48,7 +52,8 @@ export function useOnboardingProfileForm({
     mode: 'onSubmit',
     reValidateMode: 'onChange',
   });
-  const { control, setValue, getValues, trigger, formState, handleSubmit } = form;
+  const { control, setValue, getValues, trigger, formState, handleSubmit, watch } = form;
+  useFormMirror(watch, onValuesChange);
 
   const [dlNumber, dlImageUri, avatar] = useWatch({
     control,

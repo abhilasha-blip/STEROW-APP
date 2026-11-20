@@ -66,6 +66,11 @@ export const palette = {
   mist100: '#E8E8F0',
   /** Round close / remove buttons on the light sheet. */
   mist200: '#DFDFE7',
+  /**
+   * Disabled primary button (design/onboarding step 2–4): Figma draws slate400 at 40% over mist50,
+   * which flattens to #D0D0DB. Kept solid so the button looks the same on any surface.
+   */
+  mist300: mix('#9B9BB0', '#F4F4F8', 0.6),
   slate400: '#9B9BB0',
   navy600: '#2F4A75',
   navy500: '#344C72',

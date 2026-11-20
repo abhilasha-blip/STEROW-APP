@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -40,6 +41,11 @@ export type BottomSheetProps = PropsWithChildren<{
   title?: string;
   /** Hide the close (X) button (e.g. small action sheets). */
   showClose?: boolean;
+  /**
+   * The content scrolls (e.g. a SelectField list): drag-to-close is limited to the title row so the
+   * list's own scrolling isn't taken over by the sheet.
+   */
+  scrollableContent?: boolean;
   testID?: string;
   contentStyle?: StyleProp<ViewStyle>;
 }>;
@@ -62,6 +68,7 @@ export default function BottomSheet({
   onClosed,
   title,
   showClose = true,
+  scrollableContent = false,
   testID,
   contentStyle,
   children,
@@ -148,6 +155,47 @@ export default function BottomSheet({
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value }));
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
 
+  const header =
+    title || showClose ? (
+      <View style={styles.header}>
+        <AppText
+          variant="sheetTitle"
+          color="text.onLight"
+          style={styles.title}
+          accessibilityRole="header"
+          numberOfLines={1}
+        >
+          {title ?? ''}
+        </AppText>
+        {showClose && (
+          <IconCircleButton
+            testID={testID ? `${testID}-close` : undefined}
+            onPress={requestClose}
+            accessibilityLabel={strings.common.close}
+          />
+        )}
+      </View>
+    ) : null;
+
+  const sheet = (
+    <Animated.View
+      testID={testID}
+      accessibilityViewIsModal
+      onLayout={e => {
+        sheetHeight.value = e.nativeEvent.layout.height;
+      }}
+      style={[
+        styles.sheet,
+        { paddingBottom: Math.max(insets.bottom - 22, 12) },
+        sheetStyle,
+        contentStyle,
+      ]}
+    >
+      {scrollableContent && header ? <GestureDetector gesture={pan}>{header}</GestureDetector> : header}
+      {children}
+    </Animated.View>
+  );
+
   return (
     <Modal
       visible={mounted}
@@ -168,43 +216,13 @@ export default function BottomSheet({
             accessibilityLabel={strings.common.close}
           />
         </Animated.View>
-        <GestureDetector gesture={pan}>
-          <Animated.View
-            testID={testID}
-            accessibilityViewIsModal
-            onLayout={e => {
-              sheetHeight.value = e.nativeEvent.layout.height;
-            }}
-            style={[
-              styles.sheet,
-              { paddingBottom: Math.max(insets.bottom - 22, 12) },
-              sheetStyle,
-              contentStyle,
-            ]}
-          >
-            {(title || showClose) && (
-              <View style={styles.header}>
-                <AppText
-                  variant="sheetTitle"
-                  color="text.onLight"
-                  style={styles.title}
-                  accessibilityRole="header"
-                  numberOfLines={1}
-                >
-                  {title ?? ''}
-                </AppText>
-                {showClose && (
-                  <IconCircleButton
-                    testID={testID ? `${testID}-close` : undefined}
-                    onPress={requestClose}
-                    accessibilityLabel={strings.common.close}
-                  />
-                )}
-              </View>
-            )}
-            {children}
-          </Animated.View>
-        </GestureDetector>
+        <KeyboardAvoidingView
+          style={styles.keyboard}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          pointerEvents="box-none"
+        >
+          {scrollableContent ? sheet : <GestureDetector gesture={pan}>{sheet}</GestureDetector>}
+        </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
   );
@@ -212,7 +230,8 @@ export default function BottomSheet({
 
 const makeStyles = ({ colors, radius, spacing }: Theme) =>
   StyleSheet.create({
-    root: { flex: 1, justifyContent: 'flex-end' },
+    root: { flex: 1 },
+    keyboard: { flex: 1, justifyContent: 'flex-end' },
     backdrop: { backgroundColor: colors.surface.scrimLight },
     sheet: {
       backgroundColor: colors.surface.sheetLight,

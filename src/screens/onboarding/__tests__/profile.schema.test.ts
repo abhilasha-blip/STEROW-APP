@@ -1,5 +1,5 @@
 import { strings } from '@/constants/strings';
-import { createProfileSchema, getProfileVisibility, type ProfileFormValues } from '../profile.schema';
+import { createProfileSchema, getProfileVisibility, type ProfileFormValues } from '../schemas/profile.schema';
 
 const e = strings.onboarding.errors;
 const schema = createProfileSchema(() => new Date(2026, 10, 19));

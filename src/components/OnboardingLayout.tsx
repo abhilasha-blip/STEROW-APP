@@ -22,6 +22,7 @@ import { strings } from '@/constants/strings';
 import { useThemedStyles, type Theme } from '@/theme';
 import { useScale } from '@/utils/scale';
 import AppText from './AppText';
+
 import AuthBackground from './AuthBackground';
 import BackButton from './BackButton';
 import ProgressBar from './ProgressBar';
@@ -35,6 +36,8 @@ export type OnboardingLayoutProps = PropsWithChildren<{
   subtitle?: string;
   /** Pinned below the content inside the scrolling sheet (Next + Skip). */
   footer?: ReactNode;
+  /** Minimum space between the last field and the footer (Figma varies per frame; default 49). */
+  footerGap?: number;
   onBack?: () => void;
   testID?: string;
 }>;
@@ -54,6 +57,12 @@ const GAP = {
 };
 const KEYBOARD_MARGIN = 16;
 
+/**
+ * Steps 2–4 open with a field label: Figma puts its cap height 33.6pt below the sheet top (217 → 250.6),
+ * i.e. the label's line box starts 5.3pt below the 24pt content padding.
+ */
+export const FIRST_LABEL_OFFSET = 5.3;
+
 /** Lets fields ask the layout to scroll them (and the footer, when it fits) above the keyboard. */
 const RevealContext = createContext<() => void>(() => undefined);
 export const useRevealOnFocus = () => useContext(RevealContext);
@@ -68,6 +77,7 @@ export default function OnboardingLayout({
   title,
   subtitle,
   footer,
+  footerGap = GAP.footer,
   onBack,
   testID = 'onboarding-layout',
   children,
@@ -191,7 +201,7 @@ export default function OnboardingLayout({
             <RevealContext.Provider value={reveal}>{children}</RevealContext.Provider>
             {footer ? (
               <>
-                <View style={styles.spacer} />
+                <View style={[styles.spacer, { minHeight: footerGap }]} />
                 <View ref={footerRef} style={styles.footer}>
                   {footer}
                 </View>
@@ -226,6 +236,6 @@ const makeStyles = ({ colors, radius, spacing }: Theme) =>
       paddingHorizontal: spacing.screenPaddingH,
     },
     content: { flexGrow: 1 },
-    spacer: { flexGrow: 1, minHeight: GAP.footer },
+    spacer: { flexGrow: 1 },
     footer: {},
   });

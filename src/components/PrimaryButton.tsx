@@ -19,6 +19,11 @@ type PrimaryButtonProps = {
   onPress: () => void;
   /** While loading the button shows a spinner and ignores presses (no faded state). */
   loading?: boolean;
+  /**
+   * The step's required input is missing (design/onboarding steps 2–4): a solid grey fill with a
+   * white label and no gradient; presses are ignored.
+   */
+  disabled?: boolean;
   showArrow?: boolean;
   /** 'button' (Medium 18, auth screens) or 'buttonStrong' (SemiBold 18, onboarding). */
   labelVariant?: 'button' | 'buttonStrong';
@@ -33,6 +38,7 @@ export default function PrimaryButton({
   label,
   onPress,
   loading = false,
+  disabled = false,
   showArrow = true,
   labelVariant = 'button',
   accessibilityLabel,
@@ -56,25 +62,30 @@ export default function PrimaryButton({
           onPress();
         }}
         onPressIn={() => {
+          if (disabled) {
+            return;
+          }
           pressed.value = withTiming(1, { duration: PRESS_MS });
         }}
         onPressOut={() => {
           pressed.value = withTiming(0, { duration: PRESS_MS });
         }}
         testID={testID}
-        disabled={loading}
+        disabled={loading || disabled}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
-        accessibilityState={{ busy: loading }}
-        style={styles.button}
+        accessibilityState={{ busy: loading, disabled }}
+        style={[styles.button, disabled && styles.disabled]}
       >
         {/* Childless gradient layer: wrapping children breaks layout under the New Arch interop. */}
-        <LinearGradient
-          colors={[colors.primary.main, colors.primary.gradientEnd]}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={StyleSheet.absoluteFill}
-        />
+        {!disabled && (
+          <LinearGradient
+            colors={[colors.primary.main, colors.primary.gradientEnd]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
         {loading ? (
           <ActivityIndicator color={colors.primary.contrastText} />
         ) : (
@@ -97,7 +108,7 @@ export default function PrimaryButton({
   );
 }
 
-const makeStyles = ({ sizes, radius }: Theme) =>
+const makeStyles = ({ colors, sizes, radius }: Theme) =>
   StyleSheet.create({
     button: {
       height: sizes.buttonHeight,
@@ -106,6 +117,7 @@ const makeStyles = ({ sizes, radius }: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
+    disabled: { backgroundColor: colors.primary.disabled },
     row: { flexDirection: 'row', alignItems: 'center' },
     arrow: { marginLeft: 8 },
   });

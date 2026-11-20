@@ -51,6 +51,12 @@ jest.mock('react-native-image-picker', () => ({
   launchCamera: jest.fn(() => Promise.resolve({ didCancel: true })),
   launchImageLibrary: jest.fn(() => Promise.resolve({ didCancel: true })),
 }));
+jest.mock('@react-native-documents/picker', () => ({
+  pick: jest.fn(() => Promise.reject(Object.assign(new Error('cancelled'), { code: 'OPERATION_CANCELED' }))),
+  types: { pdf: 'application/pdf', images: 'image/*' },
+  errorCodes: { OPERATION_CANCELED: 'OPERATION_CANCELED' },
+  isErrorWithCode: (e: unknown) => !!e && typeof e === 'object' && 'code' in e,
+}));
 jest.mock('react-native-safe-area-context', () =>
   require('react-native-safe-area-context/jest/mock').default,
 );
@@ -66,6 +72,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   jest.restoreAllMocks();
+  require('@/store/onboarding.store').__resetOnboardingStoreForTests();
   server.resetHandlers();
   require('react-native-keychain').__store.clear();
 });

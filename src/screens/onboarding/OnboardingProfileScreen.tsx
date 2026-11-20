@@ -17,7 +17,7 @@ import { strings } from '@/constants/strings';
 import { useTheme } from '@/theme';
 import { normalizeDlNumber } from '@/utils/validation';
 import AvatarPickerSheet from './AvatarPickerSheet';
-import type { ProfileFormValues } from './profile.schema';
+import type { ProfileFormValues } from './schemas/profile.schema';
 import {
   useOnboardingProfileForm,
   type OnboardingProfileForm,
@@ -32,6 +32,8 @@ export type OnboardingProfileScreenProps = {
   onNext: (values: ProfileFormValues) => void;
   onSkip: () => void;
   onBack?: () => void;
+  /** Every change (the onboarding store keeps step 1's values for later steps). */
+  onValuesChange?: (values: ProfileFormValues) => void;
   /** Injectable clock for the 18+ DOB rule (tests). */
   today?: () => Date;
 };
@@ -42,9 +44,10 @@ export default function OnboardingProfileScreen({
   onNext,
   onSkip,
   onBack,
+  onValuesChange,
   today,
 }: OnboardingProfileScreenProps) {
-  const profile = useOnboardingProfileForm({ initialValues, onNext, onSkip, today });
+  const profile = useOnboardingProfileForm({ initialValues, onNext, onSkip, onValuesChange, today });
 
   return (
     <OnboardingLayout

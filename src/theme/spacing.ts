@@ -44,6 +44,9 @@ export const sizes = {
   /** Calendar, upload, pencil, close glyphs. */
   iconSmall: 16,
   uploadBoxHeight: 218,
+  /** Chips (step2-number-autofill.svg): 40pt tall, 8pt apart in both directions. */
+  chipHeight: 40,
+  chipGap: 8,
 } as const;
 
 export type Sizes = typeof sizes;

@@ -21,6 +21,11 @@ export type AuthStackParamList = {
 export type OnboardingStackParamList = {
   /** Step 1 "My Profile". Tomorrow: initial values from user_details / OCR. */
   Step1Profile: { initialValues?: OnboardingProfileInitialValues } | undefined;
+  Step2Vehicle: undefined;
+  Step3Documents: undefined;
+  Step4Service: undefined;
+  /** Placeholder until the API saves onboarding. */
+  OnboardingComplete: undefined;
 };
 
 export type AppStackParamList = {

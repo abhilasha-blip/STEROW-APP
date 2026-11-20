@@ -15,6 +15,8 @@ export const colors = {
     main: palette.violet500,
     gradientEnd: palette.violet400,
     contrastText: palette.white,
+    /** Disabled primary button: solid grey fill, white label, no gradient. */
+    disabled: palette.mist300,
   },
   text: {
     primary: palette.white,
@@ -38,6 +40,17 @@ export const colors = {
     lightBorder: alpha(palette.black, 0.04),
     lightBorderDashed: palette.slate400,
     lightIcon: palette.indigo950,
+    /** Focused light field (step2-number-autofill.svg: a 1pt indigo950 border). */
+    lightBorderFocused: palette.indigo950,
+    /** Loading spinner inside a light field. */
+    lightSpinner: palette.violet500,
+  },
+  chip: {
+    background: palette.white,
+    border: palette.mist100,
+    selectedBorder: palette.violet500,
+    /** Check-circle after the selected chip's label. */
+    selectedIcon: palette.violet500,
   },
   progress: {
     track: alpha(palette.white, 0.16),
