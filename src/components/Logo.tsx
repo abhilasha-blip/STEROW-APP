@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import LogoFull from '@/assets/icons/logo-full.svg';
 import { useTheme } from '@/theme';
@@ -7,7 +7,7 @@ import { useScale } from '@/utils/scale';
 type LogoProps = { style?: StyleProp<ViewStyle> };
 
 /** STEROW logo exactly as exported from Figma (200 x 60 frame, centred). */
-export default function Logo({ style }: LogoProps) {
+function Logo({ style }: LogoProps) {
   const { colors, sizes } = useTheme();
   const { s } = useScale();
   return (
@@ -29,3 +29,5 @@ export default function Logo({ style }: LogoProps) {
 const styles = StyleSheet.create({
   root: { alignItems: 'center' },
 });
+
+export default memo(Logo);

@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DEFAULT_AVATAR_ID, type AvatarValue } from '@/constants/avatars';
 import { MIN_AGE_YEARS } from '@/constants/onboarding';
@@ -11,6 +11,7 @@ import {
   type ProfileFormValues,
 } from './schemas/profile.schema';
 import { useFormMirror } from './useFormMirror';
+import { useFormSelector } from './useFormSelector';
 
 export type OnboardingProfileInitialValues = Partial<ProfileFormValues>;
 
@@ -55,11 +56,12 @@ export function useOnboardingProfileForm({
   const { control, setValue, getValues, trigger, formState, handleSubmit, watch } = form;
   useFormMirror(watch, onValuesChange);
 
-  const [dlNumber, dlImageUri, avatar] = useWatch({
-    control,
-    name: ['dlNumber', 'dlImageUri', 'avatar'],
-  });
-  const visibility = getProfileVisibility({ dlNumber, dlImageUri });
+  // Re-renders the step only when a section appears/disappears or the avatar changes, not per keystroke.
+  const { avatar, showUpload, showPersonal } = useFormSelector(watch, getValues, v => ({
+    avatar: v.avatar,
+    ...getProfileVisibility(v),
+  }));
+  const visibility = useMemo(() => ({ showUpload, showPersonal }), [showUpload, showPersonal]);
 
   const revalidate = formState.isSubmitted;
 

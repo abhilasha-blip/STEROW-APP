@@ -1,13 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { toUserError } from '@/api/errorMessages';
 import AppText from '@/components/AppText';
+import BufferedTextField, { type BufferedTextFieldHandle } from '@/components/BufferedTextField';
 import CountryPrefix from '@/components/CountryPrefix';
 import CountrySheet from '@/components/CountrySheet';
 import Logo from '@/components/Logo';
 import PrimaryButton from '@/components/PrimaryButton';
 import ScreenContainer, { type ViewRef } from '@/components/ScreenContainer';
-import TextField from '@/components/TextField';
 import { useToast } from '@/components/Toast';
 import { REFERRAL_MAX } from '@/constants/auth';
 import { COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from '@/constants/countries';
@@ -30,36 +30,81 @@ const t = strings.mobileEntry;
 const GAP = { title: 62.4, subtitle: 14.7, field: 42.5, nextField: 24, button: 40, footer: 29.2 };
 
 type FieldErrors = { fullName?: string; phone?: string; referralCode?: string };
-type TextInputRef = React.ComponentRef<typeof TextInput>;
 
-/** Sign In and Create Account: one screen, two modes. Both send an OTP to the mobile number. */
+/**
+ * Sign In and Create Account: one screen, two modes. Both send an OTP to the mobile number.
+ *
+ * Performance: the text fields own their text (BufferedTextField) and report it into refs, so a
+ * keystroke re-renders only that field – not this screen, its full-screen SVG background, the logo,
+ * the button or the country sheet. The screen re-renders on a keystroke only to clear a shown error.
+ */
 export default function MobileEntryScreen({ navigation, route }: AuthStackScreenProps<'MobileEntry'>) {
   const { vs } = useScale();
   const toast = useToast();
   const buttonRef = useRef<ViewRef>(null);
-  const phoneRef = useRef<TextInputRef>(null);
-  const referralRef = useRef<TextInputRef>(null);
+  const fullNameField = useRef<BufferedTextFieldHandle>(null);
+  const phoneField = useRef<BufferedTextFieldHandle>(null);
+  const referralField = useRef<BufferedTextFieldHandle>(null);
 
   const [mode, setMode] = useState<AuthMode>(route.params?.mode ?? 'signin');
-  const [fullName, setFullName] = useState('');
   const [country, setCountry] = useState<CountryCode>(route.params?.country ?? DEFAULT_COUNTRY);
   const [countrySheetOpen, setCountrySheetOpen] = useState(false);
   /** Set once the user picks a country, so a late preference read never overrides that choice. */
   const countryTouched = useRef(!!route.params?.country);
-  const [phone, setPhone] = useState(route.params?.phone ?? '');
-  const [referralCode, setReferralCode] = useState('');
-  const [errors, setErrors] = useState<FieldErrors>({});
+  /** Latest field values. Written by the fields on every keystroke without re-rendering the screen. */
+  const fullName = useRef('');
+  const phone = useRef(normalizeNational(country, route.params?.phone ?? ''));
+  const referralCode = useRef('');
+  const [errors, setErrorsState] = useState<FieldErrors>({});
+  const errorsRef = useRef(errors);
   const requestOtp = useRequestOtp();
   const copy = t[mode];
+
+  const setErrors = useCallback((next: FieldErrors) => {
+    errorsRef.current = next;
+    setErrorsState(next);
+  }, []);
+
+  /** Typing clears that field's error; a no-op (no render) when none is shown. */
+  const clearError = useCallback(
+    (field: keyof FieldErrors) => {
+      if (errorsRef.current[field]) {
+        setErrors({ ...errorsRef.current, [field]: undefined });
+      }
+    },
+    [setErrors],
+  );
+
+  const onFullNameChange = useCallback(
+    (v: string) => {
+      fullName.current = v;
+      clearError('fullName');
+    },
+    [clearError],
+  );
+  const onPhoneChange = useCallback(
+    (v: string) => {
+      phone.current = v;
+      clearError('phone');
+    },
+    [clearError],
+  );
+  const onReferralChange = useCallback(
+    (v: string) => {
+      referralCode.current = v;
+      clearError('referralCode');
+    },
+    [clearError],
+  );
+  const formatPhone = useCallback((v: string) => normalizeNational(country, v), [country]);
 
   /** Updates maxLength/validation; a number that isn't valid for the new country is cleared. */
   const applyCountry = (next: CountryCode) => {
     setCountry(next);
-    setPhone(prev => {
-      const n = normalizeNational(next, prev);
-      return isValidMobile(next, n) ? n : '';
-    });
-    setErrors(e => ({ ...e, phone: undefined }));
+    const n = normalizeNational(next, phone.current);
+    phone.current = isValidMobile(next, n) ? n : '';
+    phoneField.current?.setValue(phone.current);
+    clearError('phone');
   };
 
   // Remembered country (default India). Skipped when the route or the user already chose one.
@@ -73,6 +118,7 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
   }, []);
 
   const onSelectCountry = (next: CountryCode) => {
@@ -92,13 +138,13 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
 
   const validate = (): FieldErrors => {
     const next: FieldErrors = {};
-    if (mode === 'signup' && !isValidFullName(fullName)) {
+    if (mode === 'signup' && !isValidFullName(fullName.current)) {
       next.fullName = t.invalidFullName;
     }
-    if (!isValidMobile(country, phone)) {
+    if (!isValidMobile(country, phone.current)) {
       next.phone = t.invalidMobile[country];
     }
-    if (mode === 'signup' && !isValidReferralCode(referralCode)) {
+    if (mode === 'signup' && !isValidReferralCode(referralCode.current)) {
       next.referralCode = t.invalidReferral;
     }
     return next;
@@ -118,10 +164,10 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
     const signup = submittedMode === 'signup';
     const input = {
       country,
-      phone,
+      phone: phone.current,
       purpose: submittedMode,
-      fullName: signup ? fullName : undefined,
-      referralCode: signup && referralCode ? referralCode : undefined,
+      fullName: signup ? fullName.current : undefined,
+      referralCode: signup && referralCode.current ? referralCode.current : undefined,
     };
     requestOtp.mutate(input, {
       onSuccess: ({ requestId }) => {
@@ -150,6 +196,14 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
 
   const isSignup = mode === 'signup';
   const { length: phoneLength, stripTrunkZero } = COUNTRIES[country];
+  const openCountrySheet = useCallback(() => setCountrySheetOpen(true), []);
+  const closeCountrySheet = useCallback(() => setCountrySheetOpen(false), []);
+  const countryPrefix = useMemo(
+    () => <CountryPrefix country={country} onPress={openCountrySheet} disabled={requestOtp.isPending} />,
+    [country, openCountrySheet, requestOtp.isPending],
+  );
+  const focusPhone = useCallback(() => phoneField.current?.focus(), []);
+  const focusReferral = useCallback(() => referralField.current?.focus(), []);
 
   return (
     <ScreenContainer car designTop={104} keyboardAnchorRef={buttonRef}>
@@ -170,69 +224,57 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
       </AppText>
 
       {isSignup && (
-        <TextField
+        <BufferedTextField
+          ref={fullNameField}
           testID="full-name"
           style={{ marginTop: vs(GAP.field) }}
           label={t.fullNameLabel}
           placeholder={t.fullNamePlaceholder}
-          value={fullName}
-          onChangeText={v => {
-            setFullName(v);
-            setErrors(e => ({ ...e, fullName: undefined }));
-          }}
+          initialValue={fullName.current}
+          onValueChange={onFullNameChange}
           autoCapitalize="words"
           autoCorrect={false}
           textContentType="name"
           autoComplete="name"
           returnKeyType="next"
-          onSubmitEditing={() => phoneRef.current?.focus()}
+          onSubmitEditing={focusPhone}
           submitBehavior="submit"
           error={errors.fullName}
         />
       )}
 
-      <TextField
-        ref={phoneRef}
+      <BufferedTextField
+        ref={phoneField}
         testID="phone"
         style={{ marginTop: vs(isSignup ? GAP.nextField : GAP.field) }}
         label={t.mobileLabel}
-        prefix={
-          <CountryPrefix
-            country={country}
-            onPress={() => setCountrySheetOpen(true)}
-            disabled={requestOtp.isPending}
-          />
-        }
+        prefix={countryPrefix}
         inputVariant="inputLarge"
         paddingStart={16}
         placeholder={t.mobilePlaceholder}
-        value={phone}
-        onChangeText={v => {
-          setPhone(normalizeNational(country, v));
-          setErrors(e => ({ ...e, phone: undefined }));
-        }}
+        initialValue={phone.current}
+        format={formatPhone}
+        onValueChange={onPhoneChange}
         keyboardType="phone-pad"
         // +1 lets a UAE number be typed with its trunk 0 ("050…"); normalizeNational strips it.
         maxLength={phoneLength + (stripTrunkZero ? 1 : 0)}
         textContentType="telephoneNumber"
         autoComplete="tel"
         returnKeyType={isSignup ? 'next' : 'done'}
-        onSubmitEditing={isSignup ? () => referralRef.current?.focus() : onSubmit}
+        onSubmitEditing={isSignup ? focusReferral : onSubmit}
         error={errors.phone}
       />
 
       {isSignup && (
-        <TextField
-          ref={referralRef}
+        <BufferedTextField
+          ref={referralField}
           testID="referral"
           style={{ marginTop: vs(GAP.nextField) }}
           label={t.referralLabel}
           placeholder={t.referralPlaceholder}
-          value={referralCode}
-          onChangeText={v => {
-            setReferralCode(normalizeReferralCode(v));
-            setErrors(e => ({ ...e, referralCode: undefined }));
-          }}
+          initialValue={referralCode.current}
+          format={normalizeReferralCode}
+          onValueChange={onReferralChange}
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={REFERRAL_MAX}
@@ -266,7 +308,7 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
         visible={countrySheetOpen}
         selected={country}
         onSelect={onSelectCountry}
-        onClose={() => setCountrySheetOpen(false)}
+        onClose={closeCountrySheet}
       />
     </ScreenContainer>
   );

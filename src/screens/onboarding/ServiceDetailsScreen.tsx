@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, View } from 'react-native';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import SearchIcon from '@/assets/icons/search.svg';
 import AppText from '@/components/AppText';
@@ -30,6 +30,7 @@ import {
   type ServiceFormValues,
 } from './schemas/service.schema';
 import { useFormMirror } from './useFormMirror';
+import { useFormSelector } from './useFormSelector';
 
 const t = strings.onboarding;
 const sv = t.service;
@@ -64,10 +65,13 @@ export default function ServiceDetailsScreen({
     resolver: zodResolver(serviceFieldsSchema),
     defaultValues: { ...EMPTY_SERVICE, ...initialValues },
   });
-  const { control, handleSubmit, watch } = form;
+  const { control, handleSubmit, watch, getValues } = form;
   useFormMirror(watch, onValuesChange);
-  const values = useWatch({ control }) as ServiceFormValues;
-  const canProceed = canProceedService(values);
+  // Only what the screen shows: typing in a field re-renders that field, not the whole step.
+  const { canProceed, centreType } = useFormSelector(watch, getValues, v => ({
+    canProceed: canProceedService(v),
+    centreType: v.centreType,
+  }));
   // eslint-disable-next-line react-hooks/exhaustive-deps -- computed once per mount
   const maxDate = useMemo(() => today(), []);
 
@@ -128,7 +132,7 @@ export default function ServiceDetailsScreen({
           <ServiceCentreSearch
             value={field.value}
             onChange={field.onChange}
-            centreType={values.centreType}
+            centreType={centreType}
           />
         )}
       />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppText from '@/components/AppText';
@@ -16,7 +16,7 @@ type Props = {
 const t = strings.mobileEntry;
 
 /** Bottom sheet listing the supported countries: flag, name, dial code and a check on the selected one. */
-export default function CountrySheet({ visible, selected, onSelect, onClose }: Props) {
+function CountrySheet({ visible, selected, onSelect, onClose }: Props) {
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   return (
@@ -106,3 +106,5 @@ const makeStyles = ({ colors, radius, spacing, sizes }: Theme) =>
     name: { flex: 1, marginRight: spacing.sm },
     checkSlot: { width: 28, alignItems: 'flex-end' },
   });
+
+export default memo(CountrySheet);

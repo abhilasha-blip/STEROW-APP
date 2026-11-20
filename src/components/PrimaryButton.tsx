@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -34,7 +34,7 @@ type PrimaryButtonProps = {
 
 const PRESS_MS = 90;
 
-export default function PrimaryButton({
+function PrimaryButton({
   label,
   onPress,
   loading = false,
@@ -121,3 +121,5 @@ const makeStyles = ({ colors, sizes, radius }: Theme) =>
     row: { flexDirection: 'row', alignItems: 'center' },
     arrow: { marginLeft: 8 },
   });
+
+export default memo(PrimaryButton);

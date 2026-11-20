@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import {
   Image,
   StyleSheet,
@@ -37,7 +37,7 @@ type AuthBackgroundProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-export default function AuthBackground({ car = false, style }: AuthBackgroundProps) {
+function AuthBackground({ car = false, style }: AuthBackgroundProps) {
   const { colors } = useTheme();
   const { width: W, height: H } = useWindowDimensions();
   const { background } = colors;
@@ -112,3 +112,5 @@ export default function AuthBackground({ car = false, style }: AuthBackgroundPro
 const styles = StyleSheet.create({
   bottom: { position: 'absolute', left: 0, bottom: 0 },
 });
+
+export default memo(AuthBackground);

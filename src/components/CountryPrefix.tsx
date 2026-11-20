@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import AppText from '@/components/AppText';
 import { COUNTRIES, type CountryCode } from '@/constants/countries';
@@ -14,7 +14,7 @@ type Props = {
 const t = strings.mobileEntry;
 
 /** "🇮🇳 +91 ▾" inside the mobile field, followed by a thin divider. Opens the country sheet. */
-export default function CountryPrefix({ country, onPress, disabled }: Props) {
+function CountryPrefix({ country, onPress, disabled }: Props) {
   const styles = useThemedStyles(makeStyles);
   const c = COUNTRIES[country];
   return (
@@ -54,3 +54,5 @@ const makeStyles = ({ colors }: Theme) =>
       backgroundColor: colors.surface.divider,
     },
   });
+
+export default memo(CountryPrefix);
