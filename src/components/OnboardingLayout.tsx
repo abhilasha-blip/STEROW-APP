@@ -23,8 +23,8 @@ import { useThemedStyles, type Theme } from '@/theme';
 import { useScale } from '@/utils/scale';
 import AppText from './AppText';
 
-import AuthBackground from './AuthBackground';
 import BackButton from './BackButton';
+import OnboardingBackground from './OnboardingBackground';
 import ProgressBar from './ProgressBar';
 
 type ViewRef = React.ComponentRef<typeof View>;
@@ -68,7 +68,7 @@ const RevealContext = createContext<() => void>(() => undefined);
 export const useRevealOnFocus = () => useContext(RevealContext);
 
 /**
- * Onboarding shell: dark header (auth gradient + glow) with back button, progress bar and "1/4",
+ * Onboarding shell: dark header (OnboardingBackground: flat base + violet glows) with back button, progress bar and "1/4",
  * centred title/subtitle; then a light sheet (20pt top radius) that fills the screen and scrolls.
  */
 export default function OnboardingLayout({
@@ -139,7 +139,7 @@ export default function OnboardingLayout({
 
   return (
     <View style={styles.root} testID={testID}>
-      <AuthBackground />
+      <OnboardingBackground />
       <View style={[styles.header, { paddingTop }]}>
         <View style={styles.row}>
           <BackButton onPress={onBack} />

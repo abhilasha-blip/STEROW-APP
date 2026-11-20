@@ -10,6 +10,11 @@ export const colors = {
     gradientMid: palette.indigo900,
     gradientEnd: palette.indigo950,
     glow: palette.violetGlow,
+    /**
+     * Onboarding header: a flat base with soft violet glows (OnboardingBackground). Sign In / Create
+     * Account keep the diagonal gradient above: their Figma frames use a different background.
+     */
+    onboardingBase: palette.indigo975,
   },
   primary: {
     main: palette.violet500,

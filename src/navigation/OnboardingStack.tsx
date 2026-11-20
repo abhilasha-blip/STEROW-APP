@@ -153,7 +153,7 @@ export default function OnboardingStack() {
         headerShown: false,
         animation: 'slide_from_right',
         gestureEnabled: true,
-        contentStyle: { backgroundColor: colors.background.gradientMid },
+        contentStyle: { backgroundColor: colors.background.onboardingBase },
       }}
     >
       <Stack.Screen name="Step1Profile" component={Step1ProfileRoute} />

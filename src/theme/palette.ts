@@ -51,6 +51,8 @@ export const palette = {
   indigo700: '#352C92',
   indigo900: '#1D2061',
   indigo950: '#1B1F5E',
+  /** Onboarding header base (design/onboarding step 2–4 frames: the frame fill under the glows). */
+  indigo975: '#14163A',
 
   // Brand violet: primary buttons, links, focus. Change this one value to re-brand.
   violet500: brandViolet,
