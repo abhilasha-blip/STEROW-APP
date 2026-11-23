@@ -79,6 +79,22 @@ export const palette = {
   /** Dark text on light surfaces (onboarding labels and input text). */
   ink900: '#0D0F2B',
 
+  // Dashboard / drawer / My Documents / Share Access (design/dashboard, 2026-11-23).
+  /** Tile icon circles. */
+  mist150: '#E1E1EA',
+  /** Tab bar top border. */
+  mist175: '#E1E1E5',
+  /** "Active" status pill border (My Documents). */
+  grey300: '#D4D4D4',
+  /** Section titles ("Quick Links", "Document List", "Personal Information") and card names. */
+  brown900: '#4A2511',
+  /** SOS button. */
+  orange400: '#FF8D28',
+  /** "1 Pending" (Challans), unverified email. */
+  red500: '#FF474A',
+  /** Verified badges, health check. */
+  green500: '#34C759',
+
   white,
   black,
   red400: '#FF6B6B',

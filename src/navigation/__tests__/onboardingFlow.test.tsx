@@ -104,15 +104,15 @@ describe('onboarding flow (Profile → Driving Licence → Documents)', () => {
     expect(await screen.findByTestId('onboarding-dl')).toBeTruthy();
   });
 
-  it('2/3 Next → 3/3 (RC, Insurance, Pollution; no DL card); Back keeps the licence', async () => {
+  it('2/3 Next → 3/3 (RC, Insurance, Pollution, FASTag; no DL card); Back keeps the licence', async () => {
     await renderFlow(['Step1Profile', 'Step2DrivingLicence'], 'onboarding-dl');
     await fillDl();
     await fireEvent.press(screen.getByTestId('dl-next'));
     expect(await screen.findByTestId('onboarding-documents')).toBeTruthy();
     expect(stepText()).toHaveTextContent('3/3');
-    expect(screen.getByTestId('document-rc-box-empty')).toBeTruthy();
-    expect(screen.getByTestId('document-insurance-box-empty')).toBeTruthy();
-    expect(screen.getByTestId('document-pollution')).toHaveTextContent(new RegExp(strings.onboarding.documents.pollutionLabel));
+    expect(screen.getByTestId('document-rc-upload')).toBeTruthy();
+    expect(screen.getByTestId('document-insurance-manual')).toBeTruthy();
+    expect(screen.getByTestId('document-pollution')).toHaveTextContent(/Pollution \(PUC\)/);
     expect(screen.queryByTestId('document-license')).toBeNull();
 
     await back();
@@ -128,27 +128,23 @@ describe('onboarding flow (Profile → Driving Licence → Documents)', () => {
     expect(await screen.findByTestId('onboarding-documents')).toBeTruthy();
   });
 
-  it('3/3: Vehicle Number + Model on top; four optional cards; number fields appear under an attached card', async () => {
+  it('3/3: vehicle selector on top, then RC, Insurance, Pollution (PUC), FASTag cards; Next grey until a document is added', async () => {
     await renderFlow(['Step3Documents'], 'onboarding-documents');
-    expect(screen.getByTestId('documents-vehicle-number')).toBeTruthy();
-    expect(screen.getByTestId('documents-vehicle-model')).toBeTruthy();
+    expect(stepText()).toHaveTextContent('3/3');
+    expect(screen.getByTestId('vehicle-select')).toHaveTextContent(strings.onboarding.documents.vehiclePlaceholder);
     for (const key of ['rc', 'insurance', 'pollution', 'fastag']) {
-      expect(screen.getByTestId(`document-${key}-box-empty`)).toBeTruthy();
+      expect(screen.getByTestId(`document-${key}`)).toHaveTextContent(new RegExp(strings.onboarding.documents.cards[key as 'rc'].title.replace(/[()]/g, '.')));
     }
-    expect(screen.queryByTestId('document-insurance-policy-no')).toBeNull();
-    expect(disabled('documents-next')).toBe(true); // vehicle number + model needed
-
-    mockedPick.mockResolvedValueOnce([{ uri: 'file:///ins.pdf', name: 'insurance.pdf', type: 'application/pdf', size: 2048 }] as never);
-    await fireEvent.press(screen.getByTestId('document-insurance-box-empty'));
-    await fireEvent.press(await screen.findByTestId('document-insurance-source-document'));
-    expect(await screen.findByText('insurance.pdf')).toBeTruthy();
-    expect(screen.getByTestId('document-insurance-policy-no')).toBeTruthy();
-    expect(screen.getByTestId('document-insurance-insurer')).toBeTruthy();
-    expect(screen.queryByTestId('document-rc-registration')).toBeNull(); // the RC uses the vehicle number
-
-    await fireEvent.changeText(screen.getByTestId('documents-vehicle-number'), 'ts09 ev1234');
-    expect(screen.getByTestId('documents-vehicle-number').props.value).toBe('TS09EV1234');
-    expect(store().documents).toMatchObject({ vehicleNumber: 'TS09EV1234', insurance: { name: 'insurance.pdf' } });
+    expect(disabled('documents-next')).toBe(true);
+    mockedPick.mockResolvedValueOnce([{ uri: 'file:///rc.pdf', name: 'rc.pdf', type: 'application/pdf', size: 2048 }] as never);
+    await fireEvent.press(screen.getByTestId('document-rc-upload'));
+    await fireEvent.press(await screen.findByTestId('document-rc-source-document'));
+    expect(await screen.findByText('rc.pdf')).toBeTruthy();
+    expect(screen.getByTestId('document-rc-added')).toBeTruthy();
+    expect(disabled('documents-next')).toBe(true); // no vehicle selected yet
+    expect(store().documents.rc.file).toMatchObject({ name: 'rc.pdf' });
+    await fireEvent.press(screen.getByTestId('document-rc-remove'));
+    expect(screen.queryByTestId('document-rc-added')).toBeNull();
   });
 
   it('3/3 Skip → Dashboard', async () => {

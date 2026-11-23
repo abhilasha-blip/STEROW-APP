@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { toUserError } from '@/api/errorMessages';
@@ -14,12 +14,13 @@ import {
   useDrivingLicenceStepData,
   useSaveDrivingLicenceStep,
 } from '@/hooks/api/useDrivingLicenceStep';
-import { useSaveDocumentsStep, useVehicleModels } from '@/hooks/api/useDocumentsStep';
+import { useMyVehicles, useSaveDocumentsStep } from '@/hooks/api/useDocumentsStep';
 import { savedAvatar, useProfileStepData, useSaveProfileStep } from '@/hooks/api/useProfileStep';
 import { useOnboardingSkip } from '@/hooks/useOnboardingSkip';
 import DrivingLicenceScreen from '@/screens/onboarding/DrivingLicenceScreen';
 import OnboardingProfileScreen from '@/screens/onboarding/OnboardingProfileScreen';
 import VehicleDocumentsScreen from '@/screens/onboarding/VehicleDocumentsScreen';
+import AddVehicleScreen from '@/screens/vehicles/AddVehicleScreen';
 import type {
   DocumentsFormValues,
   DrivingLicenceFormValues,
@@ -49,8 +50,10 @@ const summarizeDl = (v: DrivingLicenceFormValues) => ({
 const summarizeAll = (v: OnboardingValues) => ({
   profile: v.profile ? summarizeProfile(v.profile) : null,
   drivingLicence: v.drivingLicence ? summarizeDl(v.drivingLicence) : null,
-  vehicle: { number: !!v.documents.vehicleNumber, model: !!v.documents.variantId },
-  documents: Object.fromEntries(DOCUMENT_KEYS.map(k => [k, v.documents[k]?.mimeType ?? null])),
+  vehicle: !!v.documents.vehicleId,
+  documents: Object.fromEntries(
+    DOCUMENT_KEYS.map(k => [k, { file: v.documents[k].file?.mimeType ?? null, details: !!v.documents[k].fields }]),
+  ),
 });
 
 /** Read once per mount: a re-entered step starts from the store, then mirrors its changes back. */
@@ -239,20 +242,48 @@ function Step2DrivingLicenceForm({
 
 /* ----------------------------------- 3/3 Documents ----------------------------------- */
 
-function Step3DocumentsRoute({ navigation }: OnboardingStackScreenProps<'Step3Documents'>) {
+function Step3DocumentsRoute({ navigation, route }: OnboardingStackScreenProps<'Step3Documents'>) {
   const toast = useToast();
   const uid = useAuthStore(st => st.user?.id);
   const setDocuments = useOnboardingStore(st => st.setDocuments);
   const markSkipped = useOnboardingSkip();
-  const [initialValues] = useState<DocumentsFormValues>(() => useOnboardingStore.getState().documents);
-  const models = useVehicleModels(!!uid);
+  const [values, setValues] = useState<DocumentsFormValues>(() => useOnboardingStore.getState().documents);
+  const vehicles = useMyVehicles(uid);
   const save = useSaveDocumentsStep(uid ?? '');
 
-  const next = (values: DocumentsFormValues) => {
-    setDocuments(values);
+  const update = useCallback(
+    (next: DocumentsFormValues) => {
+      setValues(next);
+      setDocuments(next);
+    },
+    [setDocuments],
+  );
+
+  // Preselect: the vehicle just added (back from "Add new vehicle"), else the first one.
+  const addedId = route.params?.vehicleId;
+  const firstId = vehicles.data?.[0]?.id;
+  useEffect(() => {
+    const next = addedId ?? (values.vehicleId ? undefined : firstId);
+    if (next && next !== values.vehicleId) {
+      update({ ...values, vehicleId: next });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the list / the added id changes
+  }, [addedId, firstId]);
+
+  const options = useMemo(
+    () =>
+      (vehicles.data ?? []).map(v => ({
+        id: v.id,
+        vehicleNumber: v.vehicleNumber,
+        name: [v.makeName, v.modelName].filter(Boolean).join(' '),
+      })),
+    [vehicles.data],
+  );
+
+  const next = (current: DocumentsFormValues) => {
+    const vehicle = vehicles.data?.find(v => v.id === current.vehicleId);
     const summary = summarizeAll(selectOnboardingValues(useOnboardingStore.getState()));
-    const model = models.data?.find(m => m.value === values.variantId);
-    if (!uid || !model) {
+    if (!uid || !vehicle) {
       logger.info('onboarding complete (no signed-in user: nothing saved)', summary);
       exitToDashboard(navigation); // dev QA screens
       return;
@@ -261,7 +292,7 @@ function Step3DocumentsRoute({ navigation }: OnboardingStackScreenProps<'Step3Do
       return;
     }
     save.mutate(
-      { values, model },
+      { values: current, vehicle },
       {
         onSuccess: () => {
           logger.info('onboarding complete', summary);
@@ -275,19 +306,28 @@ function Step3DocumentsRoute({ navigation }: OnboardingStackScreenProps<'Step3Do
 
   return (
     <VehicleDocumentsScreen
-      initialValues={initialValues}
-      modelOptions={models.data ?? []}
-      modelsLoading={models.isLoading}
-      modelsError={models.isError ? strings.onboarding.documents.vehicleModelsFailed : undefined}
+      values={values}
+      onChange={update}
+      vehicles={options}
+      vehiclesLoading={vehicles.isLoading}
+      onAddVehicle={() => navigation.navigate('Step3AddVehicle')}
       saving={save.isPending}
       onBack={backIfPossible(navigation)}
-      onValuesChange={setDocuments}
       onNext={next}
       onSkip={() => {
         logger.info('onboarding 3/3: skip');
         markSkipped('documents');
         exitToDashboard(navigation);
       }}
+    />
+  );
+}
+
+function Step3AddVehicleRoute({ navigation }: OnboardingStackScreenProps<'Step3AddVehicle'>) {
+  return (
+    <AddVehicleScreen
+      onBack={() => navigation.goBack()}
+      onSaved={vehicleId => navigation.popTo('Step3Documents', { vehicleId })}
     />
   );
 }
@@ -309,6 +349,7 @@ export default function OnboardingStack() {
       <Stack.Screen name="Step1Profile" component={Step1ProfileRoute} />
       <Stack.Screen name="Step2DrivingLicence" component={Step2DrivingLicenceRoute} />
       <Stack.Screen name="Step3Documents" component={Step3DocumentsRoute} />
+      <Stack.Screen name="Step3AddVehicle" component={Step3AddVehicleRoute} />
     </Stack.Navigator>
   );
 }

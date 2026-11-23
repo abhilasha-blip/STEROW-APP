@@ -5,6 +5,7 @@ import DocumentsUploadList from '@/components/DocumentsUploadList';
 import VehicleForm from '@/components/VehicleForm';
 import { useVehicleForm } from '@/hooks/useVehicleForm';
 import { EMPTY_DOCUMENTS } from '@/screens/onboarding/schemas';
+import { strings } from '@/constants/strings';
 import { Providers } from '../../../test/render';
 
 /*
@@ -44,6 +45,8 @@ describe('reusable vehicle components (no onboarding header)', () => {
     expect(screen.getByTestId('document-pollution')).toBeTruthy();
     expect(screen.getByTestId('document-fastag')).toBeTruthy();
     expect(screen.queryByTestId('document-license')).toBeNull();
+    expect(screen.getAllByText(strings.onboarding.documents.uploadFile)).toHaveLength(4);
+    expect(screen.getAllByText(strings.onboarding.documents.addManually)).toHaveLength(4);
     expect(screen.queryByTestId('onboarding-step')).toBeNull();
   });
 });

@@ -1,60 +1,88 @@
-import { z } from 'zod';
 import { DOCUMENT_KEYS, type DocumentKey } from '@/constants/onboarding';
-import { uploadedFileSchema } from '@/utils/uploadFile';
-import { isValidVehicleNumber } from '@/utils/validation';
+import type { UploadedFile } from '@/utils/uploadFile';
+import { parseIsoDate } from '@/utils/validation';
 
-/**
- * 3/3 form state: the vehicle (number + model, the minimum the database needs) and four optional
- * documents, each a file plus its required number field(s).
- */
-export const documentsFieldsSchema = z.object({
-  /** Normalised as typed: upper-case A–Z / 0–9. Also the RC's registration number. */
-  vehicleNumber: z.string(),
-  /** vehicle_variant_master id (make + model + variant; fuel / transmission come from it). */
-  variantId: z.string().nullable(),
-  rc: uploadedFileSchema.nullable(),
-  insurance: uploadedFileSchema.nullable(),
-  insurancePolicyNo: z.string(),
-  insurer: z.string(),
-  pollution: uploadedFileSchema.nullable(),
-  pucCertificateNo: z.string(),
-  fastag: uploadedFileSchema.nullable(),
-  fastagId: z.string(),
-});
-export type DocumentsFormValues = z.infer<typeof documentsFieldsSchema>;
+/** "Add Manually" details (the fields each table needs; see vehicleDocuments.service). */
+export type DocumentFieldValues = {
+  registrationNumber?: string;
+  policyNo?: string;
+  insurer?: string;
+  certificateNo?: string;
+  fastagId?: string;
+  /** "YYYY-MM-DD": insurance expiry / PUC validity. */
+  expiry?: string | null;
+};
 
-export type DocumentNumberField = 'insurancePolicyNo' | 'insurer' | 'pucCertificateNo' | 'fastagId';
+/** One card: an uploaded file, typed details, or both. */
+export type DocumentEntry = { file: UploadedFile | null; fields: DocumentFieldValues | null };
 
-/** The number field(s) each document needs (database NOT NULL / web rule). The RC uses the vehicle number. */
-export const DOCUMENT_NUMBER_FIELDS: Record<DocumentKey, readonly DocumentNumberField[]> = {
-  rc: [],
-  insurance: ['insurancePolicyNo', 'insurer'],
-  pollution: ['pucCertificateNo'],
+/** 3/3 form state: the selected vehicle and one entry per document. */
+export type DocumentsFormValues = { vehicleId: string | null } & Record<DocumentKey, DocumentEntry>;
+
+export type DocumentField = keyof DocumentFieldValues;
+
+/** The fields of each "Add Manually" form, in order; all are required. */
+export const DOCUMENT_FORM_FIELDS: Record<DocumentKey, readonly DocumentField[]> = {
+  rc: ['registrationNumber'],
+  insurance: ['policyNo', 'insurer', 'expiry'],
+  pollution: ['certificateNo', 'expiry'],
   fastag: ['fastagId'],
 };
 
-export const EMPTY_DOCUMENTS: DocumentsFormValues = {
-  vehicleNumber: '',
-  variantId: null,
-  rc: null,
-  insurance: null,
-  insurancePolicyNo: '',
-  insurer: '',
-  pollution: null,
-  pucCertificateNo: '',
-  fastag: null,
-  fastagId: '',
+/**
+ * What a saved row needs (database NOT NULL / web rule): RC nothing (the registration number defaults to
+ * the vehicle number), Insurance policy no. + insurer, PUC certificate no., FASTag id. Expiry dates are
+ * asked for in the form (they drive My Documents' statuses) and are checked by the form itself.
+ */
+const SAVE_REQUIRED: Record<DocumentKey, readonly DocumentField[]> = {
+  rc: [],
+  insurance: ['policyNo', 'insurer'],
+  pollution: ['certificateNo'],
+  fastag: ['fastagId'],
 };
 
-/** Documents with a file attached (the ones Next saves). */
-export const attachedDocuments = (v: DocumentsFormValues): DocumentKey[] => DOCUMENT_KEYS.filter(key => !!v[key]);
+const EMPTY_ENTRY: DocumentEntry = { file: null, fields: null };
 
-export const countAttachedDocuments = (v: DocumentsFormValues): number => attachedDocuments(v).length;
+export const EMPTY_DOCUMENTS: DocumentsFormValues = {
+  vehicleId: null,
+  rc: EMPTY_ENTRY,
+  insurance: EMPTY_ENTRY,
+  pollution: EMPTY_ENTRY,
+  fastag: EMPTY_ENTRY,
+};
 
-/** An attached document's number fields are all filled. */
-export const isDocumentComplete = (v: DocumentsFormValues, key: DocumentKey): boolean =>
-  DOCUMENT_NUMBER_FIELDS[key].every(f => !!v[f].trim());
+export type DocumentStatus = 'empty' | 'needsDetails' | 'added';
 
-/** 3/3 Next: a valid vehicle number, a model, and every attached document complete (documents are optional). */
+const filled = (v: unknown) => typeof v === 'string' && v.trim().length > 0;
+
+/** The "Add Manually" form is complete (all its fields; dates valid). */
+export const isFormComplete = (key: DocumentKey, fields: DocumentFieldValues | null): boolean =>
+  !!fields &&
+  DOCUMENT_FORM_FIELDS[key].every(f => (f === 'expiry' ? !!fields.expiry && !!parseIsoDate(fields.expiry) : filled(fields[f])));
+
+/**
+ * - empty: nothing attached or typed
+ * - needsDetails: a file whose required details are missing (Insurance / PUC / FASTag can't be saved
+ *   with a file alone)
+ * - added: ready to save (✓ Added)
+ */
+export function documentStatus(key: DocumentKey, entry: DocumentEntry): DocumentStatus {
+  if (entry.fields && isFormComplete(key, entry.fields)) {
+    return 'added';
+  }
+  if (!entry.file) {
+    return 'empty';
+  }
+  return SAVE_REQUIRED[key].length === 0 ? 'added' : 'needsDetails';
+}
+
+export const addedDocuments = (v: DocumentsFormValues): DocumentKey[] =>
+  DOCUMENT_KEYS.filter(k => documentStatus(k, v[k]) === 'added');
+
+export const countAttachedDocuments = (v: DocumentsFormValues): number => addedDocuments(v).length;
+
+/** 3/3 Next: a vehicle, at least one added document, and no file left without its details. */
 export const canProceedDocuments = (v: DocumentsFormValues): boolean =>
-  isValidVehicleNumber(v.vehicleNumber) && !!v.variantId && attachedDocuments(v).every(k => isDocumentComplete(v, k));
+  !!v.vehicleId &&
+  addedDocuments(v).length > 0 &&
+  DOCUMENT_KEYS.every(k => documentStatus(k, v[k]) !== 'needsDetails');

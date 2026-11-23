@@ -40,6 +40,8 @@ export type OnboardingLayoutProps = PropsWithChildren<{
   footerGap?: number;
   /** Omitted when there is nothing to go back to (onboarding opened as the start route): no arrow. */
   onBack?: () => void;
+  /** Horizontal padding inside the sheet (default 24; 3/3's white cards sit ≈ 9pt from the edges). */
+  contentPaddingH?: number;
   testID?: string;
 }>;
 
@@ -80,6 +82,7 @@ export default function OnboardingLayout({
   footer,
   footerGap = GAP.footer,
   onBack,
+  contentPaddingH,
   testID = 'onboarding-layout',
   children,
 }: OnboardingLayoutProps) {
@@ -203,6 +206,7 @@ export default function OnboardingLayout({
           contentContainerStyle={[
             styles.scrollContent,
             { paddingBottom: Math.max(insets.bottom - 22, 12) },
+            contentPaddingH !== undefined && { paddingHorizontal: contentPaddingH },
           ]}
         >
           <View ref={contentRef} style={styles.content}>

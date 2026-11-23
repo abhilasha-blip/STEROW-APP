@@ -1,47 +1,52 @@
 import { DOCUMENT_KEYS, ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from '@/constants/onboarding';
 import {
-  attachedDocuments,
+  addedDocuments,
   canProceedDocuments,
-  DOCUMENT_NUMBER_FIELDS,
+  DOCUMENT_FORM_FIELDS,
+  documentStatus,
   EMPTY_DOCUMENTS,
   type DocumentsFormValues,
 } from '../schemas';
 import type { UploadedFile } from '@/utils/uploadFile';
 
 const FILE: UploadedFile = { uri: 'file:///a.jpg', name: 'a.jpg', mimeType: 'image/jpeg' };
-const vehicle: DocumentsFormValues = { ...EMPTY_DOCUMENTS, vehicleNumber: 'TS09EV1234', variantId: 'variant-1' };
+const withVehicle: DocumentsFormValues = { ...EMPTY_DOCUMENTS, vehicleId: 'v-1' };
+const INSURANCE = { policyNo: 'P1', insurer: 'Acko', expiry: '2027-01-15' };
 
 describe('onboarding rules', () => {
-  it('3 steps: Profile 1/3, Driving Licence 2/3, Documents 3/3', () => {
+  it('3 steps: Profile 1/3, Driving Licence 2/3, Documents 3/3 (the design says "3/4": inconsistency)', () => {
     expect(ONBOARDING_TOTAL_STEPS).toBe(3);
     expect(ONBOARDING_STEP).toEqual({ profile: 1, drivingLicence: 2, documents: 3 });
   });
 
-  it('3/3 has RC, Insurance, Pollution and FASTag; required numbers per card (RC uses the vehicle number)', () => {
+  it('3/3 cards: RC, Insurance, Pollution, FASTag (last); "Add Manually" fields per card', () => {
     expect(DOCUMENT_KEYS).toEqual(['rc', 'insurance', 'pollution', 'fastag']);
-    expect(DOCUMENT_NUMBER_FIELDS).toEqual({
-      rc: [],
-      insurance: ['insurancePolicyNo', 'insurer'],
-      pollution: ['pucCertificateNo'],
+    expect(DOCUMENT_FORM_FIELDS).toEqual({
+      rc: ['registrationNumber'],
+      insurance: ['policyNo', 'insurer', 'expiry'],
+      pollution: ['certificateNo', 'expiry'],
       fastag: ['fastagId'],
     });
   });
 
-  it('3/3 Next needs a valid vehicle number and a model; documents are optional', () => {
-    expect(canProceedDocuments(EMPTY_DOCUMENTS)).toBe(false);
-    expect(canProceedDocuments({ ...vehicle, vehicleNumber: 'TS09' })).toBe(false);
-    expect(canProceedDocuments({ ...vehicle, variantId: null })).toBe(false);
-    expect(canProceedDocuments(vehicle)).toBe(true);
+  it('card status: empty → file (RC: added; others: needs details) → details → added', () => {
+    expect(documentStatus('rc', { file: null, fields: null })).toBe('empty');
+    expect(documentStatus('rc', { file: FILE, fields: null })).toBe('added');
+    expect(documentStatus('insurance', { file: FILE, fields: null })).toBe('needsDetails');
+    expect(documentStatus('insurance', { file: FILE, fields: { policyNo: 'P1', insurer: 'Acko' } })).toBe('needsDetails');
+    expect(documentStatus('insurance', { file: null, fields: INSURANCE })).toBe('added');
+    expect(documentStatus('insurance', { file: FILE, fields: INSURANCE })).toBe('added');
+    expect(documentStatus('pollution', { file: null, fields: { certificateNo: 'C1', expiry: 'bad' } })).toBe('empty');
+    expect(documentStatus('fastag', { file: null, fields: { fastagId: 'F1' } })).toBe('added');
   });
 
-  it("an added document needs its number field(s); the RC doesn't", () => {
-    expect(canProceedDocuments({ ...vehicle, rc: FILE })).toBe(true);
-    expect(canProceedDocuments({ ...vehicle, insurance: FILE, insurancePolicyNo: 'P1' })).toBe(false);
-    expect(canProceedDocuments({ ...vehicle, insurance: FILE, insurancePolicyNo: 'P1', insurer: 'Acko' })).toBe(true);
-    expect(canProceedDocuments({ ...vehicle, pollution: FILE, pucCertificateNo: ' ' })).toBe(false);
-    expect(canProceedDocuments({ ...vehicle, fastag: FILE, fastagId: 'F1' })).toBe(true);
-    expect(attachedDocuments({ ...vehicle, rc: FILE, fastag: FILE })).toEqual(['rc', 'fastag']);
-    // Numbers typed for a card without a file are ignored.
-    expect(canProceedDocuments({ ...vehicle, insurancePolicyNo: 'P1' })).toBe(true);
+  it('Next: a vehicle, ≥ 1 added document, no file left without its details', () => {
+    expect(canProceedDocuments(withVehicle)).toBe(false);
+    expect(canProceedDocuments({ ...withVehicle, rc: { file: FILE, fields: null } })).toBe(true);
+    expect(canProceedDocuments({ ...EMPTY_DOCUMENTS, rc: { file: FILE, fields: null } })).toBe(false); // no vehicle
+    expect(
+      canProceedDocuments({ ...withVehicle, rc: { file: FILE, fields: null }, insurance: { file: FILE, fields: null } }),
+    ).toBe(false);
+    expect(addedDocuments({ ...withVehicle, fastag: { file: null, fields: { fastagId: 'F1' } } })).toEqual(['fastag']);
   });
 });

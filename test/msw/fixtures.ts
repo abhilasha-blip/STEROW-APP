@@ -101,3 +101,22 @@ export const vehicleVariants = [
   { id: 'variant-old', variant_name: 'Old', model_id: 'model-verna', fuel_type: 'Diesel', transmission_type: 'Manual', is_active: false },
 ];
 export const CREATED_VEHICLE_ID = 'vehicle-1';
+
+/** A user_vehicles row as listMyVehicles reads it (names embedded). */
+export const vehicleRow = (id: string, number: string) => ({
+  id,
+  vehicle_number: number,
+  make_id: 'make-mg',
+  model_id: 'model-zs',
+  variant_id: 'variant-essence',
+  fuel_type: 'Electric',
+  make: { name: 'MG' },
+  model: { name: 'ZS EV' },
+  variant: { variant_name: 'Essence' },
+});
+/** The signed-in user's vehicles (GET user_vehicles); vehicles created in a test are appended. */
+export const myVehicles: ReturnType<typeof vehicleRow>[] = [];
+export function resetMyVehicles(rows: ReturnType<typeof vehicleRow>[] = []): void {
+  myVehicles.length = 0;
+  myVehicles.push(...rows);
+}

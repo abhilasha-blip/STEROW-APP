@@ -23,8 +23,13 @@ export type OnboardingStackParamList = {
   Step1Profile: { initialValues?: OnboardingProfileInitialValues } | undefined;
   /** 2/3 "Driving Licence": number, file, Issued on, Valid up to. */
   Step2DrivingLicence: undefined;
-  /** 3/3 Documents: RC, Insurance, Pollution. Next / Skip → the Dashboard (onboarding reset out of history). */
-  Step3Documents: undefined;
+  /**
+   * 3/3 "Your Vehicle Documents": vehicle selector + RC, Insurance, PUC, FASTag. Next / Skip → the
+   * Dashboard (onboarding reset out of history). `vehicleId`: the vehicle just added (selected).
+   */
+  Step3Documents: { vehicleId?: string } | undefined;
+  /** "Add new vehicle" from 3/3's vehicle selector. */
+  Step3AddVehicle: undefined;
 };
 
 export type AppStackParamList = {

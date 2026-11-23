@@ -16,6 +16,9 @@ import {
   vehicleModels,
   vehicleVariants,
   CREATED_VEHICLE_ID,
+  myVehicles,
+  resetMyVehicles,
+  vehicleRow,
 } from './fixtures';
 import { urls } from './urls';
 import { ENDPOINTS } from '@/api/endpoints';
@@ -41,6 +44,7 @@ export function resetHandlerState(): void {
   requestCounter = 0;
   requestLog.length = 0;
   resetOnboardingBackend();
+  resetMyVehicles();
 }
 
 /** Happy-path defaults; tests override with server.use(...). */
@@ -138,9 +142,16 @@ export const handlers = [
     await log(request);
     return HttpResponse.json(vehicleVariants);
   }),
+  http.get(urls.userVehicles, async ({ request }) => {
+    await log(request);
+    return HttpResponse.json(myVehicles);
+  }),
   http.post(urls.userVehicles, async ({ request }) => {
     await log(request);
-    return HttpResponse.json({ id: CREATED_VEHICLE_ID }, { status: 201 });
+    const body = (await request.clone().json()) as { vehicle_number: string };
+    const id = myVehicles.length ? `${CREATED_VEHICLE_ID}-${myVehicles.length + 1}` : CREATED_VEHICLE_ID;
+    myVehicles.push(vehicleRow(id, body.vehicle_number));
+    return HttpResponse.json({ id }, { status: 201 });
   }),
   ...[REST.VDOCS_RC, REST.VDOCS_INSURANCE, REST.VDOCS_POLLUTION, REST.VDOCS_FASTAG].map(table =>
     http.post(urls.vdocs(table), async ({ request }) => {

@@ -8,7 +8,7 @@ import { restError } from '../rest';
 import { parseOrThrow } from '../schemas/auth.schemas';
 import { getSupabase } from '../supabase';
 import { removeFile, uploadFile, type LocalFile } from './storage.service';
-import type { CreatedVehicle } from './vehicle.service';
+import type { VehicleRef } from './vehicle.service';
 
 const { REST, STORAGE } = ENDPOINTS.SUPABASE;
 
@@ -29,8 +29,22 @@ const EXTENSIONS: Record<string, string> = {
   'application/pdf': 'pdf',
 };
 
-/** The typed number(s) a document needs (the RC uses the vehicle number). */
-export type DocumentNumbers = { policyNo?: string; insurer?: string; certificateNo?: string; fastagId?: string };
+/**
+ * A document's typed details (the "Add Manually" form). Required per type (database NOT NULL / web rule):
+ * RC → registration number (defaults to the vehicle number); Insurance → policy number + insurer;
+ * Pollution → certificate number; FASTag → FASTag ID. `expiry` ("YYYY-MM-DD") is the insurance end date /
+ * the PUC validity.
+ */
+export type DocumentFields = {
+  registrationNumber?: string;
+  policyNo?: string;
+  insurer?: string;
+  certificateNo?: string;
+  fastagId?: string;
+  expiry?: string | null;
+};
+/** @deprecated name kept for older call sites. */
+export type DocumentNumbers = DocumentFields;
 
 const required = (value: string | undefined, label: string) => {
   const v = value?.trim();
@@ -39,60 +53,71 @@ const required = (value: string | undefined, label: string) => {
   }
   return v;
 };
+const upper = (v: string) => v.toUpperCase().replace(/\s+/g, '');
 
 /**
- * The vdocs row as the web builds it: `vehicle_id`, the required number(s), `registration_number` = the
- * vehicle number, `make_id / model_id / variant_id` on RC and insurance, and the file path.
+ * The vdocs row as the web builds it: `vehicle_id`, the required number(s), `registration_number`,
+ * `make_id / model_id / variant_id` on RC and insurance, the expiry column, and the file path (if any).
  */
 export function documentRow(
   key: DocumentKey,
-  vehicle: CreatedVehicle,
-  numbers: DocumentNumbers,
-  documentPath: string,
-): Record<string, string> {
-  const base = { vehicle_id: vehicle.id, registration_number: vehicle.vehicleNumber, document_path: documentPath };
-  const links = { make_id: vehicle.model.makeId, model_id: vehicle.model.modelId, variant_id: vehicle.model.variantId };
+  vehicle: VehicleRef,
+  fields: DocumentFields,
+  documentPath: string | null,
+): Record<string, string | null> {
+  const base: Record<string, string | null> = {
+    vehicle_id: vehicle.id,
+    registration_number: vehicle.vehicleNumber,
+    ...(documentPath ? { document_path: documentPath } : {}),
+  };
+  const links = { make_id: vehicle.makeId, model_id: vehicle.modelId, variant_id: vehicle.variantId };
+  const expiry = fields.expiry || null;
   switch (key) {
     case 'rc':
-      return { ...base, ...links };
+      return { ...base, ...links, registration_number: upper(fields.registrationNumber?.trim() || vehicle.vehicleNumber) };
     case 'insurance':
       return {
         ...base,
         ...links,
-        policy_no: required(numbers.policyNo, 'Policy number'),
-        insurer: required(numbers.insurer, 'Insurer'),
+        policy_no: required(fields.policyNo, 'Policy number'),
+        insurer: required(fields.insurer, 'Insurer'),
+        end_date: expiry,
       };
     case 'pollution':
-      return { ...base, certificate_no: required(numbers.certificateNo, 'Certificate number') };
+      return { ...base, certificate_no: required(fields.certificateNo, 'Certificate number'), validity_expiry_date: expiry };
     case 'fastag':
-      return { ...base, fastag_id: required(numbers.fastagId, 'FASTag ID') };
+      return { ...base, fastag_id: required(fields.fastagId, 'FASTag ID') };
   }
 }
 
 const Created = z.object({ id: z.string() });
 
 /**
- * Uploads the file to vehicle-docs/<uid>/<table>/<uuid>.<ext> and inserts the row. If the insert
- * fails, the uploaded file is removed (as the web does). Returns the new row id.
+ * Saves one document: the file (optional) to vehicle-docs/<uid>/<table>/<uuid>.<ext>, then the row. If
+ * the insert fails, the uploaded file is removed (as the web does). Returns the new row id.
  */
 export async function saveVehicleDocument(
   uid: string,
   key: DocumentKey,
-  vehicle: CreatedVehicle,
-  file: LocalFile,
-  numbers: DocumentNumbers,
+  vehicle: VehicleRef,
+  file: LocalFile | null,
+  fields: DocumentFields,
 ): Promise<string> {
   const table = DOCUMENT_TABLES[key];
-  const ext = EXTENSIONS[file.mimeType];
-  if (!ext) {
+  const ext = file ? EXTENSIONS[file.mimeType] : undefined;
+  if (file && !ext) {
     throw new ApiError({ kind: 'validation', code: 'UNSUPPORTED_FILE', message: `Unsupported type ${file.mimeType}` });
   }
   // Validate before uploading anything.
-  documentRow(key, vehicle, numbers, '');
-  const path = await uploadFile(STORAGE.VEHICLE_DOCS, STORAGE_PATHS.vehicleDocument(uid, table, newId(), ext), file);
-  const res = await getSupabase().from(table).insert(documentRow(key, vehicle, numbers, path)).select('id').single();
+  documentRow(key, vehicle, fields, null);
+  const path = file
+    ? await uploadFile(STORAGE.VEHICLE_DOCS, STORAGE_PATHS.vehicleDocument(uid, table, newId(), ext!), file)
+    : null;
+  const res = await getSupabase().from(table).insert(documentRow(key, vehicle, fields, path)).select('id').single();
   if (res.error) {
-    await removeFile(STORAGE.VEHICLE_DOCS, path).catch(e => logger.warn('orphan document file', { table, e: String(e) }));
+    if (path) {
+      await removeFile(STORAGE.VEHICLE_DOCS, path).catch(e => logger.warn('orphan document file', { table, e: String(e) }));
+    }
     throw restError(res);
   }
   return parseOrThrow(Created, res.data, `${table} insert`).id;

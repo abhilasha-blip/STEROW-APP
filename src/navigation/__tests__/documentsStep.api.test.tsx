@@ -1,23 +1,27 @@
 import { http, HttpResponse } from 'msw';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { pick } from '@react-native-documents/picker';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { strings } from '@/constants/strings';
-import { CREATED_VEHICLE_ID, setOnboardingBackend, TEST_OTP, UID } from '../../../test/msw/fixtures';
+import {
+  CREATED_VEHICLE_ID,
+  resetMyVehicles,
+  setOnboardingBackend,
+  TEST_OTP,
+  UID,
+  vehicleRow,
+} from '../../../test/msw/fixtures';
 import { requestLog, server } from '../../../test/msw/server';
 import { urls } from '../../../test/msw/urls';
 import { goToVerify, typeOtp } from '../../../test/flows';
 import { renderApp, resetAppState } from '../../../test/render';
 
 const mockedLibrary = launchImageLibrary as jest.MockedFunction<typeof launchImageLibrary>;
-const mockedPick = pick as jest.MockedFunction<typeof pick>;
 const HIDDEN = { includeHiddenElements: true };
 const d = strings.onboarding.documents;
 
 beforeEach(() => {
   resetAppState();
   mockedLibrary.mockReset();
-  mockedPick.mockReset();
 });
 afterEach(resetAppState);
 
@@ -28,29 +32,40 @@ async function onStep3() {
   await goToVerify();
   await typeOtp(TEST_OTP);
   await screen.findByTestId('onboarding-documents');
-  await waitFor(() => expect(screen.getByTestId('documents-vehicle-model').props.accessibilityState?.busy).not.toBe(true));
+  // The selector is disabled while the user's vehicles load.
+  await waitFor(() => expect(screen.getByTestId('vehicle-select').props.accessibilityState?.disabled).toBe(false));
   requestLog.length = 0;
 }
 
-async function fillVehicle(number = 'TS09EV1234') {
-  await fireEvent.changeText(screen.getByTestId('documents-vehicle-number'), number);
-  await fireEvent.press(screen.getByTestId('documents-vehicle-model'));
-  await fireEvent.press(await screen.findByTestId('documents-vehicle-model-option-variant-essence'));
-  await waitFor(() => expect(screen.queryByTestId('documents-vehicle-model-sheet')).toBeNull());
+async function choose(select: string, option: string) {
+  await fireEvent.press(screen.getByTestId(select));
+  await fireEvent.press(await screen.findByTestId(`${select}-option-${option}`));
+  await waitFor(() => expect(screen.queryByTestId(`${select}-sheet`)).toBeNull());
 }
 
-async function attachPhoto(key: string, uri: string) {
+async function addVehicle(number = 'TS09EV1234') {
+  await fireEvent.press(screen.getByTestId('vehicle-select'));
+  await screen.findByTestId('add-vehicle');
+  await fireEvent.changeText(screen.getByTestId('add-vehicle-number'), number);
+  await choose('add-vehicle-make', 'make-mg');
+  await choose('add-vehicle-model', 'model-zs');
+  expect(screen.queryByTestId('add-vehicle-variant')).toBeNull(); // one variant → picked automatically
+  await fireEvent.press(screen.getByTestId('add-vehicle-save'));
+  await waitFor(() => expect(screen.queryByTestId('add-vehicle', HIDDEN)).toBeNull());
+}
+
+async function uploadPhoto(key: string, uri: string) {
   mockedLibrary.mockResolvedValueOnce({ assets: [{ uri, type: 'image/jpeg', fileName: uri.split('/').pop(), fileSize: 1024 }] });
-  await fireEvent.press(screen.getByTestId(`document-${key}-box-empty`));
+  await fireEvent.press(screen.getByTestId(`document-${key}-upload`));
   await fireEvent.press(await screen.findByTestId(`document-${key}-source-gallery`));
-  await screen.findByTestId(`document-${key}-box-image`);
+  await screen.findByTestId(`document-${key}-file`);
 }
 
-async function attachPdf(key: string, name: string) {
-  mockedPick.mockResolvedValueOnce([{ uri: `file:///tmp/${name}`, name, type: 'application/pdf', size: 2048 }] as never);
-  await fireEvent.press(screen.getByTestId(`document-${key}-box-empty`));
-  await fireEvent.press(await screen.findByTestId(`document-${key}-source-document`));
-  await screen.findByText(name);
+async function pickDate(testID: string, date: Date) {
+  await fireEvent.press(screen.getByTestId(testID));
+  const picker = await screen.findByTestId(`${testID}-picker`);
+  await act(() => picker.props.onChange({ type: 'set' }, date));
+  await fireEvent.press(screen.getByTestId(`${testID}-done`));
 }
 
 const disabled = (id: string) => screen.getByTestId(id).props.accessibilityState?.disabled === true;
@@ -60,89 +75,110 @@ const writes = () =>
     .map(r => `${r.method} ${decodeURIComponent(r.url.split('?')[0]).replace(urls.storageRoot, 'storage').replace(/^https:\/\/[^/]+/, '')}`);
 const bodyOf = (url: string) => requestLog.find(r => r.method === 'POST' && r.url.startsWith(url))?.body;
 
-describe('3/3 vehicle + documents with the API', () => {
-  it('the model picker lists "Make Model – Variant" from the master data (active only)', async () => {
+describe('3/3 "Your Vehicle Documents" with the API', () => {
+  it('no vehicle yet → "Add your vehicle"; Next is disabled; Skip → Dashboard', async () => {
     await onStep3();
-    await fireEvent.press(screen.getByTestId('documents-vehicle-model'));
-    expect(await screen.findByText('MG ZS EV – Essence')).toBeTruthy();
-    expect(screen.getByText('Hyundai Verna – 1.6 VTVT SX')).toBeTruthy();
-    expect(screen.queryByText(/Old$/)).toBeNull();
+    expect(screen.getByTestId('vehicle-select')).toHaveTextContent(d.vehiclePlaceholder);
+    expect(screen.getByText(d.title)).toBeTruthy();
+    expect(screen.getByText(d.subtitle)).toBeTruthy();
+    for (const key of ['rc', 'insurance', 'pollution', 'fastag']) {
+      expect(screen.getByTestId(`document-${key}-upload`)).toHaveTextContent(new RegExp(d.uploadFile));
+      expect(screen.getByTestId(`document-${key}-manual`)).toHaveTextContent(new RegExp(d.addManually));
+    }
+    expect(disabled('documents-next')).toBe(true);
+    await fireEvent.press(screen.getByTestId('documents-skip'));
+    expect(await screen.findByTestId('dashboard')).toBeTruthy();
   });
 
-  it('Next: vehicle (minimal row) → RC + Insurance + FASTag → toast → Dashboard (Back can\'t return)', async () => {
+  it('Add new vehicle → minimal vehicle → selected; RC upload + Insurance details → Next saves both → Dashboard', async () => {
     await onStep3();
-    await fillVehicle();
-    expect(disabled('documents-next')).toBe(false); // documents are optional
-    await attachPhoto('rc', 'file:///tmp/rc.jpg');
-    await attachPdf('insurance', 'policy.pdf');
-    expect(disabled('documents-next')).toBe(true); // insurance numbers missing
-    await fireEvent.changeText(screen.getByTestId('document-insurance-policy-no'), 'p-123');
-    await fireEvent.changeText(screen.getByTestId('document-insurance-insurer'), 'Acko');
-    await attachPhoto('fastag', 'file:///tmp/fastag.jpg');
-    await fireEvent.changeText(screen.getByTestId('document-fastag-id'), 'ft-9');
+    await addVehicle();
+    expect(screen.getByTestId('vehicle-select')).toHaveTextContent('TS09EV1234 (MG ZS EV)');
+    expect(bodyOf(urls.userVehicles)).toMatchObject({ vehicle_number: 'TS09EV1234', variant_id: 'variant-essence' });
+    expect(await screen.findByText(strings.onboarding.addVehicle.saved)).toBeTruthy();
+
+    await uploadPhoto('rc', 'file:///tmp/rc.jpg');
+    expect(screen.getByTestId('document-rc-added')).toBeTruthy();
     expect(disabled('documents-next')).toBe(false);
 
+    await fireEvent.press(screen.getByTestId('document-insurance-manual'));
+    await screen.findByTestId('document-insurance-details');
+    await fireEvent.changeText(screen.getByTestId('document-insurance-details-policyNo'), 'p-123');
+    await fireEvent.changeText(screen.getByTestId('document-insurance-details-insurer'), 'Acko');
+    await pickDate('document-insurance-details-expiry', new Date(2027, 0, 15));
+    await fireEvent.press(screen.getByTestId('document-insurance-details-save'));
+    expect(await screen.findByTestId('document-insurance-added')).toBeTruthy();
+    expect(screen.getByTestId('document-insurance-manual')).toHaveTextContent(new RegExp(d.editDetails));
+
+    requestLog.length = 0;
     await fireEvent.press(screen.getByTestId('documents-next'));
     expect(await screen.findByTestId('dashboard')).toBeTruthy();
     expect(await screen.findByText(d.saved)).toBeTruthy();
-    await waitFor(() => expect(screen.queryByTestId('onboarding-documents', HIDDEN)).toBeNull());
-
-    const uuid = '[0-9a-f-]{36}';
     expect(writes()).toEqual([
-      'POST /rest/v1/user_vehicles',
-      expect.stringMatching(new RegExp(`^POST storage/object/vehicle-docs/${UID}/vdocs_regcertificate/${uuid}\\.jpg$`)),
+      expect.stringMatching(new RegExp(`^POST storage/object/vehicle-docs/${UID}/vdocs_regcertificate/[0-9a-f-]{36}\\.jpg$`)),
       'POST /rest/v1/vdocs_regcertificate',
-      expect.stringMatching(new RegExp(`^POST storage/object/vehicle-docs/${UID}/vdocs_insurance/${uuid}\\.pdf$`)),
       'POST /rest/v1/vdocs_insurance',
-      expect.stringMatching(new RegExp(`^POST storage/object/vehicle-docs/${UID}/vdocs_fastag/${uuid}\\.jpg$`)),
-      'POST /rest/v1/vdocs_fastag',
     ]);
-    expect(bodyOf(urls.userVehicles)).toEqual({
-      vehicle_number: 'TS09EV1234',
-      make_id: 'make-mg',
-      model_id: 'model-zs',
-      variant_id: 'variant-essence',
-      fuel_type: 'Electric',
-      transmission_type: 'Automatic',
-      rc_number: 'TS09EV1234',
-      current_odometer: 0,
-      entry_method: 'manual',
-    });
     expect(bodyOf(urls.vdocs('vdocs_regcertificate'))).toMatchObject({
       vehicle_id: CREATED_VEHICLE_ID,
       registration_number: 'TS09EV1234',
       make_id: 'make-mg',
     });
-    expect(bodyOf(urls.vdocs('vdocs_insurance'))).toMatchObject({ policy_no: 'P-123', insurer: 'Acko', vehicle_id: CREATED_VEHICLE_ID });
-    expect(bodyOf(urls.vdocs('vdocs_fastag'))).toMatchObject({ fastag_id: 'FT-9', vehicle_id: CREATED_VEHICLE_ID });
+    expect(bodyOf(urls.vdocs('vdocs_insurance'))).toEqual({
+      vehicle_id: CREATED_VEHICLE_ID,
+      registration_number: 'TS09EV1234',
+      make_id: 'make-mg',
+      model_id: 'model-zs',
+      variant_id: 'variant-essence',
+      policy_no: 'P-123',
+      insurer: 'Acko',
+      end_date: '2027-01-15',
+    });
   });
 
-  it('a taken vehicle number shows the message and stays on 3/3', async () => {
+  it('an Insurance file without its details blocks Next and says so; the details form requires every field', async () => {
     await onStep3();
-    await fillVehicle();
+    await addVehicle();
+    await uploadPhoto('insurance', 'file:///tmp/policy.jpg');
+    expect(screen.getByTestId('document-insurance-needs-details')).toHaveTextContent(d.needsDetails);
+    expect(disabled('documents-next')).toBe(true);
+    await fireEvent.press(screen.getByTestId('document-insurance-manual'));
+    await fireEvent.press(await screen.findByTestId('document-insurance-details-save'));
+    expect(screen.getAllByText(d.fields.required)).toHaveLength(3);
+    expect(screen.queryByTestId('document-insurance-added')).toBeNull();
+  });
+
+  it('the (i) explains the document', async () => {
+    await onStep3();
+    await fireEvent.press(screen.getByTestId('document-pollution-info'));
+    expect(await screen.findByText(d.cards.pollution.info)).toBeTruthy();
+  });
+
+  it('the selector lists the user\'s vehicles; picking one selects it', async () => {
+    resetMyVehicles([vehicleRow('v-1', 'TS09EV2345'), vehicleRow('v-2', 'TS09AB1234')]);
+    await onStep3();
+    await waitFor(() => expect(screen.getByTestId('vehicle-select')).toHaveTextContent('TS09EV2345 (MG ZS EV)'));
+    await fireEvent.press(screen.getByTestId('vehicle-select'));
+    await fireEvent.press(await screen.findByTestId('vehicle-select-option-v-2'));
+    await waitFor(() => expect(screen.getByTestId('vehicle-select')).toHaveTextContent(/^TS09AB1234/));
+    await fireEvent.press(screen.getByTestId('vehicle-select'));
+    expect(await screen.findByTestId('vehicle-select-add')).toHaveTextContent(new RegExp(d.addVehicle));
+  });
+
+  it('a taken vehicle number shows the message and stays on "Add new vehicle"', async () => {
     server.use(
       http.post(urls.userVehicles, () =>
         HttpResponse.json({ code: '23505', message: 'duplicate key value violates unique constraint' }, { status: 409 }),
       ),
     );
-    await fireEvent.press(screen.getByTestId('documents-next'));
-    expect(await screen.findByText(strings.errors.vehicleNumberTaken)).toBeTruthy();
-    expect(screen.getByTestId('onboarding-documents')).toBeTruthy();
-  });
-
-  it('a failed document keeps 3/3; the retry reuses the vehicle (no duplicate) and saves the rest', async () => {
     await onStep3();
-    await fillVehicle();
-    await attachPdf('pollution', 'puc.pdf');
-    await fireEvent.changeText(screen.getByTestId('document-pollution-certificate-no'), 'puc-1');
-    server.use(http.post(urls.vdocs('vdocs_pollution'), () => HttpResponse.json({ message: 'boom' }, { status: 500 })));
-    await fireEvent.press(screen.getByTestId('documents-next'));
-    expect(await screen.findByText(strings.errors.generic)).toBeTruthy();
-    server.resetHandlers();
-    requestLog.length = 0;
-    await fireEvent.press(screen.getByTestId('documents-next'));
-    expect(await screen.findByTestId('dashboard')).toBeTruthy();
-    expect(writes().filter(w => w.includes('user_vehicles'))).toEqual([]);
-    expect(writes().filter(w => w === 'POST /rest/v1/vdocs_pollution')).toHaveLength(1);
+    await fireEvent.press(screen.getByTestId('vehicle-select'));
+    await screen.findByTestId('add-vehicle');
+    await fireEvent.changeText(screen.getByTestId('add-vehicle-number'), 'TS09EV1234');
+    await choose('add-vehicle-make', 'make-mg');
+    await choose('add-vehicle-model', 'model-zs');
+    await fireEvent.press(screen.getByTestId('add-vehicle-save'));
+    expect(await screen.findByText(strings.errors.vehicleNumberTaken)).toBeTruthy();
+    expect(screen.getByTestId('add-vehicle')).toBeTruthy();
   });
 });

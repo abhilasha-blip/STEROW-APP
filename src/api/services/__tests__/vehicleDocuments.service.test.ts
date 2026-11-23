@@ -3,12 +3,16 @@ import { toUserError } from '@/api/errorMessages';
 import { STORAGE_PATHS } from '@/api/endpoints';
 import { getSupabase, __resetSupabaseForTests } from '@/api/supabase';
 import { saveDocumentsStep, type DocumentsStepProgress } from '@/api/services/documentsStep.service';
-import { createVehicle, minimalVehicleRow, VEHICLE_DEFAULTS } from '@/api/services/vehicle.service';
+import { createVehicle, listMyVehicles, minimalVehicleRow, VEHICLE_DEFAULTS } from '@/api/services/vehicle.service';
 import { documentRow, saveVehicleDocument } from '@/api/services/vehicleDocuments.service';
-import { fetchVehicleModelOptions, type VehicleModelOption } from '@/api/services/vehicleMaster.service';
+import {
+  fetchVehicleCatalog,
+  fetchVehicleModelOptions,
+  type VehicleModelOption,
+} from '@/api/services/vehicleMaster.service';
 import { strings } from '@/constants/strings';
 import { newId } from '@/utils/id';
-import { CREATED_VEHICLE_ID, makeSession, UID } from '../../../../test/msw/fixtures';
+import { CREATED_VEHICLE_ID, makeSession, resetMyVehicles, UID, vehicleRow } from '../../../../test/msw/fixtures';
 import { requestLog, server } from '../../../../test/msw/server';
 import { urls } from '../../../../test/msw/urls';
 
@@ -21,7 +25,13 @@ const MG: VehicleModelOption = {
   fuelType: 'Electric',
   transmissionType: 'Automatic',
 };
-const VEHICLE = { id: CREATED_VEHICLE_ID, vehicleNumber: 'TS09EV1234', model: MG };
+const VEHICLE = {
+  id: CREATED_VEHICLE_ID,
+  vehicleNumber: 'TS09EV1234',
+  makeId: 'make-mg',
+  modelId: 'model-zs',
+  variantId: 'variant-essence',
+};
 const JPG = { uri: 'file:///tmp/ins.jpg', name: 'ins.jpg', mimeType: 'image/jpeg' };
 const PDF = { uri: 'file:///tmp/puc.pdf', name: 'puc.pdf', mimeType: 'application/pdf' };
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/;
@@ -52,6 +62,19 @@ describe('vehicleMaster.service', () => {
       },
       MG,
     ]);
+  });
+
+  it('catalog: only makes / models that have an active variant (variant_id is NOT NULL)', async () => {
+    const catalog = await fetchVehicleCatalog();
+    expect(catalog.makes).toEqual([
+      { value: 'make-hy', label: 'Hyundai' },
+      { value: 'make-mg', label: 'MG' },
+    ]);
+    expect(catalog.models).toEqual([
+      { value: 'model-verna', label: 'Verna', makeId: 'make-hy' },
+      { value: 'model-zs', label: 'ZS EV', makeId: 'make-mg' },
+    ]);
+    expect(catalog.variants.map(v => v.value)).toEqual(['variant-sx', 'variant-essence']);
   });
 
   it('a variant whose model or make is missing / inactive is left out', async () => {
@@ -89,8 +112,29 @@ describe('vehicle.service (minimal vehicle)', () => {
     expect(row).toMatchObject({ fuel_type: VEHICLE_DEFAULTS.fuelType, transmission_type: VEHICLE_DEFAULTS.transmissionType });
   });
 
+  it('listMyVehicles: active vehicles with make / model / variant names embedded, oldest first', async () => {
+    resetMyVehicles([vehicleRow('v-1', 'TS09EV2345')]);
+    await expect(listMyVehicles()).resolves.toEqual([
+      {
+        id: 'v-1',
+        vehicleNumber: 'TS09EV2345',
+        makeId: 'make-mg',
+        modelId: 'model-zs',
+        variantId: 'variant-essence',
+        makeName: 'MG',
+        modelName: 'ZS EV',
+        variantName: 'Essence',
+        fuelType: 'Electric',
+      },
+    ]);
+    const [req] = calls('GET', urls.userVehicles);
+    expect(decodeURIComponent(req.url)).toContain('make:vehicle_make_master(name)');
+    expect(req.url).toContain('is_active=eq.true');
+    expect(req.url).toContain('order=create_at');
+  });
+
   it('createVehicle inserts the row and returns the id', async () => {
-    await expect(createVehicle('TS09EV1234', MG)).resolves.toEqual({ id: CREATED_VEHICLE_ID, vehicleNumber: 'TS09EV1234', model: MG });
+    await expect(createVehicle('TS09EV1234', MG)).resolves.toEqual({ ...VEHICLE, model: MG });
     expect(calls('POST', urls.userVehicles)[0].body).toEqual(minimalVehicleRow('TS09EV1234', MG));
   });
 
@@ -110,18 +154,26 @@ describe('vehicle.service (minimal vehicle)', () => {
 });
 
 describe('vehicleDocuments.service', () => {
-  it('rows as the web builds them (required numbers, registration_number, make/model/variant on RC + insurance)', () => {
+  it('rows as the web builds them (numbers, registration_number, make/model/variant on RC + insurance, expiry columns)', () => {
     const links = { make_id: 'make-mg', model_id: 'model-zs', variant_id: 'variant-essence' };
     const base = { vehicle_id: CREATED_VEHICLE_ID, registration_number: 'TS09EV1234', document_path: 'p' };
     expect(documentRow('rc', VEHICLE, {}, 'p')).toEqual({ ...base, ...links });
-    expect(documentRow('insurance', VEHICLE, { policyNo: ' P-1 ', insurer: 'Acko' }, 'p')).toEqual({
+    expect(documentRow('rc', VEHICLE, { registrationNumber: 'ts 09 ab 1' }, 'p')).toMatchObject({ registration_number: 'TS09AB1' });
+    expect(documentRow('insurance', VEHICLE, { policyNo: ' P-1 ', insurer: 'Acko', expiry: '2027-01-15' }, 'p')).toEqual({
       ...base,
       ...links,
       policy_no: 'P-1',
       insurer: 'Acko',
+      end_date: '2027-01-15',
     });
-    expect(documentRow('pollution', VEHICLE, { certificateNo: 'PUC-9' }, 'p')).toEqual({ ...base, certificate_no: 'PUC-9' });
+    expect(documentRow('pollution', VEHICLE, { certificateNo: 'PUC-9', expiry: '2026-12-31' }, 'p')).toEqual({
+      ...base,
+      certificate_no: 'PUC-9',
+      validity_expiry_date: '2026-12-31',
+    });
     expect(documentRow('fastag', VEHICLE, { fastagId: 'FT-1' }, 'p')).toEqual({ ...base, fastag_id: 'FT-1' });
+    // Typed details only (no file): no document_path.
+    expect(documentRow('fastag', VEHICLE, { fastagId: 'FT-1' }, null)).not.toHaveProperty('document_path');
   });
 
   it('a missing number fails before any upload', async () => {
@@ -131,7 +183,7 @@ describe('vehicleDocuments.service', () => {
     expect(requestLog).toHaveLength(0);
   });
 
-  it('uploads to vehicle-docs/<uid>/<table>/<uuid>.<ext>, then inserts the row with that path', async () => {
+  it('with a file: uploads to vehicle-docs/<uid>/<table>/<uuid>.<ext>, then inserts the row with that path', async () => {
     await expect(saveVehicleDocument(UID, 'pollution', VEHICLE, PDF, { certificateNo: 'PUC-9' })).resolves.toBe(
       'vdocs_pollution-1',
     );
@@ -142,8 +194,19 @@ describe('vehicleDocuments.service', () => {
       registration_number: 'TS09EV1234',
       document_path: path.replace('vehicle-docs/', ''),
       certificate_no: 'PUC-9',
+      validity_expiry_date: null,
     });
     expect(STORAGE_PATHS.vehicleDocument('u', 'vdocs_rc', 'id', 'jpg')).toBe('u/vdocs_rc/id.jpg');
+  });
+
+  it('without a file ("Add Manually" only): no upload, the row only', async () => {
+    await saveVehicleDocument(UID, 'fastag', VEHICLE, null, { fastagId: 'FT-1' });
+    expect(uploads()).toEqual([]);
+    expect(calls('POST', urls.vdocs('vdocs_fastag'))[0].body).toEqual({
+      vehicle_id: CREATED_VEHICLE_ID,
+      registration_number: 'TS09EV1234',
+      fastag_id: 'FT-1',
+    });
   });
 
   it('a failed insert removes the uploaded file', async () => {
@@ -160,43 +223,36 @@ describe('vehicleDocuments.service', () => {
 
 describe('documentsStep.service (3/3 Next)', () => {
   const input = {
-    vehicleNumber: 'TS09EV1234',
-    model: MG,
+    vehicle: VEHICLE,
     documents: {
-      rc: { file: JPG, numbers: {} },
-      insurance: { file: PDF, numbers: { policyNo: 'P-1', insurer: 'Acko' } },
+      rc: { file: JPG, fields: {} },
+      insurance: { file: null, fields: { policyNo: 'P-1', insurer: 'Acko', expiry: '2027-01-15' } },
     },
   };
 
-  it('creates the vehicle, then saves each added document (only those)', async () => {
+  it('saves each added document against the selected vehicle (only those)', async () => {
     await expect(saveDocumentsStep(UID, input)).resolves.toEqual({ vehicleId: CREATED_VEHICLE_ID, documents: ['rc', 'insurance'] });
-    expect(calls('POST', urls.userVehicles)).toHaveLength(1);
+    expect(calls('POST', urls.userVehicles)).toHaveLength(0); // the vehicle exists already
     expect(calls('POST', urls.vdocs('vdocs_regcertificate'))).toHaveLength(1);
     expect(calls('POST', urls.vdocs('vdocs_insurance'))).toHaveLength(1);
     expect(calls('POST', urls.vdocs('vdocs_pollution'))).toHaveLength(0);
   });
 
-  it('no documents → just the vehicle', async () => {
-    await expect(saveDocumentsStep(UID, { ...input, documents: {} })).resolves.toEqual({ vehicleId: CREATED_VEHICLE_ID, documents: [] });
-    expect(uploads()).toEqual([]);
-  });
-
-  it('a retry after a failed document reuses the vehicle and skips saved documents', async () => {
+  it('a retry after a failed document skips the saved ones', async () => {
     const progress: DocumentsStepProgress = {};
     server.use(http.post(urls.vdocs('vdocs_insurance'), () => HttpResponse.json({ message: 'boom' }, { status: 500 }), { once: true }));
     await expect(saveDocumentsStep(UID, input, progress)).rejects.toMatchObject({ status: 500 });
     requestLog.length = 0;
     await expect(saveDocumentsStep(UID, input, progress)).resolves.toMatchObject({ documents: ['rc', 'insurance'] });
-    expect(calls('POST', urls.userVehicles)).toHaveLength(0);
     expect(calls('POST', urls.vdocs('vdocs_regcertificate'))).toHaveLength(0);
     expect(calls('POST', urls.vdocs('vdocs_insurance'))).toHaveLength(1);
   });
 
-  it('a different vehicle number on retry creates a new vehicle', async () => {
+  it('another vehicle selected on retry saves everything for that one', async () => {
     const progress: DocumentsStepProgress = {};
-    await saveDocumentsStep(UID, { ...input, documents: {} }, progress);
-    await saveDocumentsStep(UID, { ...input, vehicleNumber: 'TS09EV9999', documents: {} }, progress);
-    expect(calls('POST', urls.userVehicles)).toHaveLength(2);
+    await saveDocumentsStep(UID, input, progress);
+    await saveDocumentsStep(UID, { ...input, vehicle: { ...VEHICLE, id: 'v-2' } }, progress);
+    expect(calls('POST', urls.vdocs('vdocs_regcertificate'))).toHaveLength(2);
   });
 });
 

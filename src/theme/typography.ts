@@ -90,6 +90,42 @@ export const variants = {
   chip: v(fontFamily.regular, 14, 18),
   /** Selected chip ("Electric ✓"). */
   chipSelected: v(fontFamily.semiBold, 14, 18),
+
+  // design/dashboard (sizes fitted from the glyph outlines' heights in the SVG exports).
+  /** "Welcome John!" */
+  welcome: v(fontFamily.semiBold, 26, 32),
+  /** The email under it, drawer email. */
+  welcomeEmail: v(fontFamily.regular, 15, 20),
+  /** Vehicle card name ("MG ZS EV"), tile titles, document names. */
+  cardTitle: v(fontFamily.semiBold, 16, 20),
+  /** Vehicle number, row subtitles. */
+  cardSubtitle: v(fontFamily.regular, 14, 18),
+  /** "2 Available", "1 Pending". */
+  count: v(fontFamily.medium, 14, 18),
+  /** "Quick Links", "Document List", "Personal Information". */
+  sectionTitle: v(fontFamily.semiBold, 20, 26),
+  /** Smaller section titles on the light screens ("Personal Information"). */
+  sectionTitleSmall: v(fontFamily.semiBold, 16, 20),
+  /** Quick link labels, pill text. */
+  tiny: v(fontFamily.regular, 12, 15),
+  tinyStrong: v(fontFamily.medium, 12, 15),
+  /** Bottom tab labels. */
+  tab: v(fontFamily.regular, 12, 16),
+  tabActive: v(fontFamily.semiBold, 12, 16),
+  /** "Check your vehicle health". */
+  bannerTitle: v(fontFamily.semiBold, 22, 26),
+  /** "80%" in the health ring. */
+  ringValue: v(fontFamily.bold, 24, 28),
+  /** Drawer name. */
+  drawerName: v(fontFamily.semiBold, 22, 28),
+  /** Drawer rows. */
+  drawerRow: v(fontFamily.regular, 16, 20),
+  /** Back-arrow headers ("My Documents"). */
+  headerTitle: v(fontFamily.semiBold, 20, 26),
+  /** Document cards on onboarding 3/3 ("Registration Certificate (RC)"). */
+  documentTitle: v(fontFamily.semiBold, 17, 22),
+  /** "Upload File" / "Add Manually". */
+  tileAction: v(fontFamily.semiBold, 15, 20),
 } as const;
 
 export type TypographyVariant = keyof typeof variants;

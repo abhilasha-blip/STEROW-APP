@@ -30,25 +30,34 @@ export type VehicleModelOption = {
   transmissionType: string | null;
 };
 
+/**
+ * The active catalogue, ready for Make → Model (→ Variant) pickers. Only makes / models that have at
+ * least one active variant are listed: user_vehicles.variant_id is NOT NULL (API_PLAN O8).
+ */
+export type VehicleCatalog = {
+  makes: { value: string; label: string }[];
+  models: { value: string; label: string; makeId: string }[];
+  variants: VehicleModelOption[];
+};
+
 const active = (r: { is_active?: boolean | null }) => r.is_active !== false;
 
-/** Active variants joined to their model and make (three reads, joined here as the web does), sorted. */
-export async function fetchVehicleModelOptions(): Promise<VehicleModelOption[]> {
+export async function fetchVehicleCatalog(): Promise<VehicleCatalog> {
   const supabase = getSupabase();
   const [makesRes, modelsRes, variantsRes] = await Promise.all([
     supabase.from(REST.VEHICLE_MAKES).select('id,name,is_active').order('name'),
     supabase.from(REST.VEHICLE_MODELS).select('id,name,make_id,is_active').order('name'),
     supabase.from(REST.VEHICLE_VARIANTS).select('id,variant_name,model_id,fuel_type,transmission_type,is_active'),
   ]);
-  const makes = new Map(parseOrThrow(z.array(Make), unwrap(makesRes).data, 'vehicle makes').filter(active).map(m => [m.id, m]));
-  const models = new Map(
-    parseOrThrow(z.array(Model), unwrap(modelsRes).data, 'vehicle models').filter(active).map(m => [m.id, m]),
-  );
-  const variants = parseOrThrow(z.array(Variant), unwrap(variantsRes).data, 'vehicle variants').filter(active);
-  return variants
+  const makes = parseOrThrow(z.array(Make), unwrap(makesRes).data, 'vehicle makes').filter(active);
+  const models = parseOrThrow(z.array(Model), unwrap(modelsRes).data, 'vehicle models').filter(active);
+  const makeById = new Map(makes.map(m => [m.id, m]));
+  const modelById = new Map(models.map(m => [m.id, m]));
+  const variants: VehicleModelOption[] = parseOrThrow(z.array(Variant), unwrap(variantsRes).data, 'vehicle variants')
+    .filter(active)
     .flatMap(v => {
-      const model = models.get(v.model_id);
-      const make = model ? makes.get(model.make_id) : undefined;
+      const model = modelById.get(v.model_id);
+      const make = model ? makeById.get(model.make_id) : undefined;
       return model && make
         ? [
             {
@@ -64,4 +73,20 @@ export async function fetchVehicleModelOptions(): Promise<VehicleModelOption[]> 
         : [];
     })
     .sort((a, b) => a.label.localeCompare(b.label));
+  const usableModels = new Set(variants.map(v => v.modelId));
+  const usableMakes = new Set(variants.map(v => v.makeId));
+  const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label);
+  return {
+    makes: makes.filter(m => usableMakes.has(m.id)).map(m => ({ value: m.id, label: m.name })).sort(byLabel),
+    models: models
+      .filter(m => usableModels.has(m.id))
+      .map(m => ({ value: m.id, label: m.name, makeId: m.make_id }))
+      .sort(byLabel),
+    variants,
+  };
+}
+
+/** Active variants as one list ("Make Model – Variant"). */
+export async function fetchVehicleModelOptions(): Promise<VehicleModelOption[]> {
+  return (await fetchVehicleCatalog()).variants;
 }

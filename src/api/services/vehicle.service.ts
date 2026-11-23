@@ -22,7 +22,65 @@ const TRANSMISSIONS = ['Manual', 'Automatic'];
 
 const Created = z.object({ id: z.string() });
 
-export type CreatedVehicle = { id: string; vehicleNumber: string; model: VehicleModelOption };
+/** What a vehicle document needs to know about its vehicle. */
+export type VehicleRef = {
+  id: string;
+  vehicleNumber: string;
+  makeId: string;
+  modelId: string;
+  variantId: string;
+};
+
+export type CreatedVehicle = VehicleRef & { model: VehicleModelOption };
+
+/** The user's vehicle as the selector / carousel shows it. */
+export type MyVehicle = VehicleRef & {
+  makeName: string;
+  modelName: string;
+  variantName: string;
+  fuelType: string | null;
+};
+
+const Named = z.union([z.object({ name: z.string() }), z.null()]).optional();
+const VehicleRow = z.object({
+  id: z.string(),
+  vehicle_number: z.string(),
+  make_id: z.string(),
+  model_id: z.string(),
+  variant_id: z.string(),
+  fuel_type: z.string().nullable().optional(),
+  make: Named,
+  model: Named,
+  variant: z.union([z.object({ variant_name: z.string() }), z.null()]).optional(),
+});
+
+/**
+ * Active vehicles visible to the user (owned or shared; RLS), oldest first, with make / model /
+ * variant names embedded (as the web's Book Service query does).
+ */
+export async function listMyVehicles(): Promise<MyVehicle[]> {
+  const res = await getSupabase()
+    .from(REST.USER_VEHICLES)
+    .select(
+      'id,vehicle_number,make_id,model_id,variant_id,fuel_type,make:vehicle_make_master(name),model:vehicle_model_master(name),variant:vehicle_variant_master(variant_name)',
+    )
+    .eq('is_active', true)
+    .order('create_at');
+  if (res.error) {
+    throw restError(res);
+  }
+  return parseOrThrow(z.array(VehicleRow), res.data, 'user_vehicles').map(r => ({
+    id: r.id,
+    vehicleNumber: r.vehicle_number,
+    makeId: r.make_id,
+    modelId: r.model_id,
+    variantId: r.variant_id,
+    makeName: r.make?.name ?? '',
+    modelName: r.model?.name ?? '',
+    variantName: r.variant?.variant_name ?? '',
+    fuelType: r.fuel_type ?? null,
+  }));
+}
 
 export const normaliseVehicleNumber = (value: string) => value.toUpperCase().replace(/\s+/g, '');
 
@@ -55,5 +113,12 @@ export async function createVehicle(vehicleNumber: string, model: VehicleModelOp
     }
     throw restError(res);
   }
-  return { id: parseOrThrow(Created, res.data, 'user_vehicles insert').id, vehicleNumber: row.vehicle_number, model };
+  return {
+    id: parseOrThrow(Created, res.data, 'user_vehicles insert').id,
+    vehicleNumber: row.vehicle_number,
+    makeId: model.makeId,
+    modelId: model.modelId,
+    variantId: model.variantId,
+    model,
+  };
 }

@@ -7,4 +7,9 @@ export const queryKeys = {
   drivingLicenceStep: (uid: string) => ['onboarding', 'driving-licence-step', uid] as const,
   /** Vehicle master data (make + model + variant), the same for everyone. */
   vehicleModels: () => ['master', 'vehicle-models'] as const,
+  vehicleCatalog: () => ['master', 'vehicle-catalog'] as const,
+  /** The signed-in user's active vehicles. */
+  myVehicles: (uid: string) => ['vehicles', 'mine', uid] as const,
+  /** Document rows per vehicle (My Documents, dashboard counts). */
+  vehicleDocuments: (uid: string) => ['vehicles', 'documents', uid] as const,
 } as const;
