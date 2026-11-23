@@ -21,6 +21,9 @@ export const urls = {
   drivingLicenses: `${sb}/rest/v1/${ENDPOINTS.SUPABASE.REST.USER_DRIVING_LICENSES}`,
   userVehicles: `${sb}/rest/v1/${ENDPOINTS.SUPABASE.REST.USER_VEHICLES}`,
   vdocs: (table: string) => `${sb}/rest/v1/${table}`,
+  vehicleMakes: `${sb}/rest/v1/${ENDPOINTS.SUPABASE.REST.VEHICLE_MAKES}`,
+  vehicleModels: `${sb}/rest/v1/${ENDPOINTS.SUPABASE.REST.VEHICLE_MODELS}`,
+  vehicleVariants: `${sb}/rest/v1/${ENDPOINTS.SUPABASE.REST.VEHICLE_VARIANTS}`,
   /** Storage: `${storageRoot}/object/<bucket>/<path>` (upload), `/object/sign/<bucket>/<path>` (sign). */
   storageRoot: `${sb}/storage/v1`,
 };

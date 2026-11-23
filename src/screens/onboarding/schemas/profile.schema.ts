@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { AVATARS, type AvatarId } from '@/constants/avatars';
-import { MIN_AGE_YEARS } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
-import { isOldEnough, isValidEmail, isValidFullName, parseIsoDate } from '@/utils/validation';
+import { isValidEmail, isValidFullName } from '@/utils/validation';
 
 const e = strings.onboarding.errors;
 
@@ -15,28 +14,21 @@ export const avatarSchema = z
   ])
   .nullable();
 
-/** 1/3 "My Profile" form state (what the inputs hold). */
+/** 1/3 "My Profile" form state: Profile photo, Full Name, Email (no DOB: no backend column). */
 export const profileFieldsSchema = z.object({
   avatar: avatarSchema,
   fullName: z.string(),
-  /** "YYYY-MM-DD" (local calendar date) or null. Not sent: no backend column yet. */
-  dob: z.string().nullable(),
-  /** Not sent: the account email is read-only on the web. */
+  /** Saved to user_details.email (the column can be updated; the login itself stays the phone number). */
   email: z.string(),
 });
 
 export type ProfileFormValues = z.infer<typeof profileFieldsSchema>;
 
-/** Full Name, DOB (18+) and Email are required. `today` is injectable for tests. */
-export function createProfileSchema(today: () => Date = () => new Date()) {
+/** Full Name and Email are required. */
+export function createProfileSchema() {
   return profileFieldsSchema.superRefine((v, ctx) => {
     if (!isValidFullName(v.fullName)) {
       ctx.addIssue({ code: 'custom', path: ['fullName'], message: e.fullName });
-    }
-    if (!v.dob || !parseIsoDate(v.dob)) {
-      ctx.addIssue({ code: 'custom', path: ['dob'], message: e.dobRequired });
-    } else if (!isOldEnough(v.dob, MIN_AGE_YEARS, today())) {
-      ctx.addIssue({ code: 'custom', path: ['dob'], message: e.dobTooYoung(MIN_AGE_YEARS) });
     }
     if (!v.email.trim()) {
       ctx.addIssue({ code: 'custom', path: ['email'], message: e.emailRequired });

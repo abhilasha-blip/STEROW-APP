@@ -78,17 +78,27 @@ describe('storage.service', () => {
 
 describe('profile.service (C1)', () => {
   it('fetchProfile reads full_name, phone and the avatar path from user_details by id', async () => {
-    await expect(fetchProfile(UID)).resolves.toEqual({ fullName: 'Test User', phone: '9999999999', avatarPath: null });
+    await expect(fetchProfile(UID)).resolves.toEqual({
+      fullName: 'Test User',
+      phone: '9999999999',
+      email: 'test-user@sterow.test',
+      avatarPath: null,
+    });
     const [req] = calls('GET', urls.userDetails);
     expect(req.url).toContain(`id=eq.${UID}`);
     expect(decodeURIComponent(req.url)).toContain('select=full_name,email,phone,avatar_url');
   });
 
-  it('updateProfile PATCHes only the given fields (never email / DOB)', async () => {
-    await updateProfile(UID, { fullName: 'Ravi Kumar', avatarPath: `${UID}/1-a.png` });
+  it('a placeholder phone-sign-up email (…@phone.local) is not shown as theirs', async () => {
+    server.use(http.get(urls.userDetails, () => HttpResponse.json([{ full_name: 'A', email: '9876543210@phone.local' }])));
+    await expect(fetchProfile(UID)).resolves.toMatchObject({ email: '' });
+  });
+
+  it('updateProfile PATCHes only the given fields (name, email, avatar_url; no DOB column)', async () => {
+    await updateProfile(UID, { fullName: 'Ravi Kumar', email: 'ravi@example.com', avatarPath: `${UID}/1-a.png` });
     const [req] = calls('PATCH', urls.userDetails);
     expect(req.url).toContain(`id=eq.${UID}`);
-    expect(req.body).toEqual({ full_name: 'Ravi Kumar', avatar_url: `${UID}/1-a.png` });
+    expect(req.body).toEqual({ full_name: 'Ravi Kumar', email: 'ravi@example.com', avatar_url: `${UID}/1-a.png` });
     requestLog.length = 0;
     await updateProfile(UID, {});
     expect(calls('PATCH', urls.userDetails)).toHaveLength(0);

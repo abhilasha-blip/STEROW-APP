@@ -8,9 +8,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import { strings } from '@/constants/strings';
 import OnboardingStack from '@/navigation/OnboardingStack';
 import type { OnboardingStackParamList } from '@/navigation/types';
-import { EMPTY_DOCUMENTS } from '@/screens/onboarding/schemas';
 import { useOnboardingStore } from '@/store/onboarding.store';
-import { logger } from '@/utils/logger';
 import { Providers } from '../../../test/render';
 
 /*
@@ -18,7 +16,6 @@ import { Providers } from '../../../test/render';
  * (the API path is covered by profileStep.api.test.tsx). Each test starts at the step it covers.
  */
 
-const HIDDEN = { includeHiddenElements: true };
 const mockedLibrary = launchImageLibrary as jest.MockedFunction<typeof launchImageLibrary>;
 const mockedPick = pick as jest.MockedFunction<typeof pick>;
 const store = () => useOnboardingStore.getState();
@@ -69,7 +66,6 @@ async function pickDate(testID: string, date: Date) {
 
 async function fillProfile() {
   await fireEvent.changeText(screen.getByTestId('full-name'), 'Ravi Kumar');
-  await pickDate('dob', new Date(1990, 0, 1));
   await fireEvent.changeText(screen.getByTestId('email'), 'ravi@example.com');
 }
 
@@ -132,26 +128,27 @@ describe('onboarding flow (Profile → Driving Licence → Documents)', () => {
     expect(await screen.findByTestId('onboarding-documents')).toBeTruthy();
   });
 
-  it('3/3 Next (after a document) → Dashboard; onboarding off the stack and cleared; logs without PII', async () => {
-    const info = jest.spyOn(logger, 'info');
-    await renderFlow(['Step1Profile', 'Step2DrivingLicence', 'Step3Documents'], 'onboarding-documents');
-    expect(disabled('documents-next')).toBe(true);
+  it('3/3: Vehicle Number + Model on top; four optional cards; number fields appear under an attached card', async () => {
+    await renderFlow(['Step3Documents'], 'onboarding-documents');
+    expect(screen.getByTestId('documents-vehicle-number')).toBeTruthy();
+    expect(screen.getByTestId('documents-vehicle-model')).toBeTruthy();
+    for (const key of ['rc', 'insurance', 'pollution', 'fastag']) {
+      expect(screen.getByTestId(`document-${key}-box-empty`)).toBeTruthy();
+    }
+    expect(screen.queryByTestId('document-insurance-policy-no')).toBeNull();
+    expect(disabled('documents-next')).toBe(true); // vehicle number + model needed
+
     mockedPick.mockResolvedValueOnce([{ uri: 'file:///ins.pdf', name: 'insurance.pdf', type: 'application/pdf', size: 2048 }] as never);
     await fireEvent.press(screen.getByTestId('document-insurance-box-empty'));
     await fireEvent.press(await screen.findByTestId('document-insurance-source-document'));
     expect(await screen.findByText('insurance.pdf')).toBeTruthy();
-    expect(disabled('documents-next')).toBe(false);
+    expect(screen.getByTestId('document-insurance-policy-no')).toBeTruthy();
+    expect(screen.getByTestId('document-insurance-insurer')).toBeTruthy();
+    expect(screen.queryByTestId('document-rc-registration')).toBeNull(); // the RC uses the vehicle number
 
-    await fireEvent.press(screen.getByTestId('documents-next'));
-    expect(await screen.findByTestId('dashboard')).toBeTruthy();
-    expect(rootRouteNames()).toEqual(['Dashboard']);
-    expect(navRef.canGoBack()).toBe(false);
-    await waitFor(() => expect(screen.queryByTestId('onboarding-documents', HIDDEN)).toBeNull());
-    await waitFor(() => expect(store().documents).toEqual(EMPTY_DOCUMENTS));
-
-    const done = info.mock.calls.find(([m]) => String(m).startsWith('onboarding complete'));
-    expect(done?.[1]).toMatchObject({ documents: { rc: null, insurance: 'application/pdf', pollution: null } });
-    expect(JSON.stringify(done)).not.toMatch(/file:\/\/|insurance\.pdf/);
+    await fireEvent.changeText(screen.getByTestId('documents-vehicle-number'), 'ts09 ev1234');
+    expect(screen.getByTestId('documents-vehicle-number').props.value).toBe('TS09EV1234');
+    expect(store().documents).toMatchObject({ vehicleNumber: 'TS09EV1234', insurance: { name: 'insurance.pdf' } });
   });
 
   it('3/3 Skip → Dashboard', async () => {

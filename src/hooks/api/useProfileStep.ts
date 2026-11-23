@@ -45,11 +45,12 @@ const sameAvatar = (a: AvatarValue, b: AvatarValue) =>
   a === b ||
   (!!a && !!b && (a.type === 'preset' ? b.type === 'preset' && a.id === b.id : b.type === 'photo' && a.uri === b.uri));
 
-/** Form values → the save request: only what changed is sent (email / DOB never). */
+/** Form values → the save request: only what changed is sent. */
 export function toProfileStepSave(values: ProfileFormValues, saved: ProfileStepData | undefined): ProfileStepSave {
   const avatarChanged = !sameAvatar(values.avatar, savedAvatar(saved));
   return {
     fullName: values.fullName && values.fullName !== (saved?.fullName ?? '') ? values.fullName : undefined,
+    email: values.email && values.email !== (saved?.email ?? '') ? values.email : undefined,
     avatar: !avatarChanged ? undefined : values.avatar ? avatarFile(values.avatar) : saved?.avatarPath ? null : undefined,
   };
 }

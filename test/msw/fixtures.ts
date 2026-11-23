@@ -76,13 +76,28 @@ export const drivingLicenseRow = {
 
 /**
  * What the post-login routing reads (onboardingProgress.service). Default: onboarding done (a DL and
- * one document) so auth tests land on the Dashboard; routing tests switch it per test. The document
- * count is served by vdocs_regcertificate; the other document tables report 0.
+ * one active vehicle) so auth tests land on the Dashboard; routing tests switch it per test.
  */
-export const onboardingBackend = { hasDrivingLicense: true, documentCount: 1 };
+export const onboardingBackend = { hasDrivingLicense: true, vehicleCount: 1 };
 export function setOnboardingBackend(next: Partial<typeof onboardingBackend>): void {
   Object.assign(onboardingBackend, next);
 }
 export function resetOnboardingBackend(): void {
-  Object.assign(onboardingBackend, { hasDrivingLicense: true, documentCount: 1 });
+  Object.assign(onboardingBackend, { hasDrivingLicense: true, vehicleCount: 1 });
 }
+
+/** Vehicle master data: two makes, two models, two variants (+ one inactive variant). */
+export const vehicleMakes = [
+  { id: 'make-mg', name: 'MG', is_active: true },
+  { id: 'make-hy', name: 'Hyundai', is_active: true },
+];
+export const vehicleModels = [
+  { id: 'model-zs', name: 'ZS EV', make_id: 'make-mg', is_active: true },
+  { id: 'model-verna', name: 'Verna', make_id: 'make-hy', is_active: true },
+];
+export const vehicleVariants = [
+  { id: 'variant-essence', variant_name: 'Essence', model_id: 'model-zs', fuel_type: 'Electric', transmission_type: 'Automatic', is_active: true },
+  { id: 'variant-sx', variant_name: '1.6 VTVT SX', model_id: 'model-verna', fuel_type: 'Petrol', transmission_type: 'Manual', is_active: true },
+  { id: 'variant-old', variant_name: 'Old', model_id: 'model-verna', fuel_type: 'Diesel', transmission_type: 'Manual', is_active: false },
+];
+export const CREATED_VEHICLE_ID = 'vehicle-1';

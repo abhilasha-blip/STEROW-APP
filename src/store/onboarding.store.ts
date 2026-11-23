@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import type { DocumentKey } from '@/constants/onboarding';
 import {
   EMPTY_DOCUMENTS,
   type DocumentsFormValues,
@@ -7,7 +6,6 @@ import {
   type OnboardingValues,
   type ProfileFormValues,
 } from '@/screens/onboarding/schemas';
-import type { UploadedFile } from '@/utils/uploadFile';
 
 /**
  * In-memory values of the 3 onboarding steps. Each step keeps its own react-hook-form and mirrors every
@@ -20,7 +18,7 @@ type OnboardingState = {
   documents: DocumentsFormValues;
   setProfile: (profile: ProfileFormValues) => void;
   setDrivingLicence: (drivingLicence: DrivingLicenceFormValues) => void;
-  setDocument: (key: DocumentKey, file: UploadedFile | null) => void;
+  setDocuments: (documents: DocumentsFormValues) => void;
   reset: () => void;
 };
 
@@ -30,7 +28,7 @@ export const useOnboardingStore = create<OnboardingState>()(set => ({
   ...initial,
   setProfile: profile => set({ profile }),
   setDrivingLicence: drivingLicence => set({ drivingLicence }),
-  setDocument: (key, file) => set(s => ({ documents: { ...s.documents, [key]: file } })),
+  setDocuments: documents => set({ documents }),
   reset: () => set(initial),
 }));
 

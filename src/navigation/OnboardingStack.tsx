@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { toUserError } from '@/api/errorMessages';
@@ -7,13 +7,14 @@ import { ocrService } from '@/api/services/ocr.service';
 import type { ProfileStepData } from '@/api/services/profileStep.service';
 import OnboardingLayout from '@/components/OnboardingLayout';
 import { useToast } from '@/components/Toast';
-import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS, type DocumentKey } from '@/constants/onboarding';
+import { DOCUMENT_KEYS, ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
 import {
   drivingLicencePrefill,
   useDrivingLicenceStepData,
   useSaveDrivingLicenceStep,
 } from '@/hooks/api/useDrivingLicenceStep';
+import { useSaveDocumentsStep, useVehicleModels } from '@/hooks/api/useDocumentsStep';
 import { savedAvatar, useProfileStepData, useSaveProfileStep } from '@/hooks/api/useProfileStep';
 import { useOnboardingSkip } from '@/hooks/useOnboardingSkip';
 import DrivingLicenceScreen from '@/screens/onboarding/DrivingLicenceScreen';
@@ -29,7 +30,6 @@ import { useAuthStore } from '@/store/auth.store';
 import { selectOnboardingValues, useOnboardingStore } from '@/store/onboarding.store';
 import { useTheme } from '@/theme';
 import { logger } from '@/utils/logger';
-import type { UploadedFile } from '@/utils/uploadFile';
 import type { OnboardingStackParamList, OnboardingStackScreenProps } from './types';
 
 const Stack = createNativeStackNavigator<OnboardingStackParamList>();
@@ -38,7 +38,6 @@ const Stack = createNativeStackNavigator<OnboardingStackParamList>();
 const summarizeProfile = (v: ProfileFormValues) => ({
   avatar: v.avatar?.type ?? 'none',
   fullName: !!v.fullName,
-  dob: !!v.dob,
   email: !!v.email,
 });
 const summarizeDl = (v: DrivingLicenceFormValues) => ({
@@ -50,7 +49,8 @@ const summarizeDl = (v: DrivingLicenceFormValues) => ({
 const summarizeAll = (v: OnboardingValues) => ({
   profile: v.profile ? summarizeProfile(v.profile) : null,
   drivingLicence: v.drivingLicence ? summarizeDl(v.drivingLicence) : null,
-  documents: Object.fromEntries(Object.entries(v.documents).map(([k, f]) => [k, f?.mimeType ?? null])),
+  vehicle: { number: !!v.documents.vehicleNumber, model: !!v.documents.variantId },
+  documents: Object.fromEntries(DOCUMENT_KEYS.map(k => [k, v.documents[k]?.mimeType ?? null])),
 });
 
 /** Read once per mount: a re-entered step starts from the store, then mirrors its changes back. */
@@ -107,6 +107,7 @@ function Step1ProfileRoute(props: OnboardingStackScreenProps<'Step1Profile'>) {
 
 const profilePrefill = (saved: ProfileStepData | undefined): Partial<ProfileFormValues> => ({
   ...(saved?.fullName ? { fullName: saved.fullName } : {}),
+  ...(saved?.email ? { email: saved.email } : {}),
   ...(saved?.avatarUrl ? { avatar: savedAvatar(saved) } : {}),
 });
 
@@ -239,26 +240,49 @@ function Step2DrivingLicenceForm({
 /* ----------------------------------- 3/3 Documents ----------------------------------- */
 
 function Step3DocumentsRoute({ navigation }: OnboardingStackScreenProps<'Step3Documents'>) {
-  const setDocument = useOnboardingStore(s => s.setDocument);
+  const toast = useToast();
+  const uid = useAuthStore(st => st.user?.id);
+  const setDocuments = useOnboardingStore(st => st.setDocuments);
   const markSkipped = useOnboardingSkip();
   const [initialValues] = useState<DocumentsFormValues>(() => useOnboardingStore.getState().documents);
-  const onDocumentChange = useCallback(
-    (key: DocumentKey, file: UploadedFile | null) => setDocument(key, file),
-    [setDocument],
-  );
+  const models = useVehicleModels(!!uid);
+  const save = useSaveDocumentsStep(uid ?? '');
+
+  const next = (values: DocumentsFormValues) => {
+    setDocuments(values);
+    const summary = summarizeAll(selectOnboardingValues(useOnboardingStore.getState()));
+    const model = models.data?.find(m => m.value === values.variantId);
+    if (!uid || !model) {
+      logger.info('onboarding complete (no signed-in user: nothing saved)', summary);
+      exitToDashboard(navigation); // dev QA screens
+      return;
+    }
+    if (save.isPending) {
+      return;
+    }
+    save.mutate(
+      { values, model },
+      {
+        onSuccess: () => {
+          logger.info('onboarding complete', summary);
+          toast.success(strings.onboarding.documents.saved);
+          exitToDashboard(navigation);
+        },
+        onError: error => toast.error(toUserError(error).userMessage),
+      },
+    );
+  };
+
   return (
     <VehicleDocumentsScreen
       initialValues={initialValues}
+      modelOptions={models.data ?? []}
+      modelsLoading={models.isLoading}
+      modelsError={models.isError ? strings.onboarding.documents.vehicleModelsFailed : undefined}
+      saving={save.isPending}
       onBack={backIfPossible(navigation)}
-      onDocumentChange={onDocumentChange}
-      onNext={() => {
-        // Documents API: pending approval (docs/api/web-documents-findings.md). Nothing is saved yet and
-        // no skip flag is set, so the step is offered again once saving exists.
-        logger.info('onboarding complete (documents not saved yet: API pending)', summarizeAll(
-          selectOnboardingValues(useOnboardingStore.getState()),
-        ));
-        exitToDashboard(navigation);
-      }}
+      onValuesChange={setDocuments}
+      onNext={next}
       onSkip={() => {
         logger.info('onboarding 3/3: skip');
         markSkipped('documents');

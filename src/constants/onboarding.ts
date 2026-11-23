@@ -33,11 +33,9 @@ export const TRANSMISSIONS = ['manual', 'automatic', 'cvt'] as const;
 export type Transmission = (typeof TRANSMISSIONS)[number];
 export const VEHICLE_COLOUR_MAX_LENGTH = 30;
 
-/** 3/3 documents, in screen order (the DL has its own step, 2/3). */
-export const DOCUMENT_KEYS = ['rc', 'insurance', 'pollution'] as const;
+/** 3/3 documents, in screen order (the DL has its own step, 2/3). Each one is optional. */
+export const DOCUMENT_KEYS = ['rc', 'insurance', 'pollution', 'fastag'] as const;
 export type DocumentKey = (typeof DOCUMENT_KEYS)[number];
-/**
- * 3/3 "Next" rule: how many documents must be attached. ASSUMPTION (no rule in the design):
- * at least one. Change here only.
- */
-export const MIN_DOCUMENTS_TO_CONTINUE = 1;
+/** 3/3 typed document numbers (no backend length limit known; generous caps). */
+export const DOCUMENT_NUMBER_MAX_LENGTH = 40;
+export const INSURER_MAX_LENGTH = 80;

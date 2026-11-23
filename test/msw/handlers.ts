@@ -12,6 +12,10 @@ import {
   TEST_OTP,
   userDetailsRow,
   userRolesRows,
+  vehicleMakes,
+  vehicleModels,
+  vehicleVariants,
+  CREATED_VEHICLE_ID,
 } from './fixtures';
 import { urls } from './urls';
 import { ENDPOINTS } from '@/api/endpoints';
@@ -115,12 +119,33 @@ export const handlers = [
     await log(request);
     return HttpResponse.json([]);
   }),
-  // Post-login routing: document counts (HEAD, count=exact) per vdocs table.
+  // Post-login routing: active vehicle count (HEAD, count=exact, is_active=eq.true).
+  http.head(urls.userVehicles, async ({ request }) => {
+    await log(request);
+    const n = onboardingBackend.vehicleCount;
+    return new HttpResponse(null, { status: 200, headers: { 'Content-Range': n ? `0-${n - 1}/${n}` : '*/0' } });
+  }),
+  // 3/3: vehicle master data, the vehicle insert and the document inserts (.select('id').single()).
+  http.get(urls.vehicleMakes, async ({ request }) => {
+    await log(request);
+    return HttpResponse.json(vehicleMakes);
+  }),
+  http.get(urls.vehicleModels, async ({ request }) => {
+    await log(request);
+    return HttpResponse.json(vehicleModels);
+  }),
+  http.get(urls.vehicleVariants, async ({ request }) => {
+    await log(request);
+    return HttpResponse.json(vehicleVariants);
+  }),
+  http.post(urls.userVehicles, async ({ request }) => {
+    await log(request);
+    return HttpResponse.json({ id: CREATED_VEHICLE_ID }, { status: 201 });
+  }),
   ...[REST.VDOCS_RC, REST.VDOCS_INSURANCE, REST.VDOCS_POLLUTION, REST.VDOCS_FASTAG].map(table =>
-    http.head(urls.vdocs(table), async ({ request }) => {
+    http.post(urls.vdocs(table), async ({ request }) => {
       await log(request);
-      const n = table === REST.VDOCS_RC ? onboardingBackend.documentCount : 0;
-      return new HttpResponse(null, { status: 200, headers: { 'Content-Range': n ? `0-${n - 1}/${n}` : '*/0' } });
+      return HttpResponse.json({ id: `${table}-1` }, { status: 201 });
     }),
   ),
 ];

@@ -337,7 +337,7 @@ Flow (since 2026-11-23, 3 steps): Sign-in / Sign-up → 1/3 My Profile → 2/3 D
 | Read | Request | Rule |
 |---|---|---|
 | DL row | `GET SB/rest/v1/user_driving_licenses?select=id&user_id=eq.<uid>&limit=1` | none + DL not skipped → **1/3**, or **2/3** if the profile was done/skipped |
-| Documents | `HEAD SB/rest/v1/{vdocs_regcertificate,vdocs_insurance,vdocs_pollution,vdocs_fastag}?select=id` + `Prefer: count=exact` | sum 0 + documents not skipped → **3/3** |
+| Vehicle | `HEAD SB/rest/v1/user_vehicles?select=id&is_active=eq.true` + `Prefer: count=exact` | 0 active + 3/3 not skipped → **3/3** (3/3 creates the vehicle; documents need one; vehicles can't be deleted, only deactivated) |
 | Local flags | Keychain `onboarding-profile-done:<uid>`, `onboarding-dl-skipped:<uid>`, `onboarding-documents-skipped:<uid>` | (web: `localStorage dl-skipped:<uid>`) |
 
 Decided in `auth.store` → `establish()` (`resolveStartRoute`, never throws: failure → Dashboard) before
@@ -350,11 +350,11 @@ at sign-up), hence the local `profile-done` flag (set on 1/3 Next or Skip).
 | Step | Request | Notes |
 |---|---|---|
 | Load | `GET user_details?select=full_name,email,phone,avatar_url&id=eq.<uid>` | Prefills **Full Name**; avatar shown from `avatar_url`. |
-| Save name | `PATCH user_details?id=eq.<uid>` `{ full_name }` | Only when changed. |
+| Save name / email | `PATCH user_details?id=eq.<uid>` `{ full_name, email }` | Only what changed. `user_details.email` **can be updated** (checked live), so Email is editable; it's stored on the profile only (sign-in stays the phone; the web shows the auth email). Placeholder `…@phone.local` is never shown. |
 | Photo / preset | `POST SB/storage/v1/object/avatars/<uid>/<timestamp>-<name>.<ext>` (upsert) | Preset → the bundled PNG (`avatar-07.png`); photo → the picked JPEG/PNG (extension from its type, the brief's `.png` assumed PNG). |
 | Save photo | `PATCH user_details?id=eq.<uid>` `{ avatar_url: <path> }` → **"Photo updated"** | Only when the avatar changed. |
 | Display | `POST SB/storage/v1/object/sign/avatars/<path>` `{ expiresIn: 3600 }` | Cached in memory until 60 s before expiry. |
-| DOB, Email | — | **Pending backend**: no DOB column; email is the auth email, read-only on the web (synthetic `…@phone.local` for phone users). Kept in the UI, **not sent**. |
+| DOB | — | **Removed from 1/3** (2026-11-23): no backend column. |
 
 ### 9.3 C2 — Driving licence (2/3)
 
@@ -370,9 +370,36 @@ at sign-up), hence the local `profile-done` flag (set on 1/3 Next or Skip).
 validate → DL upload → DL upsert. One mutation per step, button loading + disabled, no double submit;
 uploads already done are not repeated on retry. Both writes **confirmed live** with the test login.
 
-### 9.4 C3 — Vehicle (2/4 + 3/4 + 4/4): **waiting for approval**
+### 9.4 3/3 Vehicle + documents (option (a), vehicle first, minimal)
 
-See `web-vehicle-findings.md` §1–§6 for tables, buckets, master data and the proposed implementation.
+**Probe (approved test write, 2026-11-23, `scripts/probe-required-fields.ts`, test login only):**
+
+| Table | NOT NULL found (live) | Notes |
+|---|---|---|
+| `user_vehicles` | `vehicle_number, make_id, model_id, variant_id, fuel_type, transmission_type, rc_number, current_odometer` | **Variant is required by the database**, and the master data has only **3 variants** (O8). Vehicles **can't be deleted**: "Vehicles cannot be deleted. Use ownership transfer instead." (O7) |
+| `vdocs_insurance` | `vehicle_id` (checked by RLS first: an insert without an owned vehicle → 42501), `policy_no`, `insurer` | Delete = soft (row hidden). |
+| `vdocs_regcertificate`, `vdocs_pollution`, `vdocs_fastag` | not probed | The server ignores `Prefer: tx=rollback`, so probing them would have created rows beyond the approval; the app sends the web's required fields (`registration_number` / `certificate_no` / `fastag_id`). QA confirms them. |
+
+**Minimal vehicle**: the user gives **Vehicle Number** and **Vehicle Model** (one searchable list of active
+variants labelled "Make Model – Variant": a variant implies its model and make). Defaults for the rest
+(`vehicle.service.ts#VEHICLE_DEFAULTS`):
+
+| Column | Value |
+|---|---|
+| `vehicle_number` | typed, upper-case, no spaces |
+| `make_id`, `model_id`, `variant_id` | from the chosen variant |
+| `fuel_type`, `transmission_type` | the variant's (master data); if missing / unknown: `Petrol`, `Manual` |
+| `rc_number` | = vehicle number (what the web does without an RC number) |
+| `current_odometer` | `0` (asked later on the Dashboard) |
+| `entry_method` | `manual` |
+| `color`, `chassis_number`, `registration_year/month`, `last_service_date`, `rc_document` | not sent (nullable) |
+
+**Documents** (each optional; only cards with a file are saved): file → `vehicle-docs/<uid>/<table>/<uuid>.<ext>`,
+then `POST <table>` with `vehicle_id`, `registration_number` = vehicle number, `document_path` and:
+RC → (nothing typed) + `make_id/model_id/variant_id`; Insurance → `policy_no`, `insurer` + make/model/variant;
+Pollution → `certificate_no`; FASTag → `fastag_id`. A failed insert removes its file. Next saves the vehicle
+then the documents; a retry reuses the vehicle and skips saved documents (no duplicates). 23505 on the
+vehicle → "This vehicle number is already registered."
 
 ### 9.5 Layers
 
@@ -389,17 +416,19 @@ See `web-vehicle-findings.md` §1–§6 for tables, buckets, master data and the
 | O2 | DOB: no column in `user_details`. Add one (and to the web profile)? |
 | O3 | Email: phone users have a synthetic auth email. Is the user-typed email to be stored (`user_details.email`? verified?), or dropped from 1/4? |
 | O4 | Avatar presets: upload the bundled PNG per user (as now), or a shared public preset bucket / id field? |
-| O5 | DL: are `issued_on / valid_upto / vehicle_classes` wanted in the app (not in Figma)? |
+| O5 | DL: `vehicle_classes` wanted in the app? (Issued on / Valid up to are now on 2/3.) |
+| **O6** | **Bug: a soft-deleted DL row blocks every later save.** The hidden row keeps the unique `user_id`; upsert → `42501 new row violates row-level security policy "Hide deleted rows"`, insert → `23505 user_driving_licenses_user_id_key`. Any user who deletes their DL (web) can never add one again. Needs: upsert that revives the row, or a hard delete. **The test account is in this state now** (after `reset-test-account.ts --include-dl`): please hard-delete / restore its DL row. The app shows "Your earlier licence was removed and can't be replaced yet. Please contact support." |
+| **O7** | Vehicles can't be deleted (by design, "ownership transfer"). The probe vehicle `TS00ZZ0001` stays on the test account (deactivated). Test resets deactivate vehicles; their numbers stay taken (unique). OK, or can the backend purge test vehicles? |
+| **O8** | `variant_id` is NOT NULL but only **3 variants** exist (MG ZS EV Essence, Hyundai Verna 1.6 VTVT SX, BMW sDrive18i M Sport): most users can't add their car. Fill the variant master, or make `variant_id` nullable? |
 | Q2–Q9 | Vehicle questions: `web-vehicle-findings.md` §5. |
 
 ### 9.7 Status
 
 | Part | Status |
 |---|---|
-| A — meeting UI verified | ✅ committed |
-| B — post-login routing | ✅ committed; re-done for the 3-step flow |
-| C1 — profile | ✅ msw + **live** (avatar upload, PATCH, signed URL) |
-| C2 — DL | ✅ msw + **live** (upload, upsert with dates, signed URL) |
-| Profile / DL split, 3-step progress | ✅ |
-| Documents (3/3) API | ⛔ waiting for approval of `web-documents-findings.md` (Next goes to the Dashboard without saving) |
-| OCR / vehicle lookup | ⏸ `unavailable` stubs until the backend replies (O1); no calls made |
+| Routing (3 steps) | ✅ (3/3 done = an active vehicle) |
+| 1/3 Profile (photo, Full Name, Email; no DOB) | ✅ msw + live |
+| 2/3 Driving Licence (+ Issued on / Valid up to) | ✅ msw + live; ⚠ test account blocked by O6 |
+| 3/3 Vehicle + documents (RC, Insurance, PUC, FASTag) | ✅ msw; QA: `docs/qa/phase1-api.md` |
+| OCR / vehicle lookup | ⏸ `unavailable` stubs (O1); never called |
+| `scripts/reset-test-account.ts` | ✅ test account only; DL opt-in (O6) |

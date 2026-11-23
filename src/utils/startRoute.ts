@@ -3,8 +3,8 @@ export type StartRoute = 'Step1Profile' | 'Step2DrivingLicence' | 'Step3Document
 
 export type StartRouteInput = {
   hasDrivingLicense: boolean;
-  /** Rows in the vehicle-document tables (RC, insurance, PUC, FASTag) visible to the user. */
-  documentCount: number;
+  /** Active vehicles (3/3 creates one; documents belong to it). */
+  vehicleCount: number;
   /** Local flags (storage/onboardingFlags). */
   profileDone: boolean;
   dlSkipped: boolean;
@@ -14,14 +14,14 @@ export type StartRouteInput = {
 /**
  * 3-step onboarding:
  * - no DL row and 2/3 not skipped → 1/3 Profile, or 2/3 Driving Licence once the profile was done/skipped
- * - DL done or skipped, no documents and 3/3 not skipped → 3/3 Documents
+ * - DL done or skipped, no active vehicle and 3/3 not skipped → 3/3 Vehicle documents
  * - otherwise → Dashboard
  */
 export function decideStartRoute(input: StartRouteInput): StartRoute {
   if (!input.hasDrivingLicense && !input.dlSkipped) {
     return input.profileDone ? 'Step2DrivingLicence' : 'Step1Profile';
   }
-  if (input.documentCount === 0 && !input.documentsSkipped) {
+  if (input.vehicleCount === 0 && !input.documentsSkipped) {
     return 'Step3Documents';
   }
   return 'Dashboard';

@@ -1,6 +1,5 @@
 import { http, HttpResponse } from 'msw';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { ENDPOINTS } from '@/api/endpoints';
 import { getSupabase, __resetSupabaseForTests } from '@/api/supabase';
 import { strings } from '@/constants/strings';
 import { isOnboardingSkipped, markOnboardingSkipped } from '@/storage/onboardingFlags';
@@ -15,7 +14,6 @@ beforeEach(resetAppState);
 afterEach(resetAppState);
 
 const HIDDEN = { includeHiddenElements: true };
-const { REST } = ENDPOINTS.SUPABASE;
 
 /** A previous run's session in the Keychain, then a fresh app (relaunch). */
 async function relaunchWithSession() {
@@ -30,7 +28,7 @@ async function signIn() {
   await typeOtp(TEST_OTP);
 }
 
-const fresh = () => setOnboardingBackend({ hasDrivingLicense: false, documentCount: 0 });
+const fresh = () => setOnboardingBackend({ hasDrivingLicense: false, vehicleCount: 0 });
 
 describe('post-login routing (3-step onboarding)', () => {
   it('new user → sign-in opens 1/3 Profile with no way back to sign-in', async () => {
@@ -42,8 +40,9 @@ describe('post-login routing (3-step onboarding)', () => {
     expect(screen.queryByLabelText(strings.common.back)).toBeNull();
     expect(useAuthStore.getState().startRoute).toBe('Step1Profile');
     expect(requestLog.find(r => r.url.startsWith(urls.drivingLicenses))?.url).toContain(`user_id=eq.${UID}`);
-    const heads = requestLog.filter(r => r.method === 'HEAD').map(r => r.url.split('?')[0].split('/').pop());
-    expect(heads.sort()).toEqual([REST.VDOCS_FASTAG, REST.VDOCS_INSURANCE, REST.VDOCS_POLLUTION, REST.VDOCS_RC].sort());
+    const head = requestLog.find(r => r.method === 'HEAD');
+    expect(head?.url).toContain(urls.userVehicles);
+    expect(head?.url).toContain('is_active=eq.true');
   });
 
   it('profile done (local flag), no DL → 2/3 (no back arrow)', async () => {
@@ -55,14 +54,14 @@ describe('post-login routing (3-step onboarding)', () => {
     expect(screen.queryByLabelText(strings.common.back)).toBeNull();
   });
 
-  it('DL saved, no documents → 3/3', async () => {
-    setOnboardingBackend({ hasDrivingLicense: true, documentCount: 0 });
+  it('DL saved, no active vehicle → 3/3', async () => {
+    setOnboardingBackend({ hasDrivingLicense: true, vehicleCount: 0 });
     await relaunchWithSession();
     expect(await screen.findByTestId('onboarding-documents')).toBeTruthy();
     expect(screen.getByTestId('onboarding-step')).toHaveTextContent('3/3');
   });
 
-  it('DL skipped, no documents → 3/3', async () => {
+  it('DL skipped, no vehicle → 3/3', async () => {
     fresh();
     await markOnboardingSkipped('dl', UID);
     await relaunchWithSession();
@@ -77,7 +76,7 @@ describe('post-login routing (3-step onboarding)', () => {
     expect(await screen.findByTestId('dashboard')).toBeTruthy();
   });
 
-  it('onboarding done (DL + a document) → Dashboard', async () => {
+  it('onboarding done (DL + an active vehicle) → Dashboard', async () => {
     await relaunchWithSession();
     expect(await screen.findByTestId('dashboard')).toBeTruthy();
     expect(useAuthStore.getState().startRoute).toBe('Dashboard');
@@ -88,7 +87,7 @@ describe('post-login routing (3-step onboarding)', () => {
     let release!: () => void;
     const gate = new Promise<void>(r => (release = r));
     server.use(
-      http.head(urls.vdocs(REST.VDOCS_RC), async () => {
+      http.head(urls.userVehicles, async () => {
         await gate;
         return new HttpResponse(null, { headers: { 'Content-Range': '*/0' } });
       }),

@@ -28,7 +28,7 @@ describe('reusable vehicle components (no onboarding header)', () => {
     expect(screen.queryByTestId('onboarding-step')).toBeNull();
   });
 
-  it('DocumentsUploadList renders the three cards (RC, Insurance, Pollution) under the selector slot', async () => {
+  it('DocumentsUploadList renders the four cards (RC, Insurance, Pollution, FASTag) under the selector slot', async () => {
     await render(
       <Providers>
         <DocumentsUploadList
@@ -42,6 +42,7 @@ describe('reusable vehicle components (no onboarding header)', () => {
     expect(screen.getByTestId('document-rc')).toBeTruthy();
     expect(screen.getByTestId('document-insurance')).toBeTruthy();
     expect(screen.getByTestId('document-pollution')).toBeTruthy();
+    expect(screen.getByTestId('document-fastag')).toBeTruthy();
     expect(screen.queryByTestId('document-license')).toBeNull();
     expect(screen.queryByTestId('onboarding-step')).toBeNull();
   });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { strings } from '@/constants/strings';
 import { Providers } from '../../../../test/render';
@@ -9,7 +9,6 @@ import OnboardingProfileScreen, { type OnboardingProfileScreenProps } from '../O
 
 const t = strings.onboarding;
 const e = t.errors;
-const TODAY = new Date(2026, 10, 19);
 
 const mockedLibrary = launchImageLibrary as jest.MockedFunction<typeof launchImageLibrary>;
 const mockedCamera = launchCamera as jest.MockedFunction<typeof launchCamera>;
@@ -24,7 +23,7 @@ async function renderScreen(props: Partial<OnboardingProfileScreenProps> = {}) {
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Step1">
-            {() => <OnboardingProfileScreen onNext={onNext} onSkip={onSkip} today={() => TODAY} {...props} />}
+            {() => <OnboardingProfileScreen onNext={onNext} onSkip={onSkip} {...props} />}
           </Stack.Screen>
         </Stack.Navigator>
       </NavigationContainer>
@@ -57,15 +56,15 @@ describe('OnboardingProfileScreen – layout', () => {
     expect(screen.getByText(t.profile.avatarLabel)).toBeTruthy();
   });
 
-  it('avatar + Full Name, Date of Birth, Email; no DL fields (they have their own step)', async () => {
+  it('Profile photo, Full Name and Email only (no Date of Birth, no DL fields)', async () => {
     await renderScreen();
     expect(screen.getByTestId('profile-avatar-avatar-01')).toBeTruthy();
     expect(screen.getByTestId('profile-avatar-badge')).toBeTruthy();
     expect(screen.getByTestId('full-name').props.placeholder).toBe(t.profile.fullNamePlaceholder);
     expect(screen.getByTestId('email').props.placeholder).toBe(t.profile.emailPlaceholder);
-    expect(screen.getByTestId('dob').props.accessibilityLabel).toBe(`${t.profile.dobLabel}, ${t.profile.dobPlaceholder}`);
+    expect(screen.getByTestId('email').props.editable).not.toBe(false); // user_details.email can be updated
+    expect(screen.queryByTestId('dob')).toBeNull();
     expect(screen.queryByTestId('dl-number')).toBeNull();
-    expect(screen.queryByTestId('dl-upload-empty')).toBeNull();
   });
 });
 
@@ -79,50 +78,27 @@ describe('OnboardingProfileScreen – validation and actions', () => {
     expect(onSkip).not.toHaveBeenCalled();
   });
 
-  it('validates the fields inline, email on blur and DOB 18+', async () => {
+  it('validates Full Name and Email inline; email format on blur', async () => {
     const { onNext } = await renderScreen();
     await fireEvent.press(screen.getByTestId('profile-next'));
     expect(await screen.findByText(e.fullName)).toBeTruthy();
-    expect(screen.getByText(e.dobRequired)).toBeTruthy();
     expect(screen.getByText(e.emailRequired)).toBeTruthy();
-
     await fireEvent.changeText(screen.getByTestId('email'), 'john@gmail');
     await fireEvent(screen.getByTestId('email'), 'blur');
     expect(await screen.findByText(e.emailInvalid)).toBeTruthy();
-
-    // A 16-year-old picked in the DOB sheet.
-    await fireEvent.press(screen.getByTestId('dob'));
-    const picker = await screen.findByTestId('dob-picker');
-    expect(picker.props.maximumDate).toEqual(new Date(2008, 10, 19));
-    await act(() => picker.props.onChange({ type: 'set' }, new Date(2010, 4, 5)));
-    await fireEvent.press(screen.getByTestId('dob-done'));
-    expect(await screen.findByText(e.dobTooYoung(18))).toBeTruthy();
-    expect(screen.getByTestId('dob').props.accessibilityLabel).toBe(`${t.profile.dobLabel}, 05-05-2010`);
     expect(onNext).not.toHaveBeenCalled();
   });
 
   it('Next submits normalised values; Skip calls onSkip', async () => {
     const { onNext, onSkip } = await renderScreen({ initialValues: { fullName: '  John   Cooper ' } });
-    expect(screen.getByTestId('full-name').props.value).toBe('  John   Cooper ');
-
-    await fireEvent.press(screen.getByTestId('dob'));
-    const picker = await screen.findByTestId('dob-picker');
-    await act(() => picker.props.onChange({ type: 'set' }, new Date(1990, 0, 1)));
-    await fireEvent.press(screen.getByTestId('dob-done'));
-    await waitFor(() =>
-      expect(screen.getByTestId('dob').props.accessibilityLabel).toBe(`${t.profile.dobLabel}, 01-01-1990`),
-    );
-
     await fireEvent.changeText(screen.getByTestId('email'), ' john.cooper@gmail.com ');
     await fireEvent.press(screen.getByTestId('profile-next'));
     await waitFor(() => expect(onNext).toHaveBeenCalledTimes(1));
     expect(onNext.mock.calls[0][0]).toEqual({
       avatar: { type: 'preset', id: 'avatar-01' },
       fullName: 'John Cooper',
-      dob: '1990-01-01',
       email: 'john.cooper@gmail.com',
     });
-
     await fireEvent.press(screen.getByTestId('profile-skip'));
     expect(onSkip).toHaveBeenCalledTimes(1);
   });
@@ -198,10 +174,6 @@ describe('OnboardingProfileScreen – avatar picker', () => {
 
     // …and it is what Next submits.
     await fireEvent.changeText(screen.getByTestId('full-name'), 'John Cooper');
-    await fireEvent.press(screen.getByTestId('dob'));
-    const picker = await screen.findByTestId('dob-picker');
-    await act(() => picker.props.onChange({ type: 'set' }, new Date(1990, 0, 1)));
-    await fireEvent.press(screen.getByTestId('dob-done'));
     await fireEvent.changeText(screen.getByTestId('email'), 'john@sterow.in');
     await fireEvent.press(screen.getByTestId('profile-next'));
     await waitFor(() => expect(onNext).toHaveBeenCalled());

@@ -62,6 +62,9 @@ export const STORAGE_PATHS = {
   /** `driving-licenses`: `<uid>/<timestamp>-<sanitised name>`. */
   drivingLicense: (uid: string, timestamp: number, fileName: string) =>
     `${uid}/${timestamp}-${sanitiseFileName(fileName)}`,
+  /** `vehicle-docs`: `<uid>/<vdocs table>/<uuid>.<ext>` (as the web's My Documents). */
+  vehicleDocument: (uid: string, table: string, id: string, extension: string) =>
+    `${uid}/${table}/${id}.${sanitiseFileName(extension)}`,
 } as const;
 
 export type OtpPurpose = 'signin' | 'signup';

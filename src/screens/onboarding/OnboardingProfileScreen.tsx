@@ -3,7 +3,6 @@ import { StyleSheet, View } from 'react-native';
 import { Controller } from 'react-hook-form';
 import AppText from '@/components/AppText';
 import AvatarCircle from '@/components/AvatarCircle';
-import DateField from '@/components/DateField';
 import LinkButton from '@/components/LinkButton';
 import OnboardingLayout, { useRevealOnFocus } from '@/components/OnboardingLayout';
 import PrimaryButton from '@/components/PrimaryButton';
@@ -30,23 +29,20 @@ export type OnboardingProfileScreenProps = {
   onBack?: () => void;
   /** Every change (the onboarding store keeps the values for Back / re-entry). */
   onValuesChange?: (values: ProfileFormValues) => void;
-  /** Injectable clock for the 18+ DOB rule (tests). */
-  today?: () => Date;
   /** Next is saving: spinner on Next, Next and Skip disabled (no double submit). */
   saving?: boolean;
 };
 
-/** Onboarding 1/3 "My Profile": avatar, Full Name, Date of Birth, Email. */
+/** Onboarding 1/3 "My Profile": Profile photo, Full Name, Email. */
 export default function OnboardingProfileScreen({
   initialValues,
   onNext,
   onSkip,
   onBack,
   onValuesChange,
-  today,
   saving = false,
 }: OnboardingProfileScreenProps) {
-  const profile = useOnboardingProfileForm({ initialValues, onNext, onSkip, onValuesChange, today });
+  const profile = useOnboardingProfileForm({ initialValues, onNext, onSkip, onValuesChange });
 
   return (
     <OnboardingLayout
@@ -126,22 +122,6 @@ function ProfileFields({ profile }: { profile: OnboardingProfileForm }) {
               maxLength={FULL_NAME_MAX}
               returnKeyType="done"
               error={errors.fullName?.message}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name="dob"
-          render={({ field }) => (
-            <DateField
-              testID="dob"
-              style={styles.field}
-              label={p.dobLabel}
-              value={field.value}
-              onChange={field.onChange}
-              onClose={profile.validateDobOnClose}
-              maximumDate={profile.maxDob}
-              error={errors.dob?.message}
             />
           )}
         />

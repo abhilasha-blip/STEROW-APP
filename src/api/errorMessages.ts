@@ -56,10 +56,14 @@ const CODES: Readonly<Record<string, Omit<UserError, 'kind'>>> = {
   UNSUPPORTED_FILE: { userMessage: e.unsupportedFile },
   FILE_UNREADABLE: { userMessage: e.fileUnreadable },
   NOT_UPDATED: { userMessage: e.notAllowed },
+  VEHICLE_NUMBER_TAKEN: { userMessage: e.vehicleNumberTaken },
+  DOCUMENT_FIELD_REQUIRED: { userMessage: e.documentFieldRequired },
 };
 
 /** Storage / PostgREST messages → user copy. */
 const STORAGE_RULES: ReadonlyArray<{ match: RegExp; error: Omit<UserError, 'kind'> }> = [
+  // Before the generic RLS rule: the DL row was soft-deleted and now blocks saves (backend bug O6).
+  { match: /policy "Hide deleted rows".*user_driving_licenses|user_driving_licenses_user_id_key/i, error: { userMessage: e.dlDeletedBlocked } },
   { match: /payload too large|exceeded the maximum allowed size|entity too large/i, error: { userMessage: e.fileTooLarge } },
   { match: /mime type .* is not supported|invalid_mime_type/i, error: { userMessage: e.unsupportedFile } },
   { match: /row-level security|permission denied/i, error: { userMessage: e.notAllowed } },

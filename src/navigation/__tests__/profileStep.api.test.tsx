@@ -29,7 +29,7 @@ beforeEach(() => {
 afterEach(resetAppState);
 
 async function signInFresh() {
-  setOnboardingBackend({ hasDrivingLicense: false, documentCount: 0 });
+  setOnboardingBackend({ hasDrivingLicense: false, vehicleCount: 0 });
   await renderApp();
   await goToVerify();
   await typeOtp(TEST_OTP);
@@ -45,7 +45,6 @@ async function pickDate(testID: string, date: Date) {
 }
 
 async function completeProfile() {
-  await pickDate('dob', new Date(1990, 0, 1));
   await fireEvent.changeText(screen.getByTestId('email'), 'ravi@example.com');
 }
 
@@ -82,7 +81,11 @@ describe('1/3 My Profile with the API', () => {
     expect(writes[1]).toBe('PATCH /rest/v1/user_details');
     expect(writes).toHaveLength(2); // no DL write on 1/3
     const patch = requestLog.find(r => r.method === 'PATCH')!;
-    expect(patch.body).toEqual({ full_name: 'Ravi Kumar', avatar_url: expect.stringMatching(/-avatar-01\.png$/) });
+    expect(patch.body).toEqual({
+      full_name: 'Ravi Kumar',
+      email: 'ravi@example.com',
+      avatar_url: expect.stringMatching(/-avatar-01\.png$/),
+    });
   });
 
   it('a failed PATCH shows the mapped error and stays; the retry does not re-upload the avatar', async () => {
@@ -170,7 +173,12 @@ const SIGNED_AVATAR = `${urls.storageRoot}/object/sign/avatars/${UID}/1-me.png?t
 const SIGNED_DL = `${urls.storageRoot}/object/sign/driving-licenses/${UID}/1-dl.jpg?token=t`;
 
 describe('form → request mapping', () => {
-  const profile: ProfileStepData = { fullName: 'Ravi Kumar', avatarPath: `${UID}/1-me.png`, avatarUrl: SIGNED_AVATAR };
+  const profile: ProfileStepData = {
+    fullName: 'Ravi Kumar',
+    email: 'ravi@example.com',
+    avatarPath: `${UID}/1-me.png`,
+    avatarUrl: SIGNED_AVATAR,
+  };
   const dl: DrivingLicenceStepData = {
     dlNumber: 'TS0120110012345',
     documentPath: `${UID}/1-dl.jpg`,
@@ -180,8 +188,14 @@ describe('form → request mapping', () => {
   };
 
   it('profile: nothing changed → nothing sent; a new photo is uploaded; "No avatar" clears a saved one', () => {
-    const same = { ...EMPTY_PROFILE, fullName: 'Ravi Kumar', avatar: { type: 'photo' as const, uri: SIGNED_AVATAR } };
-    expect(toProfileStepSave(same, profile)).toEqual({ fullName: undefined, avatar: undefined });
+    const same = {
+      ...EMPTY_PROFILE,
+      fullName: 'Ravi Kumar',
+      email: 'ravi@example.com',
+      avatar: { type: 'photo' as const, uri: SIGNED_AVATAR },
+    };
+    expect(toProfileStepSave(same, profile)).toEqual({ fullName: undefined, email: undefined, avatar: undefined });
+    expect(toProfileStepSave({ ...same, email: 'new@example.com' }, profile).email).toBe('new@example.com');
     expect(toProfileStepSave({ ...same, avatar: { type: 'photo', uri: 'file:///tmp/me.png' } }, profile).avatar).toEqual({
       uri: 'file:///tmp/me.png',
       name: 'me.png',

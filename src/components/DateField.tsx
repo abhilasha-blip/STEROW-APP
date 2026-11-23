@@ -23,13 +23,13 @@ type DateFieldProps = {
   maximumDate?: Date;
   minimumDate?: Date;
   error?: string;
-  /** Screen-reader hint for the field (default: step 1's date of birth). */
+  /** Screen-reader hint for the field. */
   pickerA11yHint?: string;
   testID?: string;
   style?: StyleProp<ViewStyle>;
 };
 
-const t = strings.onboarding.profile;
+const t = strings.onboarding.date;
 
 /**
  * Looks like TextField variant="light" with a calendar icon. Opens the native date picker:
@@ -40,11 +40,11 @@ export default function DateField({
   value,
   onChange,
   onClose,
-  placeholder = t.dobPlaceholder,
+  placeholder = t.placeholder,
   maximumDate,
   minimumDate,
   error,
-  pickerA11yHint = t.dobPickerA11y,
+  pickerA11yHint = t.pickerA11y,
   testID = 'date-field',
   style,
 }: DateFieldProps) {
@@ -128,7 +128,7 @@ export default function DateField({
           />
           <PrimaryButton
             testID={`${testID}-done`}
-            label={t.dobDone}
+            label={t.done}
             labelVariant="buttonStrong"
             showArrow={false}
             onPress={() => {

@@ -94,12 +94,14 @@ export const strings = {
       editAvatarA11y: 'Edit profile image',
       fullNameLabel: 'Full Name',
       fullNamePlaceholder: 'Enter your full name',
-      dobLabel: 'Date of Birth',
-      dobPlaceholder: 'DD-MM-YYYY',
-      dobPickerA11y: 'Choose date of birth',
-      dobDone: 'Done',
       emailLabel: 'Email',
       emailPlaceholder: 'Enter your email address',
+    },
+    /** DateField defaults (the design's DD-MM-YYYY). */
+    date: {
+      placeholder: 'DD-MM-YYYY',
+      pickerA11y: 'Choose a date',
+      done: 'Done',
     },
     /** 2/3 (no Figma frame yet: the DL part of the old step 1 frames + the web's date fields). */
     drivingLicence: {
@@ -216,12 +218,32 @@ export const strings = {
     documents: {
       title: 'Your Vehicle documents',
       subtitle: 'Upload your vehicle documents below',
+      /** Top of 3/3: the vehicle the documents belong to (also the RC registration number). */
+      vehicleNumberLabel: 'Vehicle Number',
+      vehicleNumberPlaceholder: 'e.g. TS09EV1234',
+      vehicleNumberInvalid: 'Enter a valid vehicle number, e.g. TS09EV1234',
+      /** Required by the database (make, model and variant); fuel and transmission come from it. */
+      vehicleModelLabel: 'Vehicle Model',
+      vehicleModelPlaceholder: 'Select your vehicle model',
+      vehicleModelsFailed: "Couldn't load the vehicle models. Please try again.",
       rcLabel: 'Upload Vehicle RC',
       rcTitle: 'Upload RC image',
       insuranceLabel: 'Upload Insurance',
       insuranceTitle: 'Upload Insurance',
       pollutionLabel: 'Upload Pollution Certificate',
       pollutionTitle: 'Upload Pollution Certificate',
+      /** Not in Figma yet (agreed flow; the designer will add it). */
+      fastagLabel: 'Upload FASTag',
+      fastagTitle: 'Upload FASTag',
+      policyNoLabel: 'Policy Number',
+      policyNoPlaceholder: 'Enter policy number',
+      insurerLabel: 'Insurer',
+      insurerPlaceholder: 'Enter insurance company',
+      certificateNoLabel: 'Certificate Number',
+      certificateNoPlaceholder: 'Enter PUC certificate number',
+      fastagIdLabel: 'FASTag ID',
+      fastagIdPlaceholder: 'Enter FASTag ID',
+      saved: 'Vehicle and documents saved',
     },
   },
   network: {
@@ -250,5 +272,9 @@ export const strings = {
     fileTooLarge: 'File must be 10 MB or smaller',
     fileUnreadable: 'Could not read the file. Please pick it again.',
     notAllowed: "You don't have permission to do this.",
+    /** Backend soft-delete bug: a deleted DL row blocks every new save (see API_PLAN §9.6 O6). */
+    dlDeletedBlocked: "Your earlier licence was removed and can't be replaced yet. Please contact support.",
+    vehicleNumberTaken: 'This vehicle number is already registered.',
+    documentFieldRequired: 'Fill in the number for each document you added.',
   },
 } as const;

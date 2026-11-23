@@ -40,7 +40,10 @@ export const QA_SCENARIOS: Record<string, Scenario> = {
       }),
   },
   'step3-empty': { route: 'Step3Documents' },
-  'step3-rc': { route: 'Step3Documents', seed: f => store().setDocument('rc', f) },
+  'step3-rc': {
+    route: 'Step3Documents',
+    seed: f => store().setDocuments({ ...store().documents, vehicleNumber: 'TS09EV1234', rc: f, insurance: f }),
+  },
 };
 
 export function getQaScenarioName(): string | null {

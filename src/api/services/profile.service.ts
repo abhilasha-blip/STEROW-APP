@@ -16,9 +16,14 @@ const ProfileRow = z.object({
   avatar_url: z.string().nullable().optional(),
 });
 
+/** Phone sign-ups get a placeholder auth email (`<10 digits>@phone.local`): never shown as theirs. */
+export const isPlaceholderEmail = (email: string) => /@phone\.local$/i.test(email.trim());
+
 export type Profile = {
   fullName: string;
   phone: string;
+  /** user_details.email, '' when empty or a placeholder. */
+  email: string;
   /** Storage path in the `avatars` bucket (not a URL), or null. */
   avatarPath: string | null;
 };
@@ -33,21 +38,26 @@ export async function fetchProfile(uid: string): Promise<Profile> {
   return {
     fullName: row?.full_name ?? '',
     phone: row?.phone ?? '',
+    email: row?.email && !isPlaceholderEmail(row.email) ? row.email : '',
     avatarPath: row?.avatar_url || null,
   };
 }
 
 /**
- * PATCH user_details: only the fields given. Email and DOB are never sent (read-only on the web /
- * no column). A PATCH that matches no row (RLS) is an error, not a silent success.
+ * PATCH user_details: only the fields given (full_name, email, avatar_url; there is no DOB column).
+ * The email is stored on the profile only: sign-in stays the phone number. A PATCH that matches no row
+ * (RLS) is an error, not a silent success.
  */
 export async function updateProfile(
   uid: string,
-  changes: { fullName?: string; avatarPath?: string | null },
+  changes: { fullName?: string; email?: string; avatarPath?: string | null },
 ): Promise<void> {
   const body: Record<string, string | null> = {};
   if (changes.fullName !== undefined) {
     body.full_name = changes.fullName;
+  }
+  if (changes.email !== undefined) {
+    body.email = changes.email;
   }
   if (changes.avatarPath !== undefined) {
     body.avatar_url = changes.avatarPath;
