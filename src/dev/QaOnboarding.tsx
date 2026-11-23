@@ -27,6 +27,10 @@ const store = () => useOnboardingStore.getState();
 
 export const QA_SCENARIOS: Record<string, Scenario> = {
   'step1-profile': { route: 'Step1Profile' },
+  'step1-filled': {
+    route: 'Step1Profile',
+    seed: () => store().setProfile({ avatar: { type: 'preset', id: 'avatar-07' }, fullName: 'Ravi Kumar', email: 'ravi@example.com' }),
+  },
   'step2-dl-empty': { route: 'Step2DrivingLicence' },
   /** The licence filled in: number, photo (`qaFile`), Issued on, Valid up to. */
   'step2-dl-filled': {
@@ -40,9 +44,18 @@ export const QA_SCENARIOS: Record<string, Scenario> = {
       }),
   },
   'step3-empty': { route: 'Step3Documents' },
-  'step3-rc': {
+  /** Vehicle number + an attached RC and Insurance (its two number fields shown). */
+  'step3-filled': {
     route: 'Step3Documents',
-    seed: f => store().setDocuments({ ...store().documents, vehicleNumber: 'TS09EV1234', rc: f, insurance: f }),
+    seed: f =>
+      store().setDocuments({
+        ...store().documents,
+        vehicleNumber: 'TS09EV1234',
+        rc: f,
+        insurance: f,
+        insurancePolicyNo: 'P-123456',
+        insurer: 'Acko',
+      }),
   },
 };
 
