@@ -104,7 +104,11 @@ async function dl(sb: SupabaseClient, uid: string) {
   const upsert = await sb.from(REST.USER_DRIVING_LICENSES).upsert(row, { onConflict: 'user_id' }).select('*').single();
   check('upsert user_driving_licenses (on_conflict user_id)', !upsert.error, upsert.error?.message);
   const again = await sb.from(REST.USER_DRIVING_LICENSES).upsert(row, { onConflict: 'user_id' }).select('id').single();
-  check('second upsert updates the same row (no duplicate)', again.data?.id === upsert.data?.id, again.error?.message);
+  check(
+    'second upsert updates the same row (no duplicate)',
+    !!upsert.data?.id && again.data?.id === upsert.data.id,
+    again.error?.message,
+  );
   const back = await sb.from(REST.USER_DRIVING_LICENSES).select('*').eq('user_id', uid);
   check('read back: one row, number + path + dates', back.data?.length === 1 && back.data[0].dl_number === DL_NUMBER &&
     back.data[0].document_path === objectPath && back.data[0].issued_on === '2020-01-15' && back.data[0].valid_upto === '2040-01-14');

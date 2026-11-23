@@ -1,0 +1,118 @@
+{
+  "rollbackHonoured": false,
+  "user_vehicles": {
+    "ok": true,
+    "required": [
+      "(see the first run)"
+    ],
+    "row": {
+      "id": "b66b140e-d47a-4ee2-81e6-c4bb74aee4a1",
+      "user_id": "<uid>",
+      "vehicle_number": "TS00ZZ0001",
+      "make_id": "4b9fb48a-773a-4889-b84c-8711ee286cbb",
+      "model_id": "15510942-05f8-4750-b2a3-2dedf546ad63",
+      "variant_id": "a9d154b4-aa6c-4f6e-bcf1-1cf4e7738eb9",
+      "fuel_type": "Electric",
+      "transmission_type": "Automatic",
+      "color": null,
+      "rc_number": "TS00ZZ0001",
+      "registration_year": null,
+      "registration_month": null,
+      "chassis_number": null,
+      "current_odometer": 0,
+      "last_service_date": null,
+      "rc_document": null,
+      "entry_method": "manual",
+      "is_active": true,
+      "create_at": "2026-11-23T08:06:13.427235+00:00",
+      "updated_at": "2026-11-23T08:06:13.427235+00:00",
+      "deleted_at": null,
+      "deleted_by": null
+    },
+    "log": []
+  },
+  "vdocs_insurance": {
+    "ok": true,
+    "required": [
+      "policy_no",
+      "insurer"
+    ],
+    "row": {
+      "id": "e5fc5ea7-2c03-44c9-a465-308f19a073b2",
+      "user_id": "<uid>",
+      "vehicle_id": "b66b140e-d47a-4ee2-81e6-c4bb74aee4a1",
+      "policy_no": "PROBE-POLICY-1",
+      "insurer": "Probe Insurer",
+      "start_date": null,
+      "end_date": null,
+      "registration_number": null,
+      "make_id": null,
+      "model_id": null,
+      "variant_id": null,
+      "chassis_number": null,
+      "engine_number": null,
+      "insured_declared_value": null,
+      "policy_type": null,
+      "premium_amount": null,
+      "taxes": null,
+      "total_amount": null,
+      "document_path": null,
+      "is_active": true,
+      "create_at": "2026-11-23T08:07:12.307223+00:00",
+      "updated_at": "2026-11-23T08:07:12.307223+00:00",
+      "deleted_at": null,
+      "deleted_by": null
+    },
+    "applied": "return=representation",
+    "log": [
+      {
+        "sent": [
+          "vehicle_id"
+        ],
+        "status": 400,
+        "applied": null,
+        "error": {
+          "code": "23502",
+          "details": null,
+          "hint": null,
+          "message": "null value in column \"policy_no\" of relation \"vdocs_insurance\" violates not-null constraint"
+        }
+      },
+      {
+        "sent": [
+          "vehicle_id",
+          "policy_no"
+        ],
+        "status": 400,
+        "applied": null,
+        "error": {
+          "code": "23502",
+          "details": null,
+          "hint": null,
+          "message": "null value in column \"insurer\" of relation \"vdocs_insurance\" violates not-null constraint"
+        }
+      },
+      {
+        "sent": [
+          "vehicle_id",
+          "policy_no",
+          "insurer"
+        ],
+        "status": 201,
+        "applied": "return=representation"
+      }
+    ]
+  },
+  "deleteDocument": "ok",
+  "deactivateVehicle": [
+    {
+      "id": "b66b140e-d47a-4ee2-81e6-c4bb74aee4a1",
+      "is_active": false
+    }
+  ],
+  "reinsertSameNumberRolledBack": {
+    "status": 0,
+    "applied": null,
+    "body": "ok"
+  }
+}
