@@ -33,6 +33,8 @@ const vehicle = (id: string, number: string, make: string, model: string): MyVeh
   modelName: model,
   variantName: '',
   fuelType: 'Electric',
+  transmissionType: 'Automatic',
+  colour: null,
 });
 const VEHICLES = [vehicle('v1', 'TS09 EV 2345', 'MG', 'ZS EV'), vehicle('v2', 'TS09AB1234', 'Hyundai', 'Creta'), vehicle('v3', 'TS08CD5678', 'Tata', 'Nexon')];
 const PROFILE = { fullName: 'John Cooper', email: 'john.doe@example.com', avatarPath: null, avatarUrl: null };

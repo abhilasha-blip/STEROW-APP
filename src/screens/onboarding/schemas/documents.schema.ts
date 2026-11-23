@@ -1,4 +1,5 @@
 import { DOCUMENT_KEYS, type DocumentKey } from '@/constants/onboarding';
+import type { VehicleDetails } from '@/api/services/vehicle.service';
 import type { UploadedFile } from '@/utils/uploadFile';
 import { parseIsoDate } from '@/utils/validation';
 
@@ -11,6 +12,8 @@ export type DocumentFieldValues = {
   fastagId?: string;
   /** "YYYY-MM-DD": insurance expiry / PUC validity. */
   expiry?: string | null;
+  /** RC "Add Manually" opens "Your Vehicle details": the vehicle's details as on the RC. */
+  vehicle?: VehicleDetails;
 };
 
 /** One card: an uploaded file, typed details, or both. */
@@ -19,7 +22,8 @@ export type DocumentEntry = { file: UploadedFile | null; fields: DocumentFieldVa
 /** 3/3 form state: the selected vehicle and one entry per document. */
 export type DocumentsFormValues = { vehicleId: string | null } & Record<DocumentKey, DocumentEntry>;
 
-export type DocumentField = keyof DocumentFieldValues;
+/** The sheet's fields (`vehicle` comes from the RC details screen). */
+export type DocumentField = Exclude<keyof DocumentFieldValues, 'vehicle'>;
 
 /** The fields of each "Add Manually" form, in order; all are required. */
 export const DOCUMENT_FORM_FIELDS: Record<DocumentKey, readonly DocumentField[]> = {

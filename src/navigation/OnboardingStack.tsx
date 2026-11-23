@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { toUserError } from '@/api/errorMessages';
 import type { DrivingLicenceStepData } from '@/api/services/drivingLicenceStep.service';
 import { ocrService } from '@/api/services/ocr.service';
 import type { ProfileStepData } from '@/api/services/profileStep.service';
+import { vehicleDetailsOf, type VehicleDetails } from '@/api/services/vehicle.service';
 import OnboardingLayout from '@/components/OnboardingLayout';
 import { useToast } from '@/components/Toast';
 import { DOCUMENT_KEYS, ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from '@/constants/onboarding';
@@ -14,11 +15,12 @@ import {
   useDrivingLicenceStepData,
   useSaveDrivingLicenceStep,
 } from '@/hooks/api/useDrivingLicenceStep';
-import { useMyVehicles, useSaveDocumentsStep } from '@/hooks/api/useDocumentsStep';
+import { useCreateVehicle, useMyVehicles, useSaveDocumentsStep } from '@/hooks/api/useDocumentsStep';
 import { savedAvatar, useProfileStepData, useSaveProfileStep } from '@/hooks/api/useProfileStep';
 import { useOnboardingSkip } from '@/hooks/useOnboardingSkip';
 import DrivingLicenceScreen from '@/screens/onboarding/DrivingLicenceScreen';
 import OnboardingProfileScreen from '@/screens/onboarding/OnboardingProfileScreen';
+import RcDetailsScreen from '@/screens/onboarding/RcDetailsScreen';
 import VehicleDocumentsScreen from '@/screens/onboarding/VehicleDocumentsScreen';
 import AddVehicleScreen from '@/screens/vehicles/AddVehicleScreen';
 import type {
@@ -245,19 +247,12 @@ function Step2DrivingLicenceForm({
 function Step3DocumentsRoute({ navigation, route }: OnboardingStackScreenProps<'Step3Documents'>) {
   const toast = useToast();
   const uid = useAuthStore(st => st.user?.id);
-  const setDocuments = useOnboardingStore(st => st.setDocuments);
+  // In the onboarding store (not local state): "Your Vehicle details" (RC Add Manually) writes the RC entry.
+  const values = useOnboardingStore(st => st.documents);
+  const update = useOnboardingStore(st => st.setDocuments);
   const markSkipped = useOnboardingSkip();
-  const [values, setValues] = useState<DocumentsFormValues>(() => useOnboardingStore.getState().documents);
   const vehicles = useMyVehicles(uid);
   const save = useSaveDocumentsStep(uid ?? '');
-
-  const update = useCallback(
-    (next: DocumentsFormValues) => {
-      setValues(next);
-      setDocuments(next);
-    },
-    [setDocuments],
-  );
 
   // Preselect: the vehicle just added (back from "Add new vehicle"), else the first one.
   const addedId = route.params?.vehicleId;
@@ -311,6 +306,7 @@ function Step3DocumentsRoute({ navigation, route }: OnboardingStackScreenProps<'
       vehicles={options}
       vehiclesLoading={vehicles.isLoading}
       onAddVehicle={() => navigation.navigate('Step3AddVehicle')}
+      onRcManual={() => navigation.navigate('Step3RcDetails')}
       saving={save.isPending}
       onBack={backIfPossible(navigation)}
       onNext={next}
@@ -328,6 +324,65 @@ function Step3AddVehicleRoute({ navigation }: OnboardingStackScreenProps<'Step3A
     <AddVehicleScreen
       onBack={() => navigation.goBack()}
       onSaved={vehicleId => navigation.popTo('Step3Documents', { vehicleId })}
+    />
+  );
+}
+
+/** RC "Add Manually": prefilled from the RC details entered before, else the selected vehicle. */
+function Step3RcDetailsRoute({ navigation }: OnboardingStackScreenProps<'Step3RcDetails'>) {
+  const toast = useToast();
+  const uid = useAuthStore(st => st.user?.id);
+  const vehicles = useMyVehicles(uid);
+  const create = useCreateVehicle(uid ?? '');
+  const documents = useOnboardingStore.getState().documents;
+  const vehicle = vehicles.data?.find(v => v.id === documents.vehicleId);
+  const initialValues = documents.rc.fields?.vehicle ?? (vehicle && vehicleDetailsOf(vehicle));
+
+  const apply = (vehicleId: string, details: VehicleDetails) => {
+    const current = useOnboardingStore.getState().documents;
+    useOnboardingStore.getState().setDocuments({
+      ...current,
+      vehicleId,
+      rc: { file: current.rc.file, fields: { registrationNumber: details.vehicleNumber, vehicle: details } },
+    });
+    navigation.goBack();
+  };
+
+  return (
+    <RcDetailsScreen
+      // Remount once the vehicles load so the form starts from the selected vehicle.
+      key={vehicles.isLoading ? 'loading' : 'ready'}
+      initialValues={initialValues}
+      saving={create.isPending}
+      onBack={() => navigation.goBack()}
+      onSave={details => {
+        if (vehicle) {
+          apply(vehicle.id, details); // changed details are saved with the documents (3/3 Next)
+          return;
+        }
+        // No vehicle yet: these details create it (as "Add new vehicle").
+        create.mutate(
+          {
+            vehicleNumber: details.vehicleNumber,
+            model: {
+              value: details.variantId,
+              label: '',
+              makeId: details.makeId,
+              modelId: details.modelId,
+              variantId: details.variantId,
+              fuelType: details.fuelType,
+              transmissionType: details.transmissionType,
+            },
+          },
+          {
+            onSuccess: ({ id }) => {
+              toast.success(strings.onboarding.addVehicle.saved);
+              apply(id, details);
+            },
+            onError: e => toast.error(toUserError(e).userMessage),
+          },
+        );
+      }}
     />
   );
 }
@@ -350,6 +405,7 @@ export default function OnboardingStack() {
       <Stack.Screen name="Step2DrivingLicence" component={Step2DrivingLicenceRoute} />
       <Stack.Screen name="Step3Documents" component={Step3DocumentsRoute} />
       <Stack.Screen name="Step3AddVehicle" component={Step3AddVehicleRoute} />
+      <Stack.Screen name="Step3RcDetails" component={Step3RcDetailsRoute} />
     </Stack.Navigator>
   );
 }

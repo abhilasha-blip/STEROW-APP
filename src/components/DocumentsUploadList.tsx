@@ -15,6 +15,8 @@ export type DocumentsUploadListProps = {
    * column of cards).
    */
   header?: ReactNode;
+  /** Per document: "Add Manually" opens a screen instead of the details sheet. */
+  onManual?: Partial<Record<DocumentKey, () => void>>;
   style?: StyleProp<ViewStyle>;
   testIDPrefix?: string;
 };
@@ -28,6 +30,7 @@ function DocumentsUploadList({
   onChange,
   vehicleNumber,
   header,
+  onManual,
   style,
   testIDPrefix = 'document',
 }: DocumentsUploadListProps) {
@@ -41,6 +44,7 @@ function DocumentsUploadList({
           documentKey={key}
           entry={values[key]}
           vehicleNumber={vehicleNumber}
+          onManual={onManual?.[key]}
           onChange={entry => onChange(key, entry)}
         />
       ))}

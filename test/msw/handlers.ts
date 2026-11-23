@@ -177,6 +177,10 @@ export const handlers = [
     await log(request);
     return HttpResponse.json(myVehicles);
   }),
+  http.patch(urls.userVehicles, async ({ request }) => {
+    await log(request);
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.post(urls.userVehicles, async ({ request }) => {
     await log(request);
     const body = (await request.clone().json()) as { vehicle_number: string };

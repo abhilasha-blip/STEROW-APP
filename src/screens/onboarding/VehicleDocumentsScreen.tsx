@@ -19,6 +19,8 @@ export type VehicleDocumentsScreenProps = {
   vehiclesLoading?: boolean;
   /** "Add new vehicle" (opens the minimal vehicle form). */
   onAddVehicle: () => void;
+  /** RC "Add Manually" / "Edit details" → "Your Vehicle details". */
+  onRcManual: () => void;
   saving?: boolean;
   onNext: (values: DocumentsFormValues) => void;
   onSkip: () => void;
@@ -37,6 +39,7 @@ export default function VehicleDocumentsScreen({
   vehicles,
   vehiclesLoading,
   onAddVehicle,
+  onRcManual,
   saving = false,
   onNext,
   onSkip,
@@ -78,6 +81,7 @@ export default function VehicleDocumentsScreen({
         values={values}
         onChange={setEntry}
         vehicleNumber={selected?.vehicleNumber}
+        onManual={{ rc: onRcManual }}
         header={
           <VehicleSelectCard
             vehicles={vehicles}

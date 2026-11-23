@@ -6,7 +6,7 @@ import {
   type DocumentsStepProgress,
   type DocumentsStepSave,
 } from '@/api/services/documentsStep.service';
-import { createVehicle, listMyVehicles, type MyVehicle } from '@/api/services/vehicle.service';
+import { createVehicle, listMyVehicles, vehicleDetailsPatch, type MyVehicle } from '@/api/services/vehicle.service';
 import {
   fetchVehicleCatalog,
   fetchVehicleModelOptions,
@@ -68,7 +68,8 @@ export function toDocumentsStepSave(values: DocumentsFormValues, vehicle: MyVehi
       };
     }
   }
-  return { vehicle, documents };
+  const details = documents.rc?.fields.vehicle;
+  return { vehicle, documents, ...(details && { vehicleUpdate: vehicleDetailsPatch(vehicle, details) }) };
 }
 
 /** 3/3 Next: saves the added documents; a retry after a partial failure doesn't duplicate any. */

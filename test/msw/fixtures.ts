@@ -132,6 +132,8 @@ export const vehicleRow = (id: string, number: string) => ({
   model_id: 'model-zs',
   variant_id: 'variant-essence',
   fuel_type: 'Electric',
+  transmission_type: 'Automatic' as string,
+  color: null as string | null,
   make: { name: 'MG' },
   model: { name: 'ZS EV' },
   variant: { variant_name: 'Essence' },

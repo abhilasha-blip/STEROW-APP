@@ -3,7 +3,14 @@ import { toUserError } from '@/api/errorMessages';
 import { STORAGE_PATHS } from '@/api/endpoints';
 import { getSupabase, __resetSupabaseForTests } from '@/api/supabase';
 import { saveDocumentsStep, type DocumentsStepProgress } from '@/api/services/documentsStep.service';
-import { createVehicle, listMyVehicles, minimalVehicleRow, VEHICLE_DEFAULTS } from '@/api/services/vehicle.service';
+import {
+  createVehicle,
+  listMyVehicles,
+  minimalVehicleRow,
+  VEHICLE_DEFAULTS,
+  vehicleDetailsOf,
+  vehicleDetailsPatch,
+} from '@/api/services/vehicle.service';
 import { documentRow, saveVehicleDocument } from '@/api/services/vehicleDocuments.service';
 import {
   fetchVehicleCatalog,
@@ -112,6 +119,41 @@ describe('vehicle.service (minimal vehicle)', () => {
     expect(row).toMatchObject({ fuel_type: VEHICLE_DEFAULTS.fuelType, transmission_type: VEHICLE_DEFAULTS.transmissionType });
   });
 
+  it('RC "Add Manually": only the vehicle columns that changed are updated; RC row carries the details', async () => {
+    resetMyVehicles([vehicleRow('v-1', 'TS09EV2345')]);
+    const [vehicle] = await listMyVehicles();
+    const same = vehicleDetailsOf(vehicle);
+    expect(vehicleDetailsPatch(vehicle, same)).toEqual({});
+    expect(vehicleDetailsPatch(vehicle, { ...same, vehicleNumber: 'ts09 ev 9999', colour: '  ' })).toEqual({
+      vehicle_number: 'TS09EV9999',
+    });
+    expect(vehicleDetailsPatch(vehicle, { ...same, transmissionType: 'Manual', colour: ' Red ' })).toEqual({
+      transmission_type: 'Manual',
+      color: 'Red',
+    });
+    expect(documentRow('rc', vehicle, { registrationNumber: 'TS09EV2345', vehicle: { ...same, colour: 'Red' } }, null)).toMatchObject({
+      make_id: 'make-mg',
+      fuel_type: 'Electric',
+      colour: 'Red',
+    });
+    expect(documentRow('rc', vehicle, {}, null)).not.toHaveProperty('colour');
+  });
+
+  it('a taken number while updating the vehicle → VEHICLE_NUMBER_TAKEN, and the RC is not saved', async () => {
+    resetMyVehicles([vehicleRow('v-1', 'TS09EV2345')]);
+    server.use(http.patch(urls.userVehicles, () => HttpResponse.json({ code: '23505', message: 'duplicate key' }, { status: 409 })));
+    const [vehicle] = await listMyVehicles();
+    requestLog.length = 0;
+    await expect(
+      saveDocumentsStep(UID, {
+        vehicle,
+        vehicleUpdate: { vehicle_number: 'TS09EV9999' },
+        documents: { rc: { file: null, fields: { registrationNumber: 'TS09EV9999' } } },
+      }),
+    ).rejects.toMatchObject({ code: 'VEHICLE_NUMBER_TAKEN' });
+    expect(requestLog.some(r => r.method === 'POST')).toBe(false);
+  });
+
   it('listMyVehicles: active vehicles with make / model / variant names embedded, oldest first', async () => {
     resetMyVehicles([vehicleRow('v-1', 'TS09EV2345')]);
     await expect(listMyVehicles()).resolves.toEqual([
@@ -125,6 +167,8 @@ describe('vehicle.service (minimal vehicle)', () => {
         modelName: 'ZS EV',
         variantName: 'Essence',
         fuelType: 'Electric',
+        transmissionType: 'Automatic',
+        colour: null,
       },
     ]);
     const [req] = calls('GET', urls.userVehicles);

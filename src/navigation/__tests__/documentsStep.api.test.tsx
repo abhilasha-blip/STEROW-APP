@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { strings } from '@/constants/strings';
 import {
@@ -180,5 +180,88 @@ describe('3/3 "Your Vehicle Documents" with the API', () => {
     await fireEvent.press(screen.getByTestId('add-vehicle-save'));
     expect(await screen.findByText(strings.errors.vehicleNumberTaken)).toBeTruthy();
     expect(screen.getByTestId('add-vehicle')).toBeTruthy();
+  });
+});
+
+describe('3/3 RC "Add Manually" → "Your Vehicle details"', () => {
+  const selected = (id: string) => screen.getByTestId(id).props.accessibilityState?.checked === true;
+
+  it('opens prefilled from the selected vehicle; changes are saved to the vehicle and the RC on Next', async () => {
+    resetMyVehicles([vehicleRow('v-1', 'TS09EV2345')]);
+    setOnboardingBackend({ hasDrivingLicense: true, vehicleCount: 0 });
+    await renderApp();
+    await goToVerify();
+    await typeOtp(TEST_OTP);
+    await screen.findByTestId('onboarding-documents');
+    await waitFor(() => expect(screen.getByTestId('vehicle-select')).toHaveTextContent(/TS09EV2345/));
+
+    await fireEvent.press(screen.getByTestId('document-rc-manual'));
+    await screen.findByTestId('rc-details');
+    expect(screen.getByText(strings.onboarding.vehicle.title)).toBeTruthy();
+    expect(screen.getByTestId('rc-details-number').props.value).toBe('TS09EV2345');
+    await waitFor(() => expect(screen.getByTestId('rc-details-make-input', HIDDEN)).toHaveDisplayValue('MG'));
+    expect(screen.getByTestId('rc-details-model-input', HIDDEN)).toHaveDisplayValue(/ZS/);
+    expect(selected('rc-details-fuel-Electric')).toBe(true);
+    expect(selected('rc-details-transmission-Automatic')).toBe(true);
+    expect(screen.queryByTestId('rc-details-transmission-CVT')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('rc-details-transmission-Manual'));
+    await fireEvent.changeText(screen.getByTestId('rc-details-colour'), ' White ');
+    await fireEvent.press(screen.getByTestId('rc-details-next'));
+
+    await screen.findByTestId('document-rc-added');
+    expect(screen.getByTestId('document-rc-manual')).toHaveTextContent(new RegExp(d.editDetails));
+    requestLog.length = 0;
+    await fireEvent.press(screen.getByTestId('documents-next'));
+    expect(await screen.findByTestId('dashboard')).toBeTruthy();
+
+    const patch = requestLog.find(r => r.method === 'PATCH' && r.url.startsWith(urls.userVehicles));
+    expect(patch?.url).toContain('id=eq.v-1');
+    expect(patch?.body).toEqual({ transmission_type: 'Manual', color: 'White' });
+    expect(bodyOf(urls.vdocs('vdocs_regcertificate'))).toMatchObject({
+      vehicle_id: 'v-1',
+      registration_number: 'TS09EV2345',
+      make_id: 'make-mg',
+      model_id: 'model-zs',
+      variant_id: 'variant-essence',
+      fuel_type: 'Electric',
+      colour: 'White',
+    });
+    // The vehicle is updated before its RC is saved.
+    expect(writes().indexOf(`PATCH ${urls.userVehicles.replace(/^https:\/\/[^/]+/, '')}`)).toBe(0);
+  });
+
+  it('with no vehicle: the details create it, it gets selected and RC is added', async () => {
+    await onStep3();
+    await fireEvent.press(screen.getByTestId('document-rc-manual'));
+    await screen.findByTestId('rc-details');
+    expect(screen.getByTestId('rc-details-number').props.value).toBe('');
+    expect(disabled('rc-details-next')).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('rc-details-number'), 'ts 09 ab 1234');
+    await choose('rc-details-make', 'make-mg');
+    await choose('rc-details-model', 'model-zs');
+    // The model's only variant fills fuel / transmission.
+    expect(selected('rc-details-fuel-Electric')).toBe(true);
+    expect(selected('rc-details-transmission-Automatic')).toBe(true);
+    await fireEvent.press(screen.getByTestId('rc-details-next'));
+
+    await screen.findByTestId('document-rc-added');
+    expect(screen.getByTestId('vehicle-select')).toHaveTextContent(/TS09AB1234/);
+    expect(bodyOf(urls.userVehicles)).toMatchObject({
+      vehicle_number: 'TS09AB1234',
+      variant_id: 'variant-essence',
+      fuel_type: 'Electric',
+      transmission_type: 'Automatic',
+    });
+    expect(disabled('documents-next')).toBe(false);
+  });
+
+  it('Back leaves RC as it was', async () => {
+    await onStep3();
+    await fireEvent.press(screen.getByTestId('document-rc-manual'));
+    await screen.findByTestId('rc-details');
+    await fireEvent.press(within(screen.getByTestId('rc-details')).getByLabelText(strings.common.back));
+    await waitFor(() => expect(screen.queryByTestId('rc-details', HIDDEN)).toBeNull());
+    expect(screen.queryByTestId('document-rc-added')).toBeNull();
   });
 });

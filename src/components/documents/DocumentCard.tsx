@@ -41,6 +41,8 @@ export type DocumentCardProps = {
   onChange: (entry: DocumentEntry) => void;
   /** Prefills the RC registration number. */
   vehicleNumber?: string;
+  /** "Add Manually" / "Edit details" opens this instead of the details sheet (3/3 RC → Your Vehicle details). */
+  onManual?: () => void;
   testID?: string;
   style?: StyleProp<ViewStyle>;
 };
@@ -52,7 +54,7 @@ const UPLOAD_ERRORS = { unsupported_type: u.unsupportedType, too_large: u.tooLar
  * "Upload File" and "Add Manually" side by side. An uploaded file replaces the upload tile with its
  * preview (+ remove); saved details turn "Add Manually" into "Edit details". "✓ Added" once it can be saved.
  */
-function DocumentCard({ documentKey, entry, onChange, vehicleNumber, testID = `document-${documentKey}`, style }: DocumentCardProps) {
+function DocumentCard({ documentKey, entry, onChange, vehicleNumber, onManual, testID = `document-${documentKey}`, style }: DocumentCardProps) {
   const { colors, sizes } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const card = d.cards[documentKey];
@@ -145,7 +147,7 @@ function DocumentCard({ documentKey, entry, onChange, vehicleNumber, testID = `d
         <Pressable
           testID={`${testID}-manual`}
           style={({ pressed }) => [styles.tile, styles.manualTile, pressed && styles.pressed]}
-          onPress={() => setDetailsOpen(true)}
+          onPress={() => (onManual ? onManual() : setDetailsOpen(true))}
           accessibilityRole="button"
           accessibilityLabel={d.manualA11y(card.title)}
         >

@@ -17,8 +17,11 @@ const { REST } = ENDPOINTS.SUPABASE;
  */
 export const VEHICLE_DEFAULTS = { fuelType: 'Petrol', transmissionType: 'Manual', currentOdometer: 0 } as const;
 
-const FUEL_TYPES = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'];
-const TRANSMISSIONS = ['Manual', 'Automatic'];
+/** The values user_vehicles accepts (web-vehicle-findings.md); no CVT (Q3). */
+export const API_FUEL_TYPES = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'] as const;
+export const API_TRANSMISSIONS = ['Manual', 'Automatic'] as const;
+const FUEL_TYPES: readonly string[] = API_FUEL_TYPES;
+const TRANSMISSIONS: readonly string[] = API_TRANSMISSIONS;
 
 const Created = z.object({ id: z.string() });
 
@@ -39,6 +42,8 @@ export type MyVehicle = VehicleRef & {
   modelName: string;
   variantName: string;
   fuelType: string | null;
+  transmissionType: string | null;
+  colour: string | null;
 };
 
 const Named = z.union([z.object({ name: z.string() }), z.null()]).optional();
@@ -49,6 +54,8 @@ const VehicleRow = z.object({
   model_id: z.string(),
   variant_id: z.string(),
   fuel_type: z.string().nullable().optional(),
+  transmission_type: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
   make: Named,
   model: Named,
   variant: z.union([z.object({ variant_name: z.string() }), z.null()]).optional(),
@@ -62,7 +69,7 @@ export async function listMyVehicles(): Promise<MyVehicle[]> {
   const res = await getSupabase()
     .from(REST.USER_VEHICLES)
     .select(
-      'id,vehicle_number,make_id,model_id,variant_id,fuel_type,make:vehicle_make_master(name),model:vehicle_model_master(name),variant:vehicle_variant_master(variant_name)',
+      'id,vehicle_number,make_id,model_id,variant_id,fuel_type,transmission_type,color,make:vehicle_make_master(name),model:vehicle_model_master(name),variant:vehicle_variant_master(variant_name)',
     )
     .eq('is_active', true)
     .order('create_at');
@@ -79,6 +86,8 @@ export async function listMyVehicles(): Promise<MyVehicle[]> {
     modelName: r.model?.name ?? '',
     variantName: r.variant?.variant_name ?? '',
     fuelType: r.fuel_type ?? null,
+    transmissionType: r.transmission_type ?? null,
+    colour: r.color ?? null,
   }));
 }
 
@@ -101,6 +110,64 @@ export function minimalVehicleRow(vehicleNumber: string, model: VehicleModelOpti
     current_odometer: VEHICLE_DEFAULTS.currentOdometer,
     entry_method: 'manual',
   };
+}
+
+/** The vehicle's own details, as RC "Add Manually" edits them. */
+export type VehicleDetails = {
+  vehicleNumber: string;
+  makeId: string;
+  modelId: string;
+  variantId: string;
+  fuelType: string;
+  transmissionType: string;
+  colour: string;
+};
+
+/** A vehicle's current details (to prefill RC "Add Manually"). */
+export const vehicleDetailsOf = (v: MyVehicle): VehicleDetails => ({
+  vehicleNumber: v.vehicleNumber,
+  makeId: v.makeId,
+  modelId: v.modelId,
+  variantId: v.variantId,
+  fuelType: v.fuelType ?? '',
+  transmissionType: v.transmissionType ?? '',
+  colour: v.colour ?? '',
+});
+
+/** The user_vehicles columns that differ from `details` (empty: nothing to update). */
+export function vehicleDetailsPatch(vehicle: MyVehicle, details: VehicleDetails): Record<string, string | null> {
+  const number = normaliseVehicleNumber(details.vehicleNumber);
+  const colour = details.colour.trim() || null;
+  const next: Record<string, string | null> = {
+    vehicle_number: number,
+    make_id: details.makeId,
+    model_id: details.modelId,
+    variant_id: details.variantId,
+    fuel_type: details.fuelType,
+    transmission_type: details.transmissionType,
+    color: colour,
+  };
+  const current: Record<string, string | null> = {
+    vehicle_number: vehicle.vehicleNumber,
+    make_id: vehicle.makeId,
+    model_id: vehicle.modelId,
+    variant_id: vehicle.variantId,
+    fuel_type: vehicle.fuelType,
+    transmission_type: vehicle.transmissionType,
+    color: vehicle.colour || null,
+  };
+  return Object.fromEntries(Object.entries(next).filter(([k, v]) => v !== current[k]));
+}
+
+/** Updates the vehicle's columns. A taken number → VEHICLE_NUMBER_TAKEN. */
+export async function updateVehicle(vehicleId: string, patch: Record<string, string | null>): Promise<void> {
+  const res = await getSupabase().from(REST.USER_VEHICLES).update(patch).eq('id', vehicleId);
+  if (res.error) {
+    if (res.error.code === '23505') {
+      throw new ApiError({ kind: 'validation', code: 'VEHICLE_NUMBER_TAKEN', message: res.error.message, status: 409 });
+    }
+    throw restError(res);
+  }
 }
 
 /** Creates the vehicle (owned by the signed-in user). A taken number → VEHICLE_NUMBER_TAKEN. */

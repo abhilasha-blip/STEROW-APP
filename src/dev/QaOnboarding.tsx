@@ -11,6 +11,9 @@
 import React from 'react';
 import { Platform, Settings } from 'react-native';
 import { NavigationContainer, type InitialState } from '@react-navigation/native';
+import { queryClient } from '@/api/queryClient';
+import type { VehicleCatalog } from '@/api/services/vehicleMaster.service';
+import { queryKeys } from '@/hooks/api/queryKeys';
 import OnboardingStack from '@/navigation/OnboardingStack';
 import type { OnboardingStackParamList } from '@/navigation/types';
 import { useOnboardingStore } from '@/store/onboarding.store';
@@ -24,6 +27,23 @@ type Scenario = {
 };
 
 const store = () => useOnboardingStore.getState();
+
+/** User Onboarding - 2b's sample vehicle (MG ZS / Essence) as master data. */
+const QA_CATALOG: VehicleCatalog = {
+  makes: [{ value: 'make-mg', label: 'MG' }],
+  models: [{ value: 'model-zs', label: 'ZS', makeId: 'make-mg' }],
+  variants: [
+    {
+      value: 'variant-essence',
+      label: 'MG ZS – Essence',
+      makeId: 'make-mg',
+      modelId: 'model-zs',
+      variantId: 'variant-essence',
+      fuelType: 'Electric',
+      transmissionType: 'Automatic',
+    },
+  ],
+};
 
 export const QA_SCENARIOS: Record<string, Scenario> = {
   'step1-profile': { route: 'Step1Profile' },
@@ -54,6 +74,32 @@ export const QA_SCENARIOS: Record<string, Scenario> = {
         insurance: { file: f, fields: null },
         pollution: { file: null, fields: { certificateNo: 'PUC123456', expiry: '2027-01-15' } },
       }),
+  },
+  /** RC "Add Manually" → Your Vehicle details, filled as in User Onboarding - 2b. */
+  'step3-rc-details': {
+    route: 'Step3RcDetails',
+    seed: () => {
+      queryClient.setQueryDefaults(queryKeys.vehicleCatalog(), { staleTime: Infinity });
+      queryClient.setQueryData(queryKeys.vehicleCatalog(), QA_CATALOG);
+      store().setDocuments({
+        ...store().documents,
+        rc: {
+          file: null,
+          fields: {
+            registrationNumber: 'TS09EV1234',
+            vehicle: {
+              vehicleNumber: 'TS09EV1234',
+              makeId: 'make-mg',
+              modelId: 'model-zs',
+              variantId: 'variant-essence',
+              fuelType: 'Electric',
+              transmissionType: 'Automatic',
+              colour: 'White',
+            },
+          },
+        },
+      });
+    },
   },
 };
 

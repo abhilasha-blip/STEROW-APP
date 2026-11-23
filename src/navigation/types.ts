@@ -32,6 +32,8 @@ export type OnboardingStackParamList = {
   Step3Documents: { vehicleId?: string } | undefined;
   /** "Add new vehicle" from 3/3's vehicle selector. */
   Step3AddVehicle: undefined;
+  /** RC "Add Manually": Your Vehicle details (onboarding 2b design). */
+  Step3RcDetails: undefined;
 };
 
 /** The Home tab's stack: the dashboard and the light screens opened from it / the drawer. */

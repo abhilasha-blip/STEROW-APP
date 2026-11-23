@@ -8,7 +8,7 @@ import { restError } from '../rest';
 import { parseOrThrow } from '../schemas/auth.schemas';
 import { getSupabase } from '../supabase';
 import { removeFile, uploadFile, type LocalFile } from './storage.service';
-import type { VehicleRef } from './vehicle.service';
+import type { VehicleDetails, VehicleRef } from './vehicle.service';
 
 const { REST, STORAGE } = ENDPOINTS.SUPABASE;
 
@@ -42,6 +42,8 @@ export type DocumentFields = {
   certificateNo?: string;
   fastagId?: string;
   expiry?: string | null;
+  /** RC "Add Manually" (Your Vehicle details): the make / model / variant, fuel and colour on the RC. */
+  vehicle?: VehicleDetails;
 };
 /** @deprecated name kept for older call sites. */
 export type DocumentNumbers = DocumentFields;
@@ -73,8 +75,21 @@ export function documentRow(
   const links = { make_id: vehicle.makeId, model_id: vehicle.modelId, variant_id: vehicle.variantId };
   const expiry = fields.expiry || null;
   switch (key) {
-    case 'rc':
-      return { ...base, ...links, registration_number: upper(fields.registrationNumber?.trim() || vehicle.vehicleNumber) };
+    case 'rc': {
+      const v = fields.vehicle;
+      return {
+        ...base,
+        ...links,
+        ...(v && {
+          make_id: v.makeId,
+          model_id: v.modelId,
+          variant_id: v.variantId,
+          fuel_type: v.fuelType,
+          ...(v.colour.trim() && { colour: v.colour.trim() }),
+        }),
+        registration_number: upper(fields.registrationNumber?.trim() || vehicle.vehicleNumber),
+      };
+    }
     case 'insurance':
       return {
         ...base,
