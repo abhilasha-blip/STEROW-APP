@@ -114,3 +114,27 @@ describe('step 2 entry → form (store)', () => {
     expect(store().vehicleMode).toBe('manual');
   });
 });
+
+describe('leaving onboarding (store)', () => {
+  beforeEach(() => store().reset());
+  const PROFILE = { avatar: null, dlNumber: '', dlImageUri: 'file:///dl.jpg', fullName: 'Ravi', dob: null, email: '' };
+
+  it('a step 2 skip clears only the vehicle step; the exit then keeps profile, documents and service', () => {
+    store().setProfile(PROFILE as never);
+    store().prefillVehicleFromEntry({ vehicleNumber: 'TS09EV1234', rcFile: RC }, LOOKUP);
+    store().setDocument('insurance', RC);
+    store().skipVehicleStep();
+    expect(store().vehicle).toEqual(EMPTY_VEHICLE);
+    expect(store().vehicleMode).toBe('lookup');
+    store().exitOnboarding();
+    expect(store().profile).toEqual(PROFILE);
+    expect(store().documents).toEqual({ insurance: RC });
+    expect(store().retainOnExit).toBe(false);
+  });
+
+  it('any other exit resets everything', () => {
+    store().setProfile(PROFILE as never);
+    store().exitOnboarding();
+    expect(store().profile).toBeNull();
+  });
+});

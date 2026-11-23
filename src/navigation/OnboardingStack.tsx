@@ -87,10 +87,19 @@ function Step1ProfileRoute({ navigation, route }: OnboardingStackScreenProps<'St
   );
 }
 
-/** "Skip for now" on step 2: straight to the Dashboard (leaving onboarding clears what was entered). */
-const skipToDashboard = (navigation: OnboardingStackScreenProps<'Step2Vehicle' | 'Step2VehicleForm'>['navigation']) => {
+type AnyOnboardingNavigation = OnboardingStackScreenProps<keyof OnboardingStackParamList>['navigation'];
+
+/**
+ * Back to the Dashboard with onboarding removed from the stack (Back can't return to it): pops the
+ * app stack to its Dashboard, unmounting the onboarding stack.
+ */
+const exitToDashboard = (navigation: AnyOnboardingNavigation) => navigation.popTo('Dashboard');
+
+/** "Skip for now" on step 2: the vehicle step is cleared; step 1 (profile / DL) is kept. */
+const skipToDashboard = (navigation: AnyOnboardingNavigation) => {
   logger.info('onboarding step 2: skip to dashboard');
-  navigation.popTo('Dashboard');
+  useOnboardingStore.getState().skipVehicleStep();
+  exitToDashboard(navigation);
 };
 
 function Step2VehicleRoute({ navigation }: OnboardingStackScreenProps<'Step2Vehicle'>) {
@@ -183,13 +192,14 @@ function Step4ServiceRoute({ navigation }: OnboardingStackScreenProps<'Step4Serv
 }
 
 function OnboardingCompleteRoute({ navigation }: OnboardingStackScreenProps<'OnboardingComplete'>) {
-  return <OnboardingCompleteScreen onDone={() => navigation.navigate('Dashboard')} />;
+  return <OnboardingCompleteScreen onDone={() => exitToDashboard(navigation)} />;
 }
 
 export default function OnboardingStack() {
   const { colors } = useTheme();
-  // Leaving onboarding (finished, Back from step 1, sign-out) drops what was entered.
-  useEffect(() => () => useOnboardingStore.getState().reset(), []);
+  // Leaving onboarding (finished, Back from step 1) drops what was entered – except a step 2 skip,
+  // which keeps step 1's data (see skipVehicleStep). Sign-out clears it in AppStack.
+  useEffect(() => () => useOnboardingStore.getState().exitOnboarding(), []);
   return (
     <Stack.Navigator
       initialRouteName="Step1Profile"

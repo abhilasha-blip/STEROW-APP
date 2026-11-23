@@ -3,6 +3,8 @@ import { getSupabase, __resetSupabaseForTests } from '@/api/supabase';
 import { strings } from '@/constants/strings';
 import { makeSession, TEST_OTP } from '../../../test/msw/fixtures';
 import { goToVerify, typeOtp } from '../../../test/flows';
+import { useOnboardingStore } from '@/store/onboarding.store';
+import { EMPTY_PROFILE } from '@/screens/onboarding/useOnboardingProfileForm';
 import { renderApp, resetAppState } from '../../../test/render';
 
 beforeEach(resetAppState);
@@ -26,5 +28,16 @@ describe('navigation', () => {
     await fireEvent.press(screen.getByRole('button', { name: strings.dashboard.logout }));
     expect(await screen.findByText(strings.mobileEntry.signin.title)).toBeTruthy();
     expect((await getSupabase().auth.getSession()).data.session).toBeNull();
+  });
+
+  it('log out clears onboarding data kept by a step 2 skip', async () => {
+    await renderApp();
+    await goToVerify();
+    await typeOtp(TEST_OTP);
+    await screen.findByTestId('welcome');
+    useOnboardingStore.getState().setProfile({ ...EMPTY_PROFILE, fullName: 'Ravi Kumar' });
+    await fireEvent.press(screen.getByRole('button', { name: strings.dashboard.logout }));
+    expect(await screen.findByText(strings.mobileEntry.signin.title)).toBeTruthy();
+    expect(useOnboardingStore.getState().profile).toBeNull();
   });
 });

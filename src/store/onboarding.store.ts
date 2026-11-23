@@ -45,6 +45,15 @@ type OnboardingState = {
   startManualVehicle: () => void;
   setDocument: (key: DocumentKey, file: UploadedFile | null) => void;
   setService: (service: ServiceFormValues) => void;
+  /**
+   * "Skip for now" on step 2: clears only the vehicle step and keeps everything else (step 1's profile
+   * and DL, any documents / service) when onboarding is left, so it can be resumed from the Dashboard.
+   */
+  skipVehicleStep: () => void;
+  /** Set by skipVehicleStep: the next onboarding exit keeps the store instead of resetting it. */
+  retainOnExit: boolean;
+  /** Called when the onboarding stack unmounts: resets, unless the exit was a step 2 skip. */
+  exitOnboarding: () => void;
   reset: () => void;
 };
 
@@ -54,6 +63,7 @@ const initial = {
   vehicleMode: 'lookup' as VehicleEntryMode,
   documents: {},
   service: EMPTY_SERVICE,
+  retainOnExit: false,
 };
 
 export const useOnboardingStore = create<OnboardingState>()((set, get) => ({
@@ -79,6 +89,8 @@ export const useOnboardingStore = create<OnboardingState>()((set, get) => ({
     set(({ vehicle }) => ({ vehicle: { ...EMPTY_VEHICLE, rcFile: vehicle.rcFile }, vehicleMode: 'manual' })),
   setDocument: (key, file) => set(s => ({ documents: { ...s.documents, [key]: file } })),
   setService: service => set({ service }),
+  skipVehicleStep: () => set({ vehicle: EMPTY_VEHICLE, vehicleMode: 'lookup', retainOnExit: true }),
+  exitOnboarding: () => (get().retainOnExit ? set({ retainOnExit: false }) : get().reset()),
   reset: () => set(initial),
 }));
 

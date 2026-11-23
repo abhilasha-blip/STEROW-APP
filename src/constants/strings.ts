@@ -173,7 +173,7 @@ export const strings = {
       numberFoundA11y: 'Vehicle found',
       numberInvalid: 'Enter a valid vehicle number, e.g. TS09EV1234',
       /** Toast when the lookup doesn't know the number (the user stays on the entry screen). */
-      notFound: "We couldn't find this vehicle. Upload the RC or add the details manually.",
+      notFound: 'We couldn’t find this vehicle. Tap ‘Add your vehicle details manually’ to continue.',
       rcLabel: 'Upload Vehicle RC (optional)',
       rcTitle: 'Upload RC image',
       /** Entry screen: outlined button → the empty vehicle form. */
