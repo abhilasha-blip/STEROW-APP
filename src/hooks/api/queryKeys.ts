@@ -12,4 +12,5 @@ export const queryKeys = {
   myVehicles: (uid: string) => ['vehicles', 'mine', uid] as const,
   /** Document rows per vehicle (My Documents, dashboard counts). */
   vehicleDocuments: (uid: string) => ['vehicles', 'documents', uid] as const,
+  dashboardCounts: (uid: string) => ['dashboard', 'counts', uid] as const,
 } as const;

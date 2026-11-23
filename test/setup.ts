@@ -40,6 +40,8 @@ jest.mock('react-native-gesture-handler', () => {
     GestureHandlerRootView: View,
     GestureDetector: ({ children }: { children: unknown }) => children,
     usePanGesture: () => ({}),
+    // @react-navigation/drawer: reads State.*, builds Gesture?.Pan() (undefined here → no swipe in tests).
+    State: { UNDETERMINED: 0, FAILED: 1, BEGAN: 2, CANCELLED: 3, ACTIVE: 4, END: 5 },
   };
 });
 jest.mock('@react-native-community/datetimepicker', () => {

@@ -18,6 +18,11 @@ const qa = __DEV__
   ? (require('@/dev/QaOnboarding') as typeof import('@/dev/QaOnboarding'))
   : null;
 const qaScenario = qa?.getQaScenarioName() ?? null;
+/** DEV only: `-qaScenario dashboard-complete` etc. opens the signed-in screens with seeded data. */
+const qaDashboard = __DEV__
+  ? (require('@/dev/QaDashboard') as typeof import('@/dev/QaDashboard'))
+  : null;
+const qaDashboardScenario = qaDashboard?.getQaDashboardScenarioName() ?? null;
 
 function ThemedNavigation() {
   const theme = useTheme();
@@ -40,7 +45,13 @@ export default function App() {
           <QueryClientProvider client={queryClient}>
             <ToastProvider>
               <AppEffects />
-              {qa && qaScenario ? <qa.default name={qaScenario} /> : <ThemedNavigation />}
+              {qa && qaScenario ? (
+                <qa.default name={qaScenario} />
+              ) : qaDashboard && qaDashboardScenario ? (
+                <qaDashboard.default name={qaDashboardScenario} />
+              ) : (
+                <ThemedNavigation />
+              )}
             </ToastProvider>
           </QueryClientProvider>
         </ThemeProvider>

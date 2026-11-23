@@ -1,0 +1,117 @@
+/**
+ * DEV ONLY: opens the signed-in screens with seeded data for repeatable simulator screenshots (no sign-in,
+ * no backend calls). Launch with iOS launch arguments:
+ *
+ *   xcrun simctl launch booted com.sterow.app -qaScenario dashboard-complete
+ *
+ * Scenarios: dashboard-complete, dashboard-incomplete (variant 1: a vehicle, no licence),
+ * dashboard-incomplete-2 (variant 2: no vehicle), drawer, and the drawer screens (my-profile,
+ * my-documents, share-access, my-vehicles). App.tsx only requires this file under __DEV__.
+ */
+import React, { useEffect, useRef } from 'react';
+import { Platform, Settings } from 'react-native';
+import { DrawerActions, NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { queryClient } from '@/api/queryClient';
+import type { DashboardCounts } from '@/api/services/dashboard.service';
+import type { MyVehicle } from '@/api/services/vehicle.service';
+import { queryKeys } from '@/hooks/api/queryKeys';
+import MainNavigator from '@/navigation/MainNavigator';
+import type { HomeStackParamList } from '@/navigation/types';
+import { useAuthStore } from '@/store/auth.store';
+import { createNavigationTheme, useTheme } from '@/theme';
+
+const UID = 'qa-user';
+
+const vehicle = (id: string, number: string, make: string, model: string): MyVehicle => ({
+  id,
+  vehicleNumber: number,
+  makeId: `make-${id}`,
+  modelId: `model-${id}`,
+  variantId: `variant-${id}`,
+  makeName: make,
+  modelName: model,
+  variantName: '',
+  fuelType: 'Electric',
+});
+const VEHICLES = [vehicle('v1', 'TS09 EV 2345', 'MG', 'ZS EV'), vehicle('v2', 'TS09AB1234', 'Hyundai', 'Creta'), vehicle('v3', 'TS08CD5678', 'Tata', 'Nexon')];
+const PROFILE = { fullName: 'John Cooper', email: 'john.doe@example.com', avatarPath: null, avatarUrl: null };
+const DL = { dlNumber: 'DL0000000000000', documentPath: null, previewUrl: null, issuedOn: '2020-05-15', validUpto: '2040-05-15' };
+const COUNTS: DashboardCounts = { documents: 5, shares: 2, bookings: 5 };
+
+type Scenario = {
+  vehicles: MyVehicle[];
+  dl: typeof DL | null;
+  counts: DashboardCounts;
+  screen?: keyof HomeStackParamList;
+  drawer?: boolean;
+};
+
+export const QA_DASHBOARD_SCENARIOS: Record<string, Scenario> = {
+  'dashboard-complete': { vehicles: VEHICLES, dl: DL, counts: COUNTS },
+  'dashboard-incomplete': { vehicles: VEHICLES.slice(0, 1), dl: null, counts: { documents: 0, shares: 0, bookings: 0 } },
+  'dashboard-incomplete-2': { vehicles: [], dl: null, counts: { documents: 0, shares: 0, bookings: 0 } },
+  drawer: { vehicles: VEHICLES, dl: DL, counts: COUNTS, drawer: true },
+  'my-profile': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyProfile' },
+  'my-documents': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyDocuments' },
+  'share-access': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'ShareAccess' },
+  'my-vehicles': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyVehicles' },
+};
+
+export function getQaDashboardScenarioName(): string | null {
+  if (!__DEV__ || Platform.OS !== 'ios') {
+    return null;
+  }
+  const name = Settings.get('qaScenario');
+  return typeof name === 'string' && name in QA_DASHBOARD_SCENARIOS ? name : null;
+}
+
+/** Extra cache entries a scenario needs (Part 4 screens add theirs here). */
+export const qaSeeders: ((uid: string, s: Scenario) => void)[] = [];
+
+function seed(s: Scenario) {
+  const fresh = { staleTime: Infinity, gcTime: Infinity };
+  for (const key of [
+    queryKeys.profileStep(UID),
+    queryKeys.drivingLicenceStep(UID),
+    queryKeys.myVehicles(UID),
+    queryKeys.dashboardCounts(UID),
+  ]) {
+    queryClient.setQueryDefaults(key, fresh);
+  }
+  queryClient.setQueryData(queryKeys.profileStep(UID), PROFILE);
+  queryClient.setQueryData(queryKeys.drivingLicenceStep(UID), s.dl);
+  queryClient.setQueryData(queryKeys.myVehicles(UID), s.vehicles);
+  queryClient.setQueryData(queryKeys.dashboardCounts(UID), s.counts);
+  qaSeeders.forEach(f => f(UID, s));
+  useAuthStore.setState({
+    user: { id: UID, fullName: PROFILE.fullName, phone: '9876543210', roles: ['user'], permissions: [] },
+  });
+}
+
+const navRef = createNavigationContainerRef();
+
+export default function QaDashboard({ name }: { name: string }) {
+  const theme = useTheme();
+  const scenario = QA_DASHBOARD_SCENARIOS[name];
+  const seeded = useRef(false);
+  if (!seeded.current) {
+    seed(scenario);
+    seeded.current = true;
+  }
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (scenario.drawer) {
+        navRef.dispatch(DrawerActions.openDrawer());
+      } else if (scenario.screen) {
+        // @ts-expect-error nested navigate from the root ref (dev only)
+        navRef.navigate('Tabs', { screen: 'HomeTab', params: { screen: scenario.screen } });
+      }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [scenario]);
+  return (
+    <NavigationContainer ref={navRef} theme={createNavigationTheme(theme)}>
+      <MainNavigator />
+    </NavigationContainer>
+  );
+}

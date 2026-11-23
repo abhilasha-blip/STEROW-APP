@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import DashboardScreen from '@/screens/app/DashboardScreen';
+import MainNavigator from './MainNavigator';
 import OnboardingStack from './OnboardingStack';
 import { useAuthStore } from '@/store/auth.store';
 import { useOnboardingStore } from '@/store/onboarding.store';
@@ -29,7 +29,7 @@ export default function AppStack() {
         contentStyle: { backgroundColor: colors.background.gradientMid },
       }}
     >
-      <Stack.Screen name="Dashboard" component={DashboardScreen} />
+      <Stack.Screen name="Dashboard" component={MainNavigator} />
       <Stack.Screen
         name="Onboarding"
         component={OnboardingStack}

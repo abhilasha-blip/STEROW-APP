@@ -71,7 +71,7 @@ async function pickDate(testID: string, date: Date) {
 const disabled = (id: string) => screen.getByTestId(id).props.accessibilityState?.disabled === true;
 const writes = () =>
   requestLog
-    .filter(r => r.method !== 'GET' && r.method !== 'HEAD')
+    .filter(r => r.method !== 'GET' && r.method !== 'HEAD' && !r.url.includes('/object/sign/'))
     .map(r => `${r.method} ${decodeURIComponent(r.url.split('?')[0]).replace(urls.storageRoot, 'storage').replace(/^https:\/\/[^/]+/, '')}`);
 const bodyOf = (url: string) => requestLog.find(r => r.method === 'POST' && r.url.startsWith(url))?.body;
 

@@ -102,6 +102,17 @@ export const vehicleVariants = [
 ];
 export const CREATED_VEHICLE_ID = 'vehicle-1';
 
+/** Dashboard tile counts (HEAD + count=exact). Per table; reset before each test. */
+export const countsBackend: Record<string, number> = {};
+export function setCounts(next: Record<string, number>): void {
+  Object.assign(countsBackend, next);
+}
+export function resetCounts(): void {
+  for (const k of Object.keys(countsBackend)) {
+    delete countsBackend[k];
+  }
+}
+
 /** A user_vehicles row as listMyVehicles reads it (names embedded). */
 export const vehicleRow = (id: string, number: string) => ({
   id,

@@ -20,3 +20,9 @@ export async function chooseCountry(country: CountryCode) {
   await fireEvent.press(screen.getByTestId('country-prefix'));
   await fireEvent.press(screen.getByTestId(`country-option-${country}`));
 }
+
+/** Dashboard → menu → drawer "Logout". */
+export async function logOut() {
+  await fireEvent.press(await screen.findByTestId('dashboard-menu'));
+  await fireEvent.press(await screen.findByTestId('drawer-logout'));
+}

@@ -31,6 +31,9 @@ export const ENDPOINTS = {
       VDOCS_INSURANCE: 'vdocs_insurance',
       VDOCS_POLLUTION: 'vdocs_pollution',
       VDOCS_FASTAG: 'vdocs_fastag',
+      /** Vehicle shares (Share Access): member_role owner/family/driver/guest. */
+      VEHICLE_SHARES: 'vehicle_shares',
+      SERVICE_BOOKINGS: 'service_bookings',
     },
     RPC: {
       MY_PERMISSIONS: 'my_permissions',
