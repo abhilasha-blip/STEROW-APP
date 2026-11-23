@@ -59,9 +59,9 @@ describe('MobileEntry typing performance', () => {
     for (const part of STATIC_PARTS) {
       expect({ part, renders: counts[part] ?? 0 }).toEqual({ part, renders: 0 });
     }
-    // One render per keystroke for the field itself, nothing more.
-    expect(counts.TextField).toBe(10);
-    expect(screen.getByTestId('phone').props.value).toBe('9876543210');
+    // The text lives in the native input: typing clean digits re-renders nothing, not even the field.
+    expect(counts.TextField ?? 0).toBe(0);
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('9876543210');
   });
 
   it('sign-up name and referral fields render only themselves too', async () => {
@@ -76,8 +76,24 @@ describe('MobileEntry typing performance', () => {
       for (const part of STATIC_PARTS) {
         expect({ id, part, renders: counts[part] ?? 0 }).toEqual({ id, part, renders: 0 });
       }
-      expect(counts.TextField).toBe(text.length);
+      expect(counts.TextField ?? 0).toBe(0);
     }
+  });
+
+  it('a keystroke that needs cleaning (a letter, a pasted +91) re-renders only the field, to correct it', async () => {
+    await renderApp();
+    await screen.findByText(t.signin.title);
+    await act(async () => {
+      resetRenderCounts();
+    });
+    await fireEvent.changeText(screen.getByTestId('phone'), '+91 98765-43210');
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('9876543210');
+    expect(renderCounts.TextField).toBe(1);
+    expect(renderCounts.Screen ?? 0).toBe(0);
+    // The next clean keystroke hands the text back to the native input.
+    await fireEvent.changeText(screen.getByTestId('phone'), '987654321');
+    expect(screen.getByTestId('phone').props.value).toBeUndefined();
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('987654321');
   });
 
   it('an inline error is cleared on the first keystroke with a single screen render', async () => {

@@ -151,7 +151,7 @@ describe('VerifyOtp', () => {
     await start();
     await fireEvent.press(screen.getByRole('button', { name: strings.common.back }));
     expect(await screen.findByText(strings.mobileEntry.signin.title)).toBeTruthy();
-    expect(screen.getByTestId('phone').props.value).toBe('9999999999');
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('9999999999');
   });
 
   it('no double submit: Confirm while verifying sends one request', async () => {

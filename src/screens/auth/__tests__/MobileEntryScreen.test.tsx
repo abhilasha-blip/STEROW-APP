@@ -35,7 +35,7 @@ describe('MobileEntry', () => {
   it('strips non-digits and a pasted +91, and caps the phone at 10 digits', async () => {
     await start();
     await fireEvent.changeText(screen.getByTestId('phone'), '+91 98765-43210 99');
-    expect(screen.getByTestId('phone').props.value).toBe('9876543210');
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('9876543210');
   });
 
   it('switches modes in place keeping the typed number', async () => {
@@ -44,7 +44,7 @@ describe('MobileEntry', () => {
     await fireEvent.press(screen.getByTestId('switch-mode'));
     expect(screen.getByText(t.signup.title)).toBeTruthy();
     expect(screen.getByText(t.signup.subtitle)).toBeTruthy();
-    expect(screen.getByTestId('phone').props.value).toBe('9876543210');
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('9876543210');
     await fireEvent.press(screen.getByTestId('switch-mode'));
     expect(screen.getByText(t.signin.title)).toBeTruthy();
   });
@@ -53,7 +53,7 @@ describe('MobileEntry', () => {
     await start();
     await fireEvent.press(screen.getByTestId('switch-mode'));
     await fireEvent.changeText(screen.getByTestId('referral'), 'ab-12');
-    expect(screen.getByTestId('referral').props.value).toBe('AB-12');
+    expect(screen.getByTestId('referral')).toHaveDisplayValue('AB-12');
     await fireEvent.press(sendOtpButton());
     expect(screen.getByText(t.invalidFullName)).toBeTruthy();
     expect(screen.getByText(t.invalidMobile.IN)).toBeTruthy();
@@ -97,7 +97,7 @@ describe('MobileEntry', () => {
     await fireEvent.press(sendOtpButton());
     expect(await screen.findByText(strings.errors.alreadyRegistered)).toBeTruthy();
     expect(screen.getByText(t.signin.title)).toBeTruthy();
-    expect(screen.getByTestId('phone').props.value).toBe('9999999999');
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('9999999999');
   });
 
   it('"no account" on sign-in → toast + sign-up mode, number kept', async () => {
@@ -107,7 +107,7 @@ describe('MobileEntry', () => {
     await fireEvent.press(sendOtpButton());
     expect(await screen.findByText(strings.errors.noAccount)).toBeTruthy();
     expect(screen.getByText(t.signup.title)).toBeTruthy();
-    expect(screen.getByTestId('phone').props.value).toBe('9876543210');
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('9876543210');
   });
 
   it.each([
@@ -187,7 +187,7 @@ describe('MobileEntry: country picker', () => {
     await fireEvent.changeText(phoneInput(), '9876543210');
     await chooseCountry('AE');
     expect(screen.getByText('🇦🇪 +971')).toBeTruthy();
-    expect(phoneInput().props.value).toBe(''); // an Indian number is not a valid UAE number
+    expect(phoneInput()).toHaveDisplayValue(''); // an Indian number is not a valid UAE number
     expect(phoneInput().props.maxLength).toBe(10); // 9 digits + an optional trunk 0
     await fireEvent.press(sendOtpButton());
     expect(screen.getByText(t.invalidMobile.AE)).toBeTruthy();
@@ -203,16 +203,16 @@ describe('MobileEntry: country picker', () => {
     await chooseCountry('AE');
     await fireEvent.changeText(phoneInput(), '501234567');
     await chooseCountry('IN');
-    expect(phoneInput().props.value).toBe(''); // 9 digits: not a valid Indian number
+    expect(phoneInput()).toHaveDisplayValue(''); // 9 digits: not a valid Indian number
     await fireEvent.changeText(phoneInput(), '+971 50 123 4567');
-    expect(phoneInput().props.value).toBe('9715012345'); // India: no 971 stripping
+    expect(phoneInput()).toHaveDisplayValue('9715012345'); // India: no 971 stripping
   });
 
   it('UAE sign-in: strips the trunk 0, sends "971…" and VerifyOtp shows the UAE mask', async () => {
     await start();
     await chooseCountry('AE');
     await fireEvent.changeText(phoneInput(), '050 123 4567');
-    expect(phoneInput().props.value).toBe('501234567');
+    expect(phoneInput()).toHaveDisplayValue('501234567');
     await fireEvent.press(sendOtpButton());
     expect(await screen.findByText(strings.verifyOtp.title)).toBeTruthy();
     expect(otpRequests()[0].body).toEqual({ phone: '971501234567', purpose: 'signin' });
@@ -244,7 +244,7 @@ describe('MobileEntry: country picker', () => {
     await fireEvent.press(screen.getByRole('button', { name: strings.common.back }));
     await screen.findByText(t.signin.title);
     expect(screen.getByText('🇦🇪 +971')).toBeTruthy();
-    expect(phoneInput().props.value).toBe('501234567');
+    expect(phoneInput()).toHaveDisplayValue('501234567');
   });
 
   it('backend phone rejection shows the selected country\'s message', async () => {
