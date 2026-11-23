@@ -1,0 +1,56 @@
+{
+  "count": 32,
+  "data": [
+    {
+      "id": "e6d8d085-619d-4468-82f7-e1b332d59a9d",
+      "make_id": "8daf1ea5-e6d2-434d-8eab-af75ddcbcaff",
+      "name": "2 Series Gran Coupé",
+      "model_code": "F74",
+      "body_style": "Sedan",
+      "launch_date": null,
+      "description": "Screenshot body style: Sedan / Gran Coupé.",
+      "is_active": true,
+      "create_at": "2026-10-30T05:10:48.512457+00:00",
+      "updated_at": "2026-10-30T05:10:48.512457+00:00",
+      "launch_year": 2025,
+      "launch_month": 7,
+      "launch_day": null,
+      "deleted_at": null,
+      "deleted_by": null
+    },
+    {
+      "id": "218458fc-3c11-447d-8abe-72ee0003f5b4",
+      "make_id": "8daf1ea5-e6d2-434d-8eab-af75ddcbcaff",
+      "name": "3 Series Long Wheelbase",
+      "model_code": "G28",
+      "body_style": "Sedan",
+      "launch_date": null,
+      "description": null,
+      "is_active": true,
+      "create_at": "2026-10-30T05:10:48.512457+00:00",
+      "updated_at": "2026-10-30T05:10:48.512457+00:00",
+      "launch_year": 2021,
+      "launch_month": 1,
+      "launch_day": null,
+      "deleted_at": null,
+      "deleted_by": null
+    },
+    {
+      "id": "c406faaa-be6e-4311-ae82-49db30ccd0d9",
+      "make_id": "8daf1ea5-e6d2-434d-8eab-af75ddcbcaff",
+      "name": "5 Series Long Wheelbase",
+      "model_code": "G68",
+      "body_style": "Sedan",
+      "launch_date": null,
+      "description": null,
+      "is_active": true,
+      "create_at": "2026-10-30T05:10:48.512457+00:00",
+      "updated_at": "2026-10-30T05:10:48.512457+00:00",
+      "launch_year": 2024,
+      "launch_month": 7,
+      "launch_day": null,
+      "deleted_at": null,
+      "deleted_by": null
+    }
+  ]
+}

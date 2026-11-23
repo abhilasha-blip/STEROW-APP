@@ -4,11 +4,13 @@ import { toUserError } from '@/api/errorMessages';
 import { normalizeError } from '@/api/errors';
 import { queryClient } from '@/api/queryClient';
 import * as authService from '@/api/services/auth.service';
+import { resolveStartRoute } from '@/api/services/onboardingProgress.service';
 import { type BootstrapUser, fetchBootstrap } from '@/api/services/user.service';
 import { bindAutoRefreshToAppState, getSupabase } from '@/api/supabase';
 import { strings } from '@/constants/strings';
 import { queryKeys } from '@/hooks/api/queryKeys';
 import { logger } from '@/utils/logger';
+import type { StartRoute } from '@/utils/startRoute';
 
 export type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
 
@@ -25,6 +27,11 @@ type AuthState = {
   session: Session | null;
   user: AuthUser | null;
   notice: AuthNotice | null;
+  /**
+   * Where the app stack opens once signed in (onboarding 1/4, 2/4 or the Dashboard). Decided with the
+   * bootstrap, before `status` turns 'signedIn', so the splash / sign-in spinner covers it.
+   */
+  startRoute: StartRoute;
   /** Restore the session from the Keychain and subscribe to auth changes. Idempotent. */
   hydrate: () => Promise<void>;
   /** Sign out on this device only, then clear every cached query. */
@@ -90,15 +97,18 @@ export const useAuthStore = create<AuthState>()((set, get) => {
     const ticket = {};
     const promise = (async () => {
       try {
-        const user = await queryClient.fetchQuery({
-          queryKey: queryKeys.bootstrap(uid),
-          queryFn: () => fetchBootstrap(uid),
-          staleTime: 0,
-          // Fail fast at sign-in; useBootstrap retries later (e.g. after an offline start).
-          retry: 0,
-        });
+        const [user, startRoute] = await Promise.all([
+          queryClient.fetchQuery({
+            queryKey: queryKeys.bootstrap(uid),
+            queryFn: () => fetchBootstrap(uid),
+            staleTime: 0,
+            // Fail fast at sign-in; useBootstrap retries later (e.g. after an offline start).
+            retry: 0,
+          }),
+          resolveStartRoute(uid), // never throws
+        ]);
         if (gen === generation) {
-          set({ status: 'signedIn', session, user });
+          set({ status: 'signedIn', session, user, startRoute });
         }
       } catch (e) {
         if (gen !== generation) {
@@ -109,7 +119,12 @@ export const useAuthStore = create<AuthState>()((set, get) => {
           // Valid session but no connectivity: let the user in with what the session knows;
           // useBootstrap refetches once back online.
           logger.warn('bootstrap deferred (offline)');
-          set({ status: 'signedIn', session, user: userFromSession(session) });
+          set({
+            status: 'signedIn',
+            session,
+            user: userFromSession(session),
+            startRoute: 'Dashboard',
+          });
           return;
         }
         logger.error('bootstrap failed', e);
@@ -161,6 +176,7 @@ export const useAuthStore = create<AuthState>()((set, get) => {
     session: null,
     user: null,
     notice: null,
+    startRoute: 'Dashboard',
 
     hydrate: async () => {
       if (teardown) {
@@ -241,5 +257,11 @@ export function __resetAuthStoreForTests(timeoutMs = HYDRATE_TIMEOUT_MS): void {
   teardown = undefined;
   inflight = undefined;
   generation += 1;
-  useAuthStore.setState({ status: 'loading', session: null, user: null, notice: null });
+  useAuthStore.setState({
+    status: 'loading',
+    session: null,
+    user: null,
+    notice: null,
+    startRoute: 'Dashboard',
+  });
 }

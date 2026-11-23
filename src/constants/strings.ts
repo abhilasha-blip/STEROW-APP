@@ -76,15 +76,11 @@ export const strings = {
     genericError: 'Something went wrong. Please try again.',
     ok: 'OK',
   },
+  /** Placeholder until the Dashboard design lands. */
   dashboard: {
-    welcome: (name: string) => `Welcome, ${name}`,
-    fallbackName: 'there',
-    phoneLabel: 'Mobile',
-    rolesLabel: 'Role',
-    noRole: 'No role assigned',
+    title: 'Dashboard',
+    placeholder: 'Your vehicles, documents and bookings will appear here.',
     logout: 'Log out',
-    /** DEV only: temporary entry into onboarding. */
-    startOnboarding: 'Start onboarding',
   },
   onboarding: {
     /** Always "1/4" – the avatar-picker frame's "1/54" is a Figma typo. */

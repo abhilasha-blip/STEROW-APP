@@ -1,0 +1,47 @@
+{
+  "count": 3,
+  "data": [
+    {
+      "id": "a849902a-8093-4ad8-963c-d9e6312152f1",
+      "model_id": "5dfb37c1-ab2e-45e3-978b-f63e5ca949bc",
+      "variant_name": "1.6 VTVT SX",
+      "model_year": 2013,
+      "market_country_code": "IN",
+      "fuel_type": "Petrol",
+      "transmission_type": "Manual",
+      "is_active": true,
+      "create_at": "2026-11-02T19:16:34.630156+00:00",
+      "updated_at": "2026-11-02T19:16:34.630156+00:00",
+      "deleted_at": null,
+      "deleted_by": null
+    },
+    {
+      "id": "a9d154b4-aa6c-4f6e-bcf1-1cf4e7738eb9",
+      "model_id": "15510942-05f8-4750-b2a3-2dedf546ad63",
+      "variant_name": "MG ZS EV Essence",
+      "model_year": 2020,
+      "market_country_code": "IN",
+      "fuel_type": "Electric",
+      "transmission_type": "Automatic",
+      "is_active": true,
+      "create_at": "2026-10-30T08:31:14.34814+00:00",
+      "updated_at": "2026-10-30T08:31:14.34814+00:00",
+      "deleted_at": null,
+      "deleted_by": null
+    },
+    {
+      "id": "45e610f6-c6a0-4578-a99a-cefbc730ac39",
+      "model_id": "27c0e1c5-562a-4461-8a4c-895e066e6a4e",
+      "variant_name": "sDrive18i M Sport",
+      "model_year": 2010,
+      "market_country_code": "IN",
+      "fuel_type": "Petrol",
+      "transmission_type": "Automatic",
+      "is_active": true,
+      "create_at": "2026-10-30T08:41:15.398056+00:00",
+      "updated_at": "2026-10-30T08:41:15.398056+00:00",
+      "deleted_at": null,
+      "deleted_by": null
+    }
+  ]
+}

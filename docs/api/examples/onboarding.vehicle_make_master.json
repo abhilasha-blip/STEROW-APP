@@ -1,0 +1,38 @@
+{
+  "count": 34,
+  "data": [
+    {
+      "id": "7c5cd15e-d505-4961-9523-c69f2d253361",
+      "name": "Aston Martin",
+      "logo": null,
+      "country": "IN",
+      "is_active": true,
+      "create_at": "2026-10-30T04:56:29.627694+00:00",
+      "updated_at": "2026-10-30T04:56:29.627694+00:00",
+      "deleted_at": null,
+      "deleted_by": null
+    },
+    {
+      "id": "266378d3-58a4-4add-881f-4c75352c1dae",
+      "name": "Audi",
+      "logo": null,
+      "country": "IN",
+      "is_active": true,
+      "create_at": "2026-10-30T04:56:29.627694+00:00",
+      "updated_at": "2026-10-30T04:56:29.627694+00:00",
+      "deleted_at": null,
+      "deleted_by": null
+    },
+    {
+      "id": "b669bcc8-2ebe-4827-af41-5d5670617210",
+      "name": "Bentley",
+      "logo": null,
+      "country": "IN",
+      "is_active": true,
+      "create_at": "2026-10-30T04:56:29.627694+00:00",
+      "updated_at": "2026-10-30T04:56:29.627694+00:00",
+      "deleted_at": null,
+      "deleted_by": null
+    }
+  ]
+}

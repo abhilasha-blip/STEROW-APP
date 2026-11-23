@@ -42,7 +42,7 @@ describe('VerifyOtp', () => {
   it('auto-submits 6 digits → session → Dashboard (store-driven)', async () => {
     await start();
     await typeOtp(TEST_OTP);
-    expect(await screen.findByTestId('welcome')).toHaveTextContent('Welcome, Test User');
+    expect(await screen.findByTestId('dashboard')).toBeTruthy();
     expect(bodies(urls.otpVerify)).toEqual([{ requestId: 'req-1', otp: TEST_OTP, purpose: 'signin' }]);
     expect(useAuthStore.getState().status).toBe('signedIn');
   });
@@ -64,7 +64,7 @@ describe('VerifyOtp', () => {
     await typeOtp('111111');
     await screen.findByText(strings.errors.incorrectOtp);
     await typeOtp(TEST_OTP);
-    expect(await screen.findByTestId('welcome')).toBeTruthy();
+    expect(await screen.findByTestId('dashboard')).toBeTruthy();
     expect(bodies(urls.otpVerify).map(b => b.requestId)).toEqual(['req-1', 'req-1', 'req-1']);
   });
 
@@ -98,7 +98,7 @@ describe('VerifyOtp', () => {
       { phone: '9999999999', purpose: 'signin' },
     ]);
     await typeOtp(TEST_OTP);
-    await screen.findByTestId('welcome');
+    await screen.findByTestId('dashboard');
     expect(bodies(urls.otpVerify)[0].requestId).toBe('req-2');
   });
 
@@ -172,7 +172,7 @@ describe('VerifyOtp', () => {
       await fireEvent.press(confirmButton());
       await waitFor(() => expect(calls).toBe(1));
       release();
-      await screen.findByTestId('welcome');
+      await screen.findByTestId('dashboard');
       expect(calls).toBe(1);
     } finally {
       release();

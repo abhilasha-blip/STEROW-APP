@@ -1,6 +1,7 @@
 import { logger } from '@/utils/logger';
 import { ENDPOINTS } from '../endpoints';
 import { ApiError, normalizeError } from '../errors';
+import { restError } from '../rest';
 import { parseOrThrow, Permission, UserDetails, UserRole } from '../schemas/auth.schemas';
 import { getSupabase } from '../supabase';
 import { z } from 'zod';
@@ -15,12 +16,6 @@ export type BootstrapUser = {
 };
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
-
-/** PostgrestError carries no HTTP status; attach the response's so 4xx are never retried. */
-const restError = (res: { error: { message: string } & object; status: number }) =>
-  res.status === 0
-    ? new ApiError({ kind: 'network', message: res.error.message, raw: res.error }) // fetch never completed
-    : normalizeError({ ...res.error, message: res.error.message, status: res.status });
 
 function roleNames(rows: UserRole[]): string[] {
   const names = rows.flatMap(r => (r.roles === null ? [] : Array.isArray(r.roles) ? r.roles : [r.roles]));

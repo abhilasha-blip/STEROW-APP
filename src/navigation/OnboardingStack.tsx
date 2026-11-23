@@ -15,6 +15,7 @@ import {
   selectResolvedDocuments,
   useOnboardingStore,
 } from '@/store/onboarding.store';
+import { useOnboardingSkip } from '@/hooks/useOnboardingSkip';
 import { useTheme } from '@/theme';
 import { logger } from '@/utils/logger';
 import type { OnboardingStackParamList, OnboardingStackScreenProps } from './types';
@@ -66,6 +67,7 @@ const useInitialSnapshot = () => useState(() => useOnboardingStore.getState())[0
 
 function Step1ProfileRoute({ navigation, route }: OnboardingStackScreenProps<'Step1Profile'>) {
   const setProfile = useOnboardingStore(s => s.setProfile);
+  const markSkipped = useOnboardingSkip();
   const snapshot = useInitialSnapshot();
   return (
     <OnboardingProfileScreen
@@ -79,6 +81,7 @@ function Step1ProfileRoute({ navigation, route }: OnboardingStackScreenProps<'St
       }}
       onSkip={() => {
         logger.info('onboarding step 1: skip');
+        markSkipped('dl');
         navigation.navigate('Step2Vehicle');
       }}
     />
@@ -100,17 +103,25 @@ export const exitToDashboard = (navigation: AnyOnboardingNavigation) =>
 const backIfPossible = (navigation: AnyOnboardingNavigation) =>
   navigation.canGoBack() ? () => navigation.goBack() : undefined;
 
-/** "Skip for now" on step 2: the vehicle step is cleared; step 1 (profile / DL) is kept. */
-const skipToDashboard = (navigation: AnyOnboardingNavigation) => {
-  logger.info('onboarding step 2: skip to dashboard');
-  useOnboardingStore.getState().skipVehicleStep();
-  exitToDashboard(navigation);
-};
+/**
+ * "Skip for now" on step 2 → the Dashboard. The vehicle step is cleared; step 1 (profile / DL) is kept;
+ * the skip is remembered so the next launch opens the Dashboard.
+ */
+function useSkipToDashboard(navigation: AnyOnboardingNavigation) {
+  const markSkipped = useOnboardingSkip();
+  return () => {
+    logger.info('onboarding step 2: skip to dashboard');
+    markSkipped('vehicle');
+    useOnboardingStore.getState().skipVehicleStep();
+    exitToDashboard(navigation);
+  };
+}
 
 function Step2VehicleRoute({ navigation }: OnboardingStackScreenProps<'Step2Vehicle'>) {
   const setVehicleEntry = useOnboardingStore(s => s.setVehicleEntry);
   const prefillVehicleFromEntry = useOnboardingStore(s => s.prefillVehicleFromEntry);
   const startManualVehicle = useOnboardingStore(s => s.startManualVehicle);
+  const skipToDashboard = useSkipToDashboard(navigation);
   const { vehicle, vehicleMode } = useInitialSnapshot();
   // Back from step 3 / the form to a number that was looked up: show it as found, no new lookup.
   const restoredLookup =
@@ -138,7 +149,7 @@ function Step2VehicleRoute({ navigation }: OnboardingStackScreenProps<'Step2Vehi
         startManualVehicle();
         navigation.navigate('Step2VehicleForm');
       }}
-      onSkip={() => skipToDashboard(navigation)}
+      onSkip={skipToDashboard}
     />
   );
 }
@@ -148,6 +159,7 @@ function Step2VehicleFormRoute({
   route,
 }: OnboardingStackScreenProps<'Step2VehicleForm'>) {
   const setVehicle = useOnboardingStore(s => s.setVehicle);
+  const skipToDashboard = useSkipToDashboard(navigation);
   const snapshot = useInitialSnapshot();
   return (
     <VehicleFormScreen
@@ -159,7 +171,7 @@ function Step2VehicleFormRoute({
         setVehicle(values);
         navigation.navigate('Step3Documents');
       }}
-      onSkip={() => skipToDashboard(navigation)}
+      onSkip={skipToDashboard}
     />
   );
 }

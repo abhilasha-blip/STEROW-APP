@@ -62,3 +62,26 @@ export const backendMessages = {
 } as const;
 
 export const appError = (message: string) => ({ error: { code: 'bad_request', message } });
+
+/** user_driving_licenses row (columns as read by the web's DL form). */
+export const drivingLicenseRow = {
+  id: 'dl-1',
+  user_id: UID,
+  dl_number: 'TS0120110012345',
+  issued_on: null,
+  valid_upto: null,
+  vehicle_classes: [],
+  document_path: `${UID}/1795400000000-dl.jpg`,
+};
+
+/**
+ * What the post-login routing reads (onboardingProgress.service). Default: onboarding done (a DL and
+ * one vehicle) so auth tests land on the Dashboard; routing tests switch it per test.
+ */
+export const onboardingBackend = { hasDrivingLicense: true, vehicleCount: 1 };
+export function setOnboardingBackend(next: Partial<typeof onboardingBackend>): void {
+  Object.assign(onboardingBackend, next);
+}
+export function resetOnboardingBackend(): void {
+  Object.assign(onboardingBackend, { hasDrivingLicense: true, vehicleCount: 1 });
+}

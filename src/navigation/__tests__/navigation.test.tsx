@@ -11,20 +11,20 @@ beforeEach(resetAppState);
 afterEach(resetAppState);
 
 describe('navigation', () => {
-  it('a stored session at launch opens the Dashboard with name, masked phone and role', async () => {
+  it('a stored session at launch (onboarding done) opens the Dashboard placeholder', async () => {
     await getSupabase().auth.setSession(makeSession());
     __resetSupabaseForTests(); // simulate relaunch: same Keychain, new client
     await renderApp();
-    expect(await screen.findByTestId('welcome')).toHaveTextContent('Welcome, Test User');
-    expect(screen.getByTestId('masked-phone')).toHaveTextContent('XXXXX X9999');
-    expect(screen.getByTestId('roles')).toHaveTextContent('user');
+    expect(await screen.findByTestId('dashboard')).toHaveTextContent(strings.dashboard.title);
+    expect(screen.getByRole('button', { name: strings.dashboard.logout })).toBeTruthy();
+    expect(screen.queryByText(/Welcome/)).toBeNull();
   });
 
   it('sign in → Dashboard → Log out → back to Sign In', async () => {
     await renderApp();
     await goToVerify();
     await typeOtp(TEST_OTP);
-    await screen.findByTestId('welcome');
+    await screen.findByTestId('dashboard');
     await fireEvent.press(screen.getByRole('button', { name: strings.dashboard.logout }));
     expect(await screen.findByText(strings.mobileEntry.signin.title)).toBeTruthy();
     expect((await getSupabase().auth.getSession()).data.session).toBeNull();
@@ -34,7 +34,7 @@ describe('navigation', () => {
     await renderApp();
     await goToVerify();
     await typeOtp(TEST_OTP);
-    await screen.findByTestId('welcome');
+    await screen.findByTestId('dashboard');
     useOnboardingStore.getState().setProfile({ ...EMPTY_PROFILE, fullName: 'Ravi Kumar' });
     await fireEvent.press(screen.getByRole('button', { name: strings.dashboard.logout }));
     expect(await screen.findByText(strings.mobileEntry.signin.title)).toBeTruthy();

@@ -1,0 +1,20 @@
+{
+  "count": null,
+  "data": [
+    {
+      "id": "48274838-4462-4e64-bc5e-aae61157cf93",
+      "email": "<redacted email, 21 chars>",
+      "full_name": "<redacted full_name, 4 chars>",
+      "phone": "<redacted phone, 10 chars>",
+      "department": null,
+      "designation": null,
+      "avatar_url": null,
+      "is_active": true,
+      "created_at": "2026-11-18T08:29:04.061368+00:00",
+      "updated_at": "2026-11-18T08:29:05.103873+00:00",
+      "referral_code": "STRWNWJR7",
+      "deleted_at": null,
+      "deleted_by": null
+    }
+  ]
+}

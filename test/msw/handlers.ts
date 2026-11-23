@@ -3,7 +3,10 @@ import {
   appError,
   authUser,
   backendMessages,
+  drivingLicenseRow,
   makeSession,
+  onboardingBackend,
+  resetOnboardingBackend,
   otpRequestData,
   permissionsRows,
   TEST_OTP,
@@ -30,6 +33,7 @@ let requestCounter = 0;
 export function resetHandlerState(): void {
   requestCounter = 0;
   requestLog.length = 0;
+  resetOnboardingBackend();
 }
 
 /** Happy-path defaults; tests override with server.use(...). */
@@ -76,5 +80,18 @@ export const handlers = [
   http.post(urls.myPermissions, async ({ request }) => {
     await log(request);
     return HttpResponse.json(permissionsRows);
+  }),
+  // Post-login routing: the DL row (select=id, limit 1) and the vehicle count (HEAD, count=exact).
+  http.get(urls.drivingLicenses, async ({ request }) => {
+    await log(request);
+    return HttpResponse.json(onboardingBackend.hasDrivingLicense ? [drivingLicenseRow] : []);
+  }),
+  http.head(urls.userVehicles, async ({ request }) => {
+    await log(request);
+    const n = onboardingBackend.vehicleCount;
+    return new HttpResponse(null, {
+      status: 200,
+      headers: { 'Content-Range': n ? `0-${n - 1}/${n}` : '*/0' },
+    });
   }),
 ];

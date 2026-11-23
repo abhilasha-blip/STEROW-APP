@@ -19,9 +19,31 @@ export const ENDPOINTS = {
     REST: {
       USER_DETAILS: 'user_details',
       USER_ROLES: 'user_roles',
+      /** One row per user (unique `user_id`): upsert on_conflict=user_id. */
+      USER_DRIVING_LICENSES: 'user_driving_licenses',
+      /** Vehicles owned by or shared with the user (RLS). */
+      USER_VEHICLES: 'user_vehicles',
+      VEHICLE_MAKES: 'vehicle_make_master',
+      VEHICLE_MODELS: 'vehicle_model_master',
+      VEHICLE_VARIANTS: 'vehicle_variant_master',
+      /** Vehicle documents, one table per type; files in STORAGE.VEHICLE_DOCS. */
+      VDOCS_RC: 'vdocs_regcertificate',
+      VDOCS_INSURANCE: 'vdocs_insurance',
+      VDOCS_POLLUTION: 'vdocs_pollution',
     },
     RPC: {
       MY_PERMISSIONS: 'my_permissions',
+    },
+    /** Private buckets; the first path segment is the owner's uid. Viewed through signed URLs. */
+    STORAGE: {
+      /** `<uid>/<timestamp>-<name>` (profile photo). */
+      AVATARS: 'avatars',
+      /** `<uid>/<timestamp>-<sanitised name>` (DL photo / PDF). */
+      DRIVING_LICENSES: 'driving-licenses',
+      /** `<uid>/<uuid>.<ext>` (RC attached to user_vehicles.rc_document). */
+      VEHICLE_RC: 'vehicle-rc',
+      /** `<uid>/<table>/<uuid>.<ext>` (vdocs_*.document_path). */
+      VEHICLE_DOCS: 'vehicle-docs',
     },
   },
 } as const;
