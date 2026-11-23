@@ -48,4 +48,19 @@ export const ENDPOINTS = {
   },
 } as const;
 
+/** Storage object names: anything but letters, digits, `.`, `_`, `-` becomes `_` (as the web does). */
+export const sanitiseFileName = (name: string): string => name.replace(/[^\w.-]/g, '_');
+
+/**
+ * Object paths inside the STORAGE buckets (same layout as the web). The first segment is always the
+ * owner's uid: the bucket policies key on it.
+ */
+export const STORAGE_PATHS = {
+  /** `avatars`: `<uid>/<timestamp>-<name>`. */
+  avatar: (uid: string, timestamp: number, fileName: string) => `${uid}/${timestamp}-${sanitiseFileName(fileName)}`,
+  /** `driving-licenses`: `<uid>/<timestamp>-<sanitised name>`. */
+  drivingLicense: (uid: string, timestamp: number, fileName: string) =>
+    `${uid}/${timestamp}-${sanitiseFileName(fileName)}`,
+} as const;
+
 export type OtpPurpose = 'signin' | 'signup';

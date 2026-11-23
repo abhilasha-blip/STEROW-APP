@@ -20,7 +20,6 @@ export const urls = {
   myPermissions: `${sb}/rest/v1/rpc/${ENDPOINTS.SUPABASE.RPC.MY_PERMISSIONS}`,
   drivingLicenses: `${sb}/rest/v1/${ENDPOINTS.SUPABASE.REST.USER_DRIVING_LICENSES}`,
   userVehicles: `${sb}/rest/v1/${ENDPOINTS.SUPABASE.REST.USER_VEHICLES}`,
-  /** Storage object upload / delete: `${storageObject(bucket)}/<path>`. */
-  storageObject: (bucket: string) => `${sb}/storage/v1/object/${bucket}/*`,
-  storageSign: (bucket: string) => `${sb}/storage/v1/object/sign/${bucket}/*`,
+  /** Storage: `${storageRoot}/object/<bucket>/<path>` (upload), `/object/sign/<bucket>/<path>` (sign). */
+  storageRoot: `${sb}/storage/v1`,
 };

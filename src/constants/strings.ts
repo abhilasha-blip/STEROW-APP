@@ -112,8 +112,16 @@ export const strings = {
       emailLabel: 'Email',
       emailPlaceholder: 'Enter your email address',
     },
+    /** Save toasts (same wording as the web). */
+    saved: {
+      photo: 'Photo updated',
+      drivingLicence: 'Driving licence saved',
+    },
+    /** Step 1 while the saved profile / DL loads. */
+    loadingA11y: 'Loading your profile',
     errors: {
-      dlRequired: 'Enter your DL number or upload your DL',
+      dlRequired: 'Enter the licence number',
+      dlFileRequired: 'Upload a photo or PDF of your licence',
       dlInvalid: 'Enter a valid DL number, e.g. TS0112345678901',
       fullName: 'Enter your full name',
       dobRequired: 'Select your date of birth',
@@ -244,5 +252,12 @@ export const strings = {
     timeout: 'The request timed out. Please try again.',
     sessionExpired: 'Your session has expired. Please sign in again.',
     generic: 'Something went wrong. Please try again.',
+    /** Uploads and saves (onboarding; same wording as the web). */
+    dlNumberRequired: 'Enter the licence number',
+    dlFileRequired: 'Upload a photo or PDF of your licence',
+    unsupportedFile: 'Upload a JPEG, PNG, WebP or PDF file',
+    fileTooLarge: 'File must be 10 MB or smaller',
+    fileUnreadable: 'Could not read the file. Please pick it again.',
+    notAllowed: "You don't have permission to do this.",
   },
 } as const;

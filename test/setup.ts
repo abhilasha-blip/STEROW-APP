@@ -57,6 +57,8 @@ jest.mock('@react-native-documents/picker', () => ({
   errorCodes: { OPERATION_CANCELED: 'OPERATION_CANCELED' },
   isErrorWithCode: (e: unknown) => !!e && typeof e === 'object' && 'code' in e,
 }));
+// Local file bytes for Storage uploads: Node can't fetch file:// uris. 8 bytes per file.
+jest.mock('@/api/files', () => ({ readLocalFile: jest.fn(async () => new ArrayBuffer(8)) }));
 jest.mock('react-native-safe-area-context', () =>
   require('react-native-safe-area-context/jest/mock').default,
 );
@@ -72,6 +74,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   jest.restoreAllMocks();
+  require('@/api/services/storage.service').__clearSignedUrlCache();
   require('@/store/onboarding.store').__resetOnboardingStoreForTests();
   server.resetHandlers();
   require('react-native-keychain').__store.clear();

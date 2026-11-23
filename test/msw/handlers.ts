@@ -81,10 +81,36 @@ export const handlers = [
     await log(request);
     return HttpResponse.json(permissionsRows);
   }),
-  // Post-login routing: the DL row (select=id, limit 1) and the vehicle count (HEAD, count=exact).
+  // PATCH user_details?id=eq.<uid>&select=id → the updated rows.
+  http.patch(urls.userDetails, async ({ request }) => {
+    await log(request);
+    return HttpResponse.json([{ id: userDetailsRow.id }]);
+  }),
+  // Post-login routing (select=id, limit 1) and onboarding 1/4 (select=*, maybeSingle).
   http.get(urls.drivingLicenses, async ({ request }) => {
     await log(request);
     return HttpResponse.json(onboardingBackend.hasDrivingLicense ? [drivingLicenseRow] : []);
+  }),
+  // Upsert on_conflict=user_id (.select().single() → one object).
+  http.post(urls.drivingLicenses, async ({ request }) => {
+    await log(request);
+    const body = (await request.clone().json()) as Record<string, unknown>;
+    return HttpResponse.json({ ...drivingLicenseRow, ...body }, { status: 201 });
+  }),
+  // Storage: upload → { Key, Id }; sign → { signedURL } (relative, storage-js prefixes the base).
+  http.post(`${urls.storageRoot}/object/sign/*`, async ({ request, params }) => {
+    await log(request);
+    const objectPath = String(params[0]);
+    return HttpResponse.json({ signedURL: `/object/sign/${objectPath}?token=signed-${objectPath.length}` });
+  }),
+  http.post(`${urls.storageRoot}/object/*`, async ({ request, params }) => {
+    requestLog.push({ url: request.url, method: request.method, body: undefined, headers: request.headers });
+    const key = String(params[0]);
+    return HttpResponse.json({ Key: key, Id: `obj-${key.length}` });
+  }),
+  http.delete(`${urls.storageRoot}/object/*`, async ({ request }) => {
+    await log(request);
+    return HttpResponse.json([]);
   }),
   http.head(urls.userVehicles, async ({ request }) => {
     await log(request);

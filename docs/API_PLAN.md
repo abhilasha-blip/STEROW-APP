@@ -1,6 +1,6 @@
 # STEROW mobile — API integration plan (Phase B)
 
-> Status: **Phase B in progress** (branch `feat/auth-phase-b`). §6 holds facts confirmed live on 2026-11-19 and supersedes earlier guesses in §1–§2.
+> Status: **Phase 1 onboarding API** (branch `feat/phase1-onboarding-api`), see §9. Auth phase B done. §6 holds facts confirmed live on 2026-11-19 and supersedes earlier guesses in §1–§2.
 > Date: 2026-11-18 · Inputs: `docs/api/openapi.json`, `docs/api/ENDPOINTS.md`, current `src/` (Sign In / Create Account / Verify OTP).
 
 ---
@@ -321,3 +321,80 @@ Rules (unchanged): screens → hooks only; no `any`; every service function unit
 
 **Not verified live:** a real UAE OTP round trip (no UAE test number). Ask the backend for a UAE test login if one is needed.
 
+
+---
+
+## 9. Phase 1 onboarding API plan (2026-11-23, branch `feat/phase1-onboarding-api`)
+
+Flow: Sign-in / Sign-up → 1/4 My Profile + DL → 2/4 Add Vehicle → [3/4 Documents → 4/4 Service, if a
+vehicle was added] → Dashboard. Facts: `docs/api/web-profile-dl-findings.md`,
+`docs/api/web-vehicle-findings.md` (web bundles read, never executed; read-only live probe
+`scripts/smoke-onboarding.ts`). **No `/_serverFn/` calls, ever** (`check:urls` enforces it).
+
+### 9.1 Post-login routing (Part B, done)
+
+| Read | Request | Rule |
+|---|---|---|
+| DL row | `GET SB/rest/v1/user_driving_licenses?select=id&user_id=eq.<uid>&limit=1` | none + not skipped → **1/4** |
+| Vehicle count | `HEAD SB/rest/v1/user_vehicles?select=id` + `Prefer: count=exact` | 0 + not skipped → **2/4** |
+| Skip flags | Keychain `onboarding-dl-skipped:<uid>`, `onboarding-vehicle-skipped:<uid>` | (web: `localStorage dl-skipped:<uid>`) |
+
+Decided in `auth.store` → `establish()` (`resolveStartRoute`, never throws: failure → Dashboard) before
+`status = signedIn`, so the splash / OTP spinner covers it. `AppStack` opens at that route with nothing
+underneath; onboarding exits with `reset` → Dashboard.
+
+### 9.2 C1 — My Profile (1/4)
+
+| Step | Request | Notes |
+|---|---|---|
+| Load | `GET user_details?select=full_name,email,phone,avatar_url&id=eq.<uid>` | Prefills **Full Name**; avatar shown from `avatar_url`. |
+| Save name | `PATCH user_details?id=eq.<uid>` `{ full_name }` | Only when changed. |
+| Photo / preset | `POST SB/storage/v1/object/avatars/<uid>/<timestamp>-<name>.<ext>` (upsert) | Preset → the bundled PNG (`avatar-07.png`); photo → the picked JPEG/PNG (extension from its type, the brief's `.png` assumed PNG). |
+| Save photo | `PATCH user_details?id=eq.<uid>` `{ avatar_url: <path> }` → **"Photo updated"** | Only when the avatar changed. |
+| Display | `POST SB/storage/v1/object/sign/avatars/<path>` `{ expiresIn: 3600 }` | Cached in memory until 60 s before expiry. |
+| DOB, Email | — | **Pending backend**: no DOB column; email is the auth email, read-only on the web (synthetic `…@phone.local` for phone users). Kept in the UI, **not sent**. |
+
+### 9.3 C2 — Driving licence (1/4)
+
+| Step | Request | Notes |
+|---|---|---|
+| Load | `GET user_driving_licenses?select=*&user_id=eq.<uid>` (maybe single) | Prefills the number; file shown via a signed URL (`driving-licenses`). |
+| Upload | `POST SB/storage/v1/object/driving-licenses/<uid>/<timestamp>-<sanitised name>` (upsert) | jpg/png/webp/pdf ≤ 10 MB. Only a **new** local file is uploaded. |
+| Save | `POST user_driving_licenses?on_conflict=user_id` + `Prefer: resolution=merge-duplicates` `{ user_id, dl_number: trim().toUpperCase(), document_path }` → **"Driving licence saved"** | `issued_on / valid_upto / vehicle_classes` omitted (not collected; an upsert leaves them as they are). |
+| Rules | "Enter the licence number" / "Upload a photo or PDF of your licence" | Both are required (as on the web). With OCR unavailable the upload box is always shown (no "Or"). |
+| OCR | `ocrService.readDl()` → `{ status: 'unavailable' }` | As instructed. **But** `APP/ocr/driving-license` exists (401 without a token): see O1. |
+
+**1/4 Next** = validate → (photo upload + PATCH) → PATCH name → DL upload → DL upsert → 2/4. One
+mutation, button loading + disabled, no double submit; steps already done are not repeated on retry.
+
+### 9.4 C3 — Vehicle (2/4 + 3/4 + 4/4): **waiting for approval**
+
+See `web-vehicle-findings.md` §1–§6 for tables, buckets, master data and the proposed implementation.
+
+### 9.5 Layers
+
+`screens` → `hooks` (React Query: `useProfileStep`, later `useVehicleMaster`…) → `services`
+(`profile`, `drivingLicense`, `storage`, `ocr`, `onboardingProgress`; zod-validated) → clients
+(`supabase.ts`, `appClient.ts`, `storage/*`). Paths, tables and buckets: `endpoints.ts` only. User copy:
+`strings.ts` via `errorMessages.ts`. msw tests for every service and routing decision.
+
+### 9.6 Open backend questions
+
+| # | Question |
+|---|---|
+| O1 | Public `APP/ocr/driving-license`, `ocr/rc`, `ocr/document` and `vehicles/lookup` **exist** (401/400 vs 404 for unknown routes). The brief assumed none. Contract, cost per call, image format (data URL?), consent? |
+| O2 | DOB: no column in `user_details`. Add one (and to the web profile)? |
+| O3 | Email: phone users have a synthetic auth email. Is the user-typed email to be stored (`user_details.email`? verified?), or dropped from 1/4? |
+| O4 | Avatar presets: upload the bundled PNG per user (as now), or a shared public preset bucket / id field? |
+| O5 | DL: are `issued_on / valid_upto / vehicle_classes` wanted in the app (not in Figma)? |
+| Q2–Q9 | Vehicle questions: `web-vehicle-findings.md` §5. |
+
+### 9.7 Status
+
+| Part | Status |
+|---|---|
+| A — meeting UI verified | ✅ committed |
+| B — post-login routing | ✅ committed |
+| C1 — profile | ⏳ implementing (msw); **first live avatar upload needs approval** |
+| C2 — DL | ⏳ implementing (msw); **first live DL upload needs approval** |
+| C3 — vehicle | ⛔ waiting for approval of `web-vehicle-findings.md` |
