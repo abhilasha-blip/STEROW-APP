@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { DOCUMENT_KEYS, type DocumentKey } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
@@ -20,15 +20,27 @@ export type DocumentsUploadListProps = {
   /** Applied to the first card (e.g. the onboarding sheet's first-label offset). */
   style?: StyleProp<ViewStyle>;
   testIDPrefix?: string;
+  /**
+   * Rendered above the cards, e.g. the Dashboard's vehicle-selector dropdown ("My Documents").
+   * Onboarding leaves it empty.
+   */
+  header?: ReactNode;
 };
 
 /**
  * The vehicle document upload cards (RC, Insurance, Pollution Certificate), with no screen header:
  * used by onboarding step 3 and reusable on the Dashboard. Fully controlled.
  */
-function DocumentsUploadList({ values, onChange, style, testIDPrefix = 'document' }: DocumentsUploadListProps) {
+function DocumentsUploadList({
+  values,
+  onChange,
+  style,
+  testIDPrefix = 'document',
+  header,
+}: DocumentsUploadListProps) {
   return (
     <View style={style}>
+      {header}
       {DOCUMENT_KEYS.map((key, index) => (
         <FileUploadCard
           key={key}

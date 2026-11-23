@@ -54,7 +54,10 @@ async function renderFlow(
           {
             routes: [
               { name: 'Dashboard' },
-              { name: 'Onboarding', state: { routes: routes.map(name => ({ name })), index: routes.length - 1 } },
+              {
+                name: 'Onboarding',
+                state: { routes: routes.map(name => ({ name })), index: routes.length - 1 },
+              },
             ],
             index: 1,
           } as never
@@ -78,14 +81,17 @@ async function chooseOption(select: string, option: string) {
   await waitFor(() => expect(screen.queryByTestId(`${select}-sheet`)).toBeNull());
 }
 
-const disabled = (testID: string) => screen.getByTestId(testID).props.accessibilityState?.disabled === true;
+const disabled = (testID: string) =>
+  screen.getByTestId(testID).props.accessibilityState?.disabled === true;
 const back = async () => {
   const buttons = screen.getAllByLabelText(strings.common.back);
   await fireEvent.press(buttons[buttons.length - 1]); // the top screen's
 };
 
 async function pickImage(sheet: string, uri: string) {
-  mockedLibrary.mockResolvedValueOnce({ assets: [{ uri, type: 'image/jpeg', fileName: uri.split('/').pop(), fileSize: 1024 }] });
+  mockedLibrary.mockResolvedValueOnce({
+    assets: [{ uri, type: 'image/jpeg', fileName: uri.split('/').pop(), fileSize: 1024 }],
+  });
   await fireEvent.press(await screen.findByTestId(`${sheet}-gallery`));
   await waitFor(() => expect(mockedLibrary).toHaveBeenCalled());
   mockedLibrary.mockClear();
@@ -118,9 +124,13 @@ describe('onboarding flow (steps 1–4)', () => {
 
     expect(await screen.findByTestId('onboarding-documents')).toBeTruthy();
     expect(screen.getAllByTestId('onboarding-step').pop()).toHaveTextContent('3/4');
-    expect(screen.getByTestId('document-rc-box-image').props.source).toEqual({ uri: 'file:///rc.jpg' });
+    expect(screen.getByTestId('document-rc-box-image').props.source).toEqual({
+      uri: 'file:///rc.jpg',
+    });
     expect(screen.queryByTestId('document-license')).toBeNull();
-    expect(screen.getByTestId('document-pollution')).toHaveTextContent(new RegExp(strings.onboarding.documents.pollutionLabel));
+    expect(screen.getByTestId('document-pollution')).toHaveTextContent(
+      new RegExp(strings.onboarding.documents.pollutionLabel),
+    );
     expect(screen.getByTestId('document-insurance-box-empty')).toBeTruthy();
     expect(disabled('documents-next')).toBe(false);
 
@@ -134,9 +144,15 @@ describe('onboarding flow (steps 1–4)', () => {
   it('step 3: RC prefilled from step 2; removal + a PDF; Back from step 4 keeps the choices', async () => {
     store().setVehicle(VEHICLE);
     await renderFlow(['Step2VehicleForm', 'Step3Documents'], 'onboarding-documents');
-    expect(screen.getByTestId('document-rc-box-image').props.source).toEqual({ uri: 'file:///rc.jpg' });
+    expect(screen.getByTestId('document-rc-box-image').props.source).toEqual({
+      uri: 'file:///rc.jpg',
+    });
 
-    await fireEvent.press(screen.getByLabelText(strings.onboarding.upload.removeA11y(strings.onboarding.documents.rcLabel)));
+    await fireEvent.press(
+      screen.getByLabelText(
+        strings.onboarding.upload.removeA11y(strings.onboarding.documents.rcLabel),
+      ),
+    );
     expect(disabled('documents-next')).toBe(true);
     mockedPick.mockResolvedValueOnce([
       { uri: 'file:///ins.pdf', name: 'insurance.pdf', type: 'application/pdf', size: 2048 },
@@ -167,11 +183,17 @@ describe('onboarding flow (steps 1–4)', () => {
     store().setVehicle(VEHICLE);
     store().setVehicleMode('rc');
     store().setDocument('rc', null);
-    store().setDocument('insurance', { uri: 'file:///ins.pdf', name: 'insurance.pdf', mimeType: 'application/pdf' });
+    store().setDocument('insurance', {
+      uri: 'file:///ins.pdf',
+      name: 'insurance.pdf',
+      mimeType: 'application/pdf',
+    });
     await renderFlow(['Step4Service'], 'onboarding-service');
 
     expect(screen.getByTestId('onboarding-step')).toHaveTextContent('4/4');
-    expect(screen.getByTestId('onboarding-progress').props.accessibilityValue).toMatchObject({ now: 100 });
+    expect(screen.getByTestId('onboarding-progress').props.accessibilityValue).toMatchObject({
+      now: 100,
+    });
     expect(screen.queryByText('Mileage')).toBeNull();
     expect(disabled('service-next')).toBe(true);
 
@@ -191,7 +213,9 @@ describe('onboarding flow (steps 1–4)', () => {
     expect(screen.getByTestId('service-amount').props.value).toBe('1,23,456');
 
     await fireEvent.press(screen.getByTestId('service-next'));
-    expect(await screen.findByTestId('onboarding-complete')).toBeTruthy();
+    // 4/4 → straight to the Dashboard, onboarding reset out of history.
+    expect(await screen.findByTestId('dashboard')).toBeTruthy();
+    expect(rootRouteNames()).toEqual(['Dashboard']);
 
     const done = info.mock.calls.find(([message]) => message === 'onboarding complete');
     expect(done?.[1]).toMatchObject({
@@ -209,16 +233,21 @@ describe('onboarding flow (steps 1–4)', () => {
     expect((done?.[1] as { documents: object }).documents).not.toHaveProperty('license');
     // No PII in the log: no uris, numbers or names.
     expect(JSON.stringify(done)).not.toMatch(/file:\/\/|insurance\.pdf|123456|TS09EV1234|12450/);
-    expect(store().service.odometer).toBe('12450');
+    // Finished: onboarding unmounted, its in-memory data dropped.
+    await waitFor(() => expect(store().service.odometer).toBe(''));
   });
 
-  it('"Go to Dashboard" removes onboarding from the stack (Back can\'t return) and clears it', async () => {
+  it("finishing removes onboarding from the stack (Back can't return) and clears it", async () => {
     store().setVehicle(VEHICLE);
-    await renderFlow(['Step1Profile', 'Step2Vehicle', 'OnboardingComplete'], 'onboarding-complete');
-    await fireEvent.press(screen.getByTestId('onboarding-complete-done'));
+    await renderFlow(
+      ['Step1Profile', 'Step2Vehicle', 'Step2VehicleForm', 'Step3Documents', 'Step4Service'],
+      'onboarding-service',
+    );
+    await fireEvent.press(screen.getByTestId('service-skip'));
     expect(await screen.findByTestId('dashboard')).toBeTruthy();
     expect(rootRouteNames()).toEqual(['Dashboard']);
-    await waitFor(() => expect(screen.queryByTestId('onboarding-complete', HIDDEN)).toBeNull());
+    expect(navRef.canGoBack()).toBe(false);
+    await waitFor(() => expect(screen.queryByTestId('onboarding-service', HIDDEN)).toBeNull());
     expect(store().vehicle).toEqual(EMPTY_VEHICLE);
   });
 
@@ -258,16 +287,20 @@ describe('onboarding flow (steps 1–4)', () => {
       await waitFor(() => expect(screen.queryByTestId('onboarding-vehicle', HIDDEN)).toBeNull());
 
       expect(store().vehicle).toEqual(EMPTY_VEHICLE);
-      expect(store().profile).toMatchObject({ dlImageUri: 'file:///dl.jpg', fullName: 'Ravi Kumar' });
+      expect(store().profile).toMatchObject({
+        dlImageUri: 'file:///dl.jpg',
+        fullName: 'Ravi Kumar',
+      });
       expect(store().retainOnExit).toBe(false); // only that one exit keeps the data
     },
   );
 
-  it('"Skip for now" on steps 3 and 4 moves on and finishes', async () => {
+  it('"Skip for now" on steps 3 and 4 moves on, then to the Dashboard', async () => {
     await renderFlow(['Step3Documents'], 'onboarding-documents');
     await fireEvent.press(screen.getByTestId('documents-skip'));
     await fireEvent.press(await screen.findByTestId('service-skip'));
-    expect(await screen.findByTestId('onboarding-complete')).toBeTruthy();
+    expect(await screen.findByTestId('dashboard')).toBeTruthy();
+    expect(rootRouteNames()).toEqual(['Dashboard']);
   });
 
   it('service centre search shows mock suggestions narrowed by the chip; picking one fills the field', async () => {

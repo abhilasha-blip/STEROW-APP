@@ -26,9 +26,8 @@ export type OnboardingStackParamList = {
   /** Step 2 form (2b/2c), prefilled from the store. `qaOpenMakeSheet`: dev QA screenshots only. */
   Step2VehicleForm: { qaOpenMakeSheet?: boolean } | undefined;
   Step3Documents: undefined;
+  /** Next / Skip → the Dashboard (onboarding reset out of history). */
   Step4Service: undefined;
-  /** Placeholder until the API saves onboarding. */
-  OnboardingComplete: undefined;
 };
 
 export type AppStackParamList = {

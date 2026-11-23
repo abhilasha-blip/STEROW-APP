@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useState, type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form';
 import {
@@ -26,6 +26,11 @@ export type VehicleFormProps = {
   form: UseFormReturn<VehicleFormValues>;
   /** Dev QA screenshots: open the Make list on mount. */
   qaOpenMakeSheet?: boolean;
+  /**
+   * Rendered above the fields, e.g. the Dashboard's vehicle-selector dropdown ("My Vehicles").
+   * Onboarding leaves it empty.
+   */
+  header?: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -36,7 +41,7 @@ export type VehicleFormProps = {
  * Typing re-renders only the field's own Controller; the form re-renders when the Make changes (the
  * Model list depends on it).
  */
-function VehicleForm({ form, qaOpenMakeSheet, style }: VehicleFormProps) {
+function VehicleForm({ form, qaOpenMakeSheet, header, style }: VehicleFormProps) {
   const reveal = useRevealOnFocus();
   const { control, setValue, getValues } = form;
   const make = useWatch({ control, name: 'make' });
@@ -55,6 +60,7 @@ function VehicleForm({ form, qaOpenMakeSheet, style }: VehicleFormProps) {
 
   return (
     <View testID="vehicle-form" style={style}>
+      {header}
       <Controller
         control={control}
         name="vehicleNumber"

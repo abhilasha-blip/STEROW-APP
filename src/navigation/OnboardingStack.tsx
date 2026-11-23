@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import OnboardingCompleteScreen from '@/screens/onboarding/OnboardingCompleteScreen';
 import OnboardingProfileScreen from '@/screens/onboarding/OnboardingProfileScreen';
 import ServiceDetailsScreen from '@/screens/onboarding/ServiceDetailsScreen';
 import VehicleDocumentsScreen from '@/screens/onboarding/VehicleDocumentsScreen';
@@ -44,7 +43,9 @@ const summarizeAll = (v: OnboardingValues) => ({
     transmission: v.vehicle.transmission,
     colour: !!v.vehicle.colour,
   },
-  documents: Object.fromEntries(Object.entries(v.documents).map(([k, f]) => [k, f?.mimeType ?? null])),
+  documents: Object.fromEntries(
+    Object.entries(v.documents).map(([k, f]) => [k, f?.mimeType ?? null]),
+  ),
   service: {
     lastServiceDate: !!v.service.lastServiceDate,
     centreType: v.service.centreType,
@@ -55,10 +56,7 @@ const summarizeAll = (v: OnboardingValues) => ({
   },
 });
 
-/**
- * The end of onboarding. UI only: logs what was collected (dev) and shows the placeholder screen.
- * Tomorrow: submit `values` to the API.
- */
+/** The end of onboarding: logs what was collected (no PII). */
 export function completeOnboarding(values: OnboardingValues) {
   logger.info('onboarding complete', summarizeAll(values));
 }
@@ -72,7 +70,7 @@ function Step1ProfileRoute({ navigation, route }: OnboardingStackScreenProps<'St
   return (
     <OnboardingProfileScreen
       initialValues={{ ...snapshot.profile, ...route.params?.initialValues }}
-      onBack={() => navigation.goBack()}
+      onBack={backIfPossible(navigation)}
       onValuesChange={setProfile}
       onNext={values => {
         setProfile(values);
@@ -87,13 +85,20 @@ function Step1ProfileRoute({ navigation, route }: OnboardingStackScreenProps<'St
   );
 }
 
-type AnyOnboardingNavigation = OnboardingStackScreenProps<keyof OnboardingStackParamList>['navigation'];
+type AnyOnboardingNavigation = OnboardingStackScreenProps<
+  keyof OnboardingStackParamList
+>['navigation'];
 
 /**
- * Back to the Dashboard with onboarding removed from the stack (Back can't return to it): pops the
- * app stack to its Dashboard, unmounting the onboarding stack.
+ * To the Dashboard with onboarding removed from history (Back can't return to it): resets the app
+ * stack to the Dashboard alone, unmounting the onboarding stack.
  */
-const exitToDashboard = (navigation: AnyOnboardingNavigation) => navigation.popTo('Dashboard');
+export const exitToDashboard = (navigation: AnyOnboardingNavigation) =>
+  navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+
+/** The back arrow only when there is a screen to return to (none when onboarding is the start route). */
+const backIfPossible = (navigation: AnyOnboardingNavigation) =>
+  navigation.canGoBack() ? () => navigation.goBack() : undefined;
 
 /** "Skip for now" on step 2: the vehicle step is cleared; step 1 (profile / DL) is kept. */
 const skipToDashboard = (navigation: AnyOnboardingNavigation) => {
@@ -123,7 +128,7 @@ function Step2VehicleRoute({ navigation }: OnboardingStackScreenProps<'Step2Vehi
       initialNumber={vehicle.vehicleNumber}
       initialRcFile={vehicle.rcFile}
       initialLookup={restoredLookup}
-      onBack={() => navigation.goBack()}
+      onBack={backIfPossible(navigation)}
       onChange={setVehicleEntry}
       onNext={(entry, lookup) => {
         prefillVehicleFromEntry(entry, lookup);
@@ -138,7 +143,10 @@ function Step2VehicleRoute({ navigation }: OnboardingStackScreenProps<'Step2Vehi
   );
 }
 
-function Step2VehicleFormRoute({ navigation, route }: OnboardingStackScreenProps<'Step2VehicleForm'>) {
+function Step2VehicleFormRoute({
+  navigation,
+  route,
+}: OnboardingStackScreenProps<'Step2VehicleForm'>) {
   const setVehicle = useOnboardingStore(s => s.setVehicle);
   const snapshot = useInitialSnapshot();
   return (
@@ -175,7 +183,7 @@ function Step4ServiceRoute({ navigation }: OnboardingStackScreenProps<'Step4Serv
   const snapshot = useInitialSnapshot();
   const finish = () => {
     completeOnboarding(selectOnboardingValues(useOnboardingStore.getState()));
-    navigation.navigate('OnboardingComplete');
+    exitToDashboard(navigation);
   };
   return (
     <ServiceDetailsScreen
@@ -191,13 +199,9 @@ function Step4ServiceRoute({ navigation }: OnboardingStackScreenProps<'Step4Serv
   );
 }
 
-function OnboardingCompleteRoute({ navigation }: OnboardingStackScreenProps<'OnboardingComplete'>) {
-  return <OnboardingCompleteScreen onDone={() => exitToDashboard(navigation)} />;
-}
-
 export default function OnboardingStack() {
   const { colors } = useTheme();
-  // Leaving onboarding (finished, Back from step 1) drops what was entered – except a step 2 skip,
+  // Leaving onboarding (finished, step 3/4 skipped, Back from step 1) drops what was entered – except a step 2 skip,
   // which keeps step 1's data (see skipVehicleStep). Sign-out clears it in AppStack.
   useEffect(() => () => useOnboardingStore.getState().exitOnboarding(), []);
   return (
@@ -215,11 +219,6 @@ export default function OnboardingStack() {
       <Stack.Screen name="Step2VehicleForm" component={Step2VehicleFormRoute} />
       <Stack.Screen name="Step3Documents" component={Step3DocumentsRoute} />
       <Stack.Screen name="Step4Service" component={Step4ServiceRoute} />
-      <Stack.Screen
-        name="OnboardingComplete"
-        component={OnboardingCompleteRoute}
-        options={{ gestureEnabled: false, animation: 'fade' }}
-      />
     </Stack.Navigator>
   );
 }

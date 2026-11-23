@@ -228,11 +228,6 @@ export const strings = {
       amountPlaceholder: 'Enter amount',
       currency: '₹',
     },
-    /** Placeholder until the API saves onboarding and the dashboard takes over. */
-    complete: {
-      title: 'Onboarding complete',
-      toDashboard: 'Go to Dashboard',
-    },
   },
   network: {
     offline: "You're offline. Check your internet connection.",

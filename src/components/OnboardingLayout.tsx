@@ -38,6 +38,7 @@ export type OnboardingLayoutProps = PropsWithChildren<{
   footer?: ReactNode;
   /** Minimum space between the last field and the footer (Figma varies per frame; default 49). */
   footerGap?: number;
+  /** Omitted when there is nothing to go back to (onboarding opened as the start route): no arrow. */
   onBack?: () => void;
   testID?: string;
 }>;
@@ -145,7 +146,11 @@ export default function OnboardingLayout({
       <OnboardingBackground />
       <View style={[styles.header, { paddingTop }]}>
         <View style={styles.row}>
-          <BackButton onPress={onBack} />
+          {onBack ? (
+            <BackButton onPress={onBack} />
+          ) : (
+            <View testID="onboarding-no-back" style={styles.backSpacer} />
+          )}
           <ProgressBar testID="onboarding-progress" value={progress} style={styles.progress} />
           <AppText
             testID="onboarding-step"
@@ -217,9 +222,11 @@ export default function OnboardingLayout({
   );
 }
 
-const makeStyles = ({ colors, radius, spacing }: Theme) =>
+const makeStyles = ({ colors, radius, sizes, spacing }: Theme) =>
   StyleSheet.create({
     root: { flex: 1 },
+    // Keeps the progress bar where it is when the back arrow is hidden.
+    backSpacer: { width: sizes.backButton, height: sizes.backButton },
     header: { paddingHorizontal: spacing.screenPaddingH },
     row: { flexDirection: 'row', alignItems: 'center' },
     progress: { flex: 1, marginLeft: 16, marginRight: 24 },
