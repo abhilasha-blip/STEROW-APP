@@ -17,7 +17,7 @@ describe('navigation', () => {
     await renderApp();
     expect(await screen.findByTestId('dashboard')).toBeTruthy();
     expect(await screen.findByText('Welcome Test!')).toBeTruthy(); // user_details.full_name "Test User"
-    expect(await screen.findByText('test-user@sterow.test')).toBeTruthy();
+    expect(await screen.findByTestId('dashboard-email')).toHaveTextContent('test-user@sterow.test');
     expect(screen.getByTestId('tab-bar')).toBeTruthy();
   });
 
