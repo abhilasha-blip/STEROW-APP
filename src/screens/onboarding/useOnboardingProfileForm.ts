@@ -57,11 +57,11 @@ export function useOnboardingProfileForm({
   useFormMirror(watch, onValuesChange);
 
   // Re-renders the step only when a section appears/disappears or the avatar changes, not per keystroke.
-  const { avatar, showUpload, showPersonal } = useFormSelector(watch, getValues, v => ({
+  const { avatar, showUpload, showOr, showPersonal } = useFormSelector(watch, getValues, v => ({
     avatar: v.avatar,
     ...getProfileVisibility(v),
   }));
-  const visibility = useMemo(() => ({ showUpload, showPersonal }), [showUpload, showPersonal]);
+  const visibility = useMemo(() => ({ showUpload, showOr, showPersonal }), [showUpload, showOr, showPersonal]);
 
   const revalidate = formState.isSubmitted;
 
@@ -83,7 +83,7 @@ export function useOnboardingProfileForm({
   const removeDlImage = useCallback(() => {
     setValue('dlImageUri', null, { shouldDirty: true });
     if (revalidate) {
-      trigger('dlNumber');
+      trigger('dlImageUri');
     }
   }, [setValue, trigger, revalidate]);
 

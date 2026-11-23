@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { toUserError } from '@/api/errorMessages';
+import type { ProfileStepData } from '@/api/services/profileStep.service';
+import OnboardingLayout from '@/components/OnboardingLayout';
+import { useToast } from '@/components/Toast';
+import { ONBOARDING_TOTAL_STEPS } from '@/constants/onboarding';
+import { strings } from '@/constants/strings';
+import { savedAvatar, useProfileStepData, useSaveProfileStep } from '@/hooks/api/useProfileStep';
 import OnboardingProfileScreen from '@/screens/onboarding/OnboardingProfileScreen';
 import ServiceDetailsScreen from '@/screens/onboarding/ServiceDetailsScreen';
 import VehicleDocumentsScreen from '@/screens/onboarding/VehicleDocumentsScreen';
@@ -16,6 +24,7 @@ import {
   useOnboardingStore,
 } from '@/store/onboarding.store';
 import { useOnboardingSkip } from '@/hooks/useOnboardingSkip';
+import { useAuthStore } from '@/store/auth.store';
 import { useTheme } from '@/theme';
 import { logger } from '@/utils/logger';
 import type { OnboardingStackParamList, OnboardingStackScreenProps } from './types';
@@ -65,20 +74,72 @@ export function completeOnboarding(values: OnboardingValues) {
 /** Read once per mount: a re-entered step starts from the store, then mirrors its changes back. */
 const useInitialSnapshot = () => useState(() => useOnboardingStore.getState())[0];
 
-function Step1ProfileRoute({ navigation, route }: OnboardingStackScreenProps<'Step1Profile'>) {
+function Step1ProfileRoute(props: OnboardingStackScreenProps<'Step1Profile'>) {
+  const uid = useAuthStore(s => s.user?.id);
+  const saved = useProfileStepData(uid);
+  // Wait for the saved profile / DL so the form starts prefilled (it reads initial values once).
+  if (saved.isLoading) {
+    return <OnboardingLoading step={1} title={strings.onboarding.profile.title} />;
+  }
+  return <Step1ProfileForm {...props} uid={uid} saved={saved.data} loadFailed={saved.isError} />;
+}
+
+/** Saved data → the form's starting values (only what exists; the store's re-entry values win). */
+const prefillFrom = (saved: ProfileStepData | undefined): Partial<ProfileFormValues> => ({
+  ...(saved?.fullName ? { fullName: saved.fullName } : {}),
+  ...(saved?.avatarUrl ? { avatar: savedAvatar(saved) } : {}),
+  ...(saved?.dl ? { dlNumber: saved.dl.dlNumber, dlImageUri: saved.dl.previewUrl } : {}),
+});
+
+function Step1ProfileForm({
+  navigation,
+  route,
+  uid,
+  saved,
+  loadFailed,
+}: OnboardingStackScreenProps<'Step1Profile'> & {
+  uid: string | undefined;
+  saved: ProfileStepData | undefined;
+  loadFailed: boolean;
+}) {
+  const toast = useToast();
   const setProfile = useOnboardingStore(s => s.setProfile);
   const markSkipped = useOnboardingSkip();
   const snapshot = useInitialSnapshot();
+  const save = useSaveProfileStep(uid ?? '', saved);
+  useEffect(() => {
+    if (loadFailed) {
+      toast.error(strings.errors.generic);
+    }
+  }, [loadFailed, toast]);
+
+  const next = (values: ProfileFormValues) => {
+    setProfile(values);
+    logger.info('onboarding step 1: next', summarizeProfile(values));
+    if (!uid) {
+      navigation.navigate('Step2Vehicle'); // dev QA screens: no signed-in user, nothing to save
+      return;
+    }
+    if (save.isPending) {
+      return;
+    }
+    save.mutate(values, {
+      onSuccess: ({ photoUpdated }) => {
+        const s = strings.onboarding.saved;
+        toast.success(photoUpdated ? `${s.photo}. ${s.drivingLicence}` : s.drivingLicence);
+        navigation.navigate('Step2Vehicle');
+      },
+      onError: error => toast.error(toUserError(error).userMessage),
+    });
+  };
+
   return (
     <OnboardingProfileScreen
-      initialValues={{ ...snapshot.profile, ...route.params?.initialValues }}
+      initialValues={{ ...prefillFrom(saved), ...snapshot.profile, ...route.params?.initialValues }}
       onBack={backIfPossible(navigation)}
       onValuesChange={setProfile}
-      onNext={values => {
-        setProfile(values);
-        logger.info('onboarding step 1: next', summarizeProfile(values));
-        navigation.navigate('Step2Vehicle');
-      }}
+      saving={save.isPending}
+      onNext={next}
       onSkip={() => {
         logger.info('onboarding step 1: skip');
         markSkipped('dl');
@@ -87,6 +148,22 @@ function Step1ProfileRoute({ navigation, route }: OnboardingStackScreenProps<'St
     />
   );
 }
+
+/** Placeholder while a step's saved data loads (header + spinner, no fields). */
+function OnboardingLoading({ step, title }: { step: number; title: string }) {
+  const { colors } = useTheme();
+  return (
+    <OnboardingLayout testID="onboarding-loading" step={step} totalSteps={ONBOARDING_TOTAL_STEPS} title={title}>
+      <ActivityIndicator
+        style={loadingStyles.spinner}
+        color={colors.text.onLightMuted}
+        accessibilityLabel={strings.onboarding.loadingA11y}
+      />
+    </OnboardingLayout>
+  );
+}
+
+const loadingStyles = StyleSheet.create({ spinner: { marginTop: 48 } });
 
 type AnyOnboardingNavigation = OnboardingStackScreenProps<
   keyof OnboardingStackParamList

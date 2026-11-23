@@ -36,6 +36,8 @@ export type OnboardingProfileScreenProps = {
   onValuesChange?: (values: ProfileFormValues) => void;
   /** Injectable clock for the 18+ DOB rule (tests). */
   today?: () => Date;
+  /** Next is saving (profile + DL): spinner on Next, Next and Skip disabled (no double submit). */
+  saving?: boolean;
 };
 
 /** Onboarding step 1 "My Profile" (UI only; no API or storage yet). */
@@ -46,6 +48,7 @@ export default function OnboardingProfileScreen({
   onBack,
   onValuesChange,
   today,
+  saving = false,
 }: OnboardingProfileScreenProps) {
   const profile = useOnboardingProfileForm({ initialValues, onNext, onSkip, onValuesChange, today });
 
@@ -63,9 +66,17 @@ export default function OnboardingProfileScreen({
             testID="profile-next"
             label={t.next}
             labelVariant="buttonStrong"
+            loading={saving}
+            disabled={saving}
             onPress={profile.submit}
           />
-          <LinkButton testID="profile-skip" label={t.skip} onPress={profile.skip} style={styles.skip} />
+          <LinkButton
+            testID="profile-skip"
+            label={t.skip}
+            onPress={profile.skip}
+            disabled={saving}
+            style={styles.skip}
+          />
         </>
       }
     >
@@ -127,12 +138,12 @@ function ProfileFields({ profile }: { profile: OnboardingProfileForm }) {
 
       {visibility.showUpload && (
         <>
-          <OrDivider style={styles.or} />
+          {visibility.showOr && <OrDivider style={styles.or} />}
           <Controller
             control={control}
             name="dlImageUri"
             render={({ field }) => (
-              <View style={styles.uploadBlock}>
+              <View style={visibility.showOr ? styles.uploadBlock : styles.uploadBlockNoOr}>
                 <AppText variant="fieldLabel" color="text.onLight" style={styles.uploadLabel}>
                   {p.uploadLabel}
                 </AppText>
@@ -141,6 +152,7 @@ function ProfileFields({ profile }: { profile: OnboardingProfileForm }) {
                   uri={field.value}
                   onPress={() => setDlSourceSheet(true)}
                   onRemove={profile.removeDlImage}
+                  error={errors.dlImageUri?.message}
                 />
               </View>
             )}
@@ -250,6 +262,8 @@ const styles = StyleSheet.create({
   field: { marginTop: 25.3 },
   or: { marginTop: 18.5 },
   uploadBlock: { marginTop: 23.8 },
+  // No "Or": the same 25.3pt field rhythm as the fields below.
+  uploadBlockNoOr: { marginTop: 25.3 },
   uploadLabel: { marginBottom: 8 },
   skip: { marginTop: 16 },
 });

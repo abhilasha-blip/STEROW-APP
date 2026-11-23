@@ -37,10 +37,10 @@ describe('onboarding typing', () => {
     expect(screen.getByTestId('service-amount').props.value).toBe('1,25,000');
   });
 
-  it('step 1: typing the DL number re-renders the step only when the upload section toggles', async () => {
+  it('step 1: typing the DL number does not re-render the step', async () => {
     await renderInApp(<OnboardingProfileScreen onNext={jest.fn()} onSkip={jest.fn()} />);
-    // The first character hides "Or upload"; the next ones change nothing the step shows.
+    // Without OCR the upload box stays up while typing, and an incomplete number changes nothing else.
     const counts = await typeSlowly('dl-number', 'TS01201');
-    expect(counts.Layout).toBe(1);
+    expect(counts.Layout ?? 0).toBe(0);
   });
 });

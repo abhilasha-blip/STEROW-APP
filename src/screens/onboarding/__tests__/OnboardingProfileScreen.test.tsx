@@ -59,25 +59,25 @@ describe('OnboardingProfileScreen – layout', () => {
     expect(screen.getByText(t.profile.avatarLabel)).toBeTruthy();
   });
 
-  it('starts with the default avatar, an empty DL field, "Or" and the empty upload box', async () => {
+  it('starts with the default avatar, an empty DL field and the empty upload box (no "Or" without OCR)', async () => {
     await renderScreen();
     expect(screen.getByTestId('profile-avatar-avatar-01')).toBeTruthy();
     expect(screen.getByTestId('profile-avatar-badge')).toBeTruthy();
     expect(screen.getByTestId('dl-number').props.placeholder).toBe(t.profile.dlNumberPlaceholder);
-    expect(screen.getByText(t.profile.or)).toBeTruthy();
+    expect(screen.queryByText(t.profile.or)).toBeNull();
     expect(screen.getByTestId('dl-upload-empty')).toBeTruthy();
     expect(screen.queryByTestId('personal-fields')).toBeNull();
   });
 });
 
 describe('OnboardingProfileScreen – DL state switching', () => {
-  it('typed DL ↔ upload: typing hides the upload, a valid number reveals the personal fields', async () => {
+  it('typing the DL keeps the upload box (both are required); a valid number reveals the personal fields', async () => {
     await renderScreen();
     const dl = screen.getByTestId('dl-number');
 
     await fireEvent.changeText(dl, 'ts-01 2011');
     expect(dl.props.value).toBe('TS012011'); // upper-case, alphanumerics only
-    expect(screen.queryByTestId('dl-upload-empty')).toBeNull();
+    expect(screen.getByTestId('dl-upload-empty')).toBeTruthy();
     expect(screen.queryByText(t.profile.or)).toBeNull();
     expect(screen.queryByTestId('personal-fields')).toBeNull();
 
@@ -136,11 +136,21 @@ describe('OnboardingProfileScreen – DL state switching', () => {
 });
 
 describe('OnboardingProfileScreen – validation and actions', () => {
-  it('Next with nothing entered asks for a DL number or upload', async () => {
+  it('Next with nothing entered asks for the licence number and the licence file', async () => {
     const { onNext } = await renderScreen();
     await fireEvent.press(screen.getByTestId('profile-next'));
-    expect(await screen.findByText(e.dlRequired)).toBeTruthy();
+    expect(await screen.findByText('Enter the licence number')).toBeTruthy();
+    expect(screen.getByText('Upload a photo or PDF of your licence')).toBeTruthy();
     expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('saving: Next shows a spinner and both actions are disabled (no double submit)', async () => {
+    const { onNext, onSkip } = await renderScreen({ saving: true });
+    expect(screen.getByTestId('profile-next').props.accessibilityState).toMatchObject({ busy: true });
+    await fireEvent.press(screen.getByTestId('profile-next'));
+    await fireEvent.press(screen.getByTestId('profile-skip'));
+    expect(onNext).not.toHaveBeenCalled();
+    expect(onSkip).not.toHaveBeenCalled();
   });
 
   it('Next flags an incomplete DL number', async () => {
@@ -174,7 +184,9 @@ describe('OnboardingProfileScreen – validation and actions', () => {
   });
 
   it('Next submits normalised values; Skip calls onSkip', async () => {
-    const { onNext, onSkip } = await renderScreen({ initialValues: { fullName: '  John   Cooper ' } });
+    const { onNext, onSkip } = await renderScreen({
+      initialValues: { fullName: '  John   Cooper ', dlImageUri: 'file:///dl.jpg' },
+    });
     await fireEvent.changeText(screen.getByTestId('dl-number'), 'ts0120110012345');
     expect(screen.getByTestId('full-name').props.value).toBe('  John   Cooper ');
 
@@ -192,7 +204,7 @@ describe('OnboardingProfileScreen – validation and actions', () => {
     expect(onNext.mock.calls[0][0]).toEqual({
       avatar: { type: 'preset', id: 'avatar-01' },
       dlNumber: VALID_DL,
-      dlImageUri: null,
+      dlImageUri: 'file:///dl.jpg',
       fullName: 'John Cooper',
       dob: '1990-01-01',
       email: 'john.cooper@gmail.com',
@@ -260,7 +272,7 @@ describe('OnboardingProfileScreen – avatar picker', () => {
   });
 
   it('the camera tile picks a photo, previews it and Select applies it', async () => {
-    const { onNext } = await renderScreen();
+    const { onNext } = await renderScreen({ initialValues: { dlImageUri: 'file:///dl.jpg' } });
     await openSheet();
     await fireEvent.press(screen.getByTestId('avatar-option-camera'));
     await pickFromGallery('avatar-photo-source', 'file:///tmp/me.jpg');
