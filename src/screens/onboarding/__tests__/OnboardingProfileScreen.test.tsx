@@ -1,5 +1,4 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
@@ -11,7 +10,6 @@ import OnboardingProfileScreen, { type OnboardingProfileScreenProps } from '../O
 const t = strings.onboarding;
 const e = t.errors;
 const TODAY = new Date(2026, 10, 19);
-const VALID_DL = 'TS0120110012345';
 
 const mockedLibrary = launchImageLibrary as jest.MockedFunction<typeof launchImageLibrary>;
 const mockedCamera = launchCamera as jest.MockedFunction<typeof launchCamera>;
@@ -49,101 +47,29 @@ beforeEach(() => {
 });
 
 describe('OnboardingProfileScreen – layout', () => {
-  it('shows the header with progress "1/4", title and subtitle', async () => {
+  it('shows the header with progress "1/3", title and subtitle', async () => {
     await renderScreen();
-    expect(screen.getByTestId('onboarding-step')).toHaveTextContent('1/4');
-    expect(screen.getByLabelText('Step 1 of 4')).toBeTruthy();
-    expect(screen.getByTestId('onboarding-progress').props.accessibilityValue).toMatchObject({ now: 25 });
+    expect(screen.getByTestId('onboarding-step')).toHaveTextContent('1/3');
+    expect(screen.getByLabelText('Step 1 of 3')).toBeTruthy();
+    expect(screen.getByTestId('onboarding-progress').props.accessibilityValue).toMatchObject({ now: 33 });
     expect(screen.getByText(t.profile.title)).toBeTruthy();
     expect(screen.getByText(t.profile.subtitle)).toBeTruthy();
     expect(screen.getByText(t.profile.avatarLabel)).toBeTruthy();
   });
 
-  it('starts with the default avatar, an empty DL field and the empty upload box (no "Or" without OCR)', async () => {
+  it('avatar + Full Name, Date of Birth, Email; no DL fields (they have their own step)', async () => {
     await renderScreen();
     expect(screen.getByTestId('profile-avatar-avatar-01')).toBeTruthy();
     expect(screen.getByTestId('profile-avatar-badge')).toBeTruthy();
-    expect(screen.getByTestId('dl-number').props.placeholder).toBe(t.profile.dlNumberPlaceholder);
-    expect(screen.queryByText(t.profile.or)).toBeNull();
-    expect(screen.getByTestId('dl-upload-empty')).toBeTruthy();
-    expect(screen.queryByTestId('personal-fields')).toBeNull();
-  });
-});
-
-describe('OnboardingProfileScreen – DL state switching', () => {
-  it('typing the DL keeps the upload box (both are required); a valid number reveals the personal fields', async () => {
-    await renderScreen();
-    const dl = screen.getByTestId('dl-number');
-
-    await fireEvent.changeText(dl, 'ts-01 2011');
-    expect(dl.props.value).toBe('TS012011'); // upper-case, alphanumerics only
-    expect(screen.getByTestId('dl-upload-empty')).toBeTruthy();
-    expect(screen.queryByText(t.profile.or)).toBeNull();
-    expect(screen.queryByTestId('personal-fields')).toBeNull();
-
-    await fireEvent.changeText(dl, VALID_DL);
-    expect(screen.getByTestId('personal-fields')).toBeTruthy();
     expect(screen.getByTestId('full-name').props.placeholder).toBe(t.profile.fullNamePlaceholder);
     expect(screen.getByTestId('email').props.placeholder).toBe(t.profile.emailPlaceholder);
     expect(screen.getByTestId('dob').props.accessibilityLabel).toBe(`${t.profile.dobLabel}, ${t.profile.dobPlaceholder}`);
-
-    await fireEvent.changeText(dl, '');
-    expect(screen.getByTestId('dl-upload-empty')).toBeTruthy();
-    expect(screen.queryByTestId('personal-fields')).toBeNull();
-  });
-
-  it('caps the DL number at 16 characters', async () => {
-    await renderScreen();
-    expect(screen.getByTestId('dl-number').props.maxLength).toBe(16);
-    await fireEvent.changeText(screen.getByTestId('dl-number'), 'TS011234567891234XYZ');
-    expect(screen.getByTestId('dl-number').props.value).toBe('TS01123456789123');
-  });
-
-  it('upload: empty → photo source sheet → filled preview + personal fields; X → empty again', async () => {
-    await renderScreen();
-    await fireEvent.press(screen.getByTestId('dl-upload-empty'));
-    expect(await screen.findByText(t.photoSource.camera)).toBeTruthy();
-    expect(screen.getByText(t.photoSource.gallery)).toBeTruthy();
-
-    await pickFromGallery('dl-photo-source', 'file:///tmp/dl.jpg');
-    const image = await screen.findByTestId('dl-upload-image');
-    expect(image.props.source).toEqual({ uri: 'file:///tmp/dl.jpg' });
-    expect(image.props.resizeMode).toBe('contain');
-    expect(screen.getByTestId('personal-fields')).toBeTruthy();
-
-    await fireEvent.press(screen.getByTestId('dl-upload-remove'));
-    expect(screen.getByTestId('dl-upload-empty')).toBeTruthy();
-    expect(screen.queryByTestId('personal-fields')).toBeNull();
-  });
-
-  it('"Take photo" opens the camera; cancelling keeps the box empty', async () => {
-    await renderScreen();
-    await fireEvent.press(screen.getByTestId('dl-upload-empty'));
-    await fireEvent.press(await screen.findByTestId('dl-photo-source-camera'));
-    await waitFor(() => expect(mockedCamera).toHaveBeenCalled());
-    expect(screen.getByTestId('dl-upload-empty')).toBeTruthy();
-  });
-
-  it('a too-large photo is rejected with an alert', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    await renderScreen();
-    await fireEvent.press(screen.getByTestId('dl-upload-empty'));
-    mockedLibrary.mockResolvedValueOnce({ assets: [{ uri: 'file:///big.jpg', fileSize: 11 * 1024 * 1024 }] });
-    await fireEvent.press(await screen.findByTestId('dl-photo-source-gallery'));
-    await waitFor(() => expect(alert).toHaveBeenCalledWith(t.photoSource.tooLarge));
-    expect(screen.getByTestId('dl-upload-empty')).toBeTruthy();
+    expect(screen.queryByTestId('dl-number')).toBeNull();
+    expect(screen.queryByTestId('dl-upload-empty')).toBeNull();
   });
 });
 
 describe('OnboardingProfileScreen – validation and actions', () => {
-  it('Next with nothing entered asks for the licence number and the licence file', async () => {
-    const { onNext } = await renderScreen();
-    await fireEvent.press(screen.getByTestId('profile-next'));
-    expect(await screen.findByText('Enter the licence number')).toBeTruthy();
-    expect(screen.getByText('Upload a photo or PDF of your licence')).toBeTruthy();
-    expect(onNext).not.toHaveBeenCalled();
-  });
-
   it('saving: Next shows a spinner and both actions are disabled (no double submit)', async () => {
     const { onNext, onSkip } = await renderScreen({ saving: true });
     expect(screen.getByTestId('profile-next').props.accessibilityState).toMatchObject({ busy: true });
@@ -153,16 +79,8 @@ describe('OnboardingProfileScreen – validation and actions', () => {
     expect(onSkip).not.toHaveBeenCalled();
   });
 
-  it('Next flags an incomplete DL number', async () => {
-    await renderScreen();
-    await fireEvent.changeText(screen.getByTestId('dl-number'), 'TS01');
-    await fireEvent.press(screen.getByTestId('profile-next'));
-    expect(await screen.findByText(e.dlInvalid)).toBeTruthy();
-  });
-
-  it('validates the visible personal fields inline, email on blur and DOB 18+', async () => {
+  it('validates the fields inline, email on blur and DOB 18+', async () => {
     const { onNext } = await renderScreen();
-    await fireEvent.changeText(screen.getByTestId('dl-number'), VALID_DL);
     await fireEvent.press(screen.getByTestId('profile-next'));
     expect(await screen.findByText(e.fullName)).toBeTruthy();
     expect(screen.getByText(e.dobRequired)).toBeTruthy();
@@ -184,10 +102,7 @@ describe('OnboardingProfileScreen – validation and actions', () => {
   });
 
   it('Next submits normalised values; Skip calls onSkip', async () => {
-    const { onNext, onSkip } = await renderScreen({
-      initialValues: { fullName: '  John   Cooper ', dlImageUri: 'file:///dl.jpg' },
-    });
-    await fireEvent.changeText(screen.getByTestId('dl-number'), 'ts0120110012345');
+    const { onNext, onSkip } = await renderScreen({ initialValues: { fullName: '  John   Cooper ' } });
     expect(screen.getByTestId('full-name').props.value).toBe('  John   Cooper ');
 
     await fireEvent.press(screen.getByTestId('dob'));
@@ -203,8 +118,6 @@ describe('OnboardingProfileScreen – validation and actions', () => {
     await waitFor(() => expect(onNext).toHaveBeenCalledTimes(1));
     expect(onNext.mock.calls[0][0]).toEqual({
       avatar: { type: 'preset', id: 'avatar-01' },
-      dlNumber: VALID_DL,
-      dlImageUri: 'file:///dl.jpg',
       fullName: 'John Cooper',
       dob: '1990-01-01',
       email: 'john.cooper@gmail.com',
@@ -272,7 +185,7 @@ describe('OnboardingProfileScreen – avatar picker', () => {
   });
 
   it('the camera tile picks a photo, previews it and Select applies it', async () => {
-    const { onNext } = await renderScreen({ initialValues: { dlImageUri: 'file:///dl.jpg' } });
+    const { onNext } = await renderScreen();
     await openSheet();
     await fireEvent.press(screen.getByTestId('avatar-option-camera'));
     await pickFromGallery('avatar-photo-source', 'file:///tmp/me.jpg');
@@ -284,7 +197,6 @@ describe('OnboardingProfileScreen – avatar picker', () => {
     await waitFor(() => expect(screen.getByTestId('profile-avatar-photo')).toBeTruthy());
 
     // …and it is what Next submits.
-    await fireEvent.changeText(screen.getByTestId('dl-number'), VALID_DL);
     await fireEvent.changeText(screen.getByTestId('full-name'), 'John Cooper');
     await fireEvent.press(screen.getByTestId('dob'));
     const picker = await screen.findByTestId('dob-picker');

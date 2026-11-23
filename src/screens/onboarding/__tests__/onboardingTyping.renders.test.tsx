@@ -8,7 +8,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Providers } from '../../../../test/render';
 import { renderCounts, resetRenderCounts } from '../../../../test/renderCounter';
 import OnboardingProfileScreen from '../OnboardingProfileScreen';
-import ServiceDetailsScreen from '../ServiceDetailsScreen';
+import DrivingLicenceScreen from '../DrivingLicenceScreen';
 
 jest.mock('@/components/OnboardingLayout', () =>
   require('../../../../test/renderCounter').tracked('Layout', jest.requireActual('@/components/OnboardingLayout')),
@@ -30,16 +30,14 @@ async function typeSlowly(testID: string, text: string) {
 }
 
 describe('onboarding typing', () => {
-  it('step 4: typing the amount does not re-render the step', async () => {
-    await renderInApp(<ServiceDetailsScreen onNext={jest.fn()} onSkip={jest.fn()} />);
-    const counts = await typeSlowly('service-amount', '125000');
+  it('1/3: typing the full name does not re-render the step', async () => {
+    await renderInApp(<OnboardingProfileScreen onNext={jest.fn()} onSkip={jest.fn()} />);
+    const counts = await typeSlowly('full-name', 'Ravi Kumar');
     expect(counts.Layout ?? 0).toBe(0);
-    expect(screen.getByTestId('service-amount').props.value).toBe('1,25,000');
   });
 
-  it('step 1: typing the DL number does not re-render the step', async () => {
-    await renderInApp(<OnboardingProfileScreen onNext={jest.fn()} onSkip={jest.fn()} />);
-    // Without OCR the upload box stays up while typing, and an incomplete number changes nothing else.
+  it('2/3: typing the DL number does not re-render the step', async () => {
+    await renderInApp(<DrivingLicenceScreen onNext={jest.fn()} onSkip={jest.fn()} />);
     const counts = await typeSlowly('dl-number', 'TS01201');
     expect(counts.Layout ?? 0).toBe(0);
   });

@@ -12,24 +12,30 @@ import { getSupabase } from '../supabase';
 export type OnboardingProgress = {
   /** A user_driving_licenses row exists for this user. */
   hasDrivingLicense: boolean;
-  /** user_vehicles visible to the user (owned or shared; RLS). */
-  vehicleCount: number;
+  /** Vehicle-document rows (vdocs_regcertificate / insurance / pollution / fastag) visible to the user. */
+  documentCount: number;
 };
 
 const Count = z.number().int().nonnegative();
 const IdRows = z.array(z.object({ id: z.string() }));
 
-/** Two cheap reads in parallel: the DL row's id (limit 1) and the vehicle count (HEAD, count=exact). */
+const { REST } = ENDPOINTS.SUPABASE;
+/** The 3/3 document tables (rows are linked to the user's vehicles; RLS limits them to the user). */
+export const DOCUMENT_TABLES = [REST.VDOCS_RC, REST.VDOCS_INSURANCE, REST.VDOCS_POLLUTION, REST.VDOCS_FASTAG] as const;
+
+/** Cheap reads in parallel: the DL row's id (limit 1) and each document table's count (HEAD, count=exact). */
 export async function fetchOnboardingProgress(uid: string): Promise<OnboardingProgress> {
   const supabase = getSupabase();
-  const { REST } = ENDPOINTS.SUPABASE;
-  const [dl, vehicles] = await Promise.all([
+  const [dl, ...docs] = await Promise.all([
     supabase.from(REST.USER_DRIVING_LICENSES).select('id').eq('user_id', uid).limit(1),
-    supabase.from(REST.USER_VEHICLES).select('id', { count: 'exact', head: true }),
+    ...DOCUMENT_TABLES.map(table => supabase.from(table).select('id', { count: 'exact', head: true })),
   ]);
   const dlRows = parseOrThrow(IdRows, unwrap(dl).data, 'user_driving_licenses');
-  const vehicleCount = parseOrThrow(Count, unwrap(vehicles).count, 'user_vehicles count');
-  return { hasDrivingLicense: dlRows.length > 0, vehicleCount };
+  const documentCount = docs.reduce(
+    (sum, res, i) => sum + parseOrThrow(Count, unwrap(res).count, `${DOCUMENT_TABLES[i]} count`),
+    0,
+  );
+  return { hasDrivingLicense: dlRows.length > 0, documentCount };
 }
 
 /**
@@ -38,13 +44,14 @@ export async function fetchOnboardingProgress(uid: string): Promise<OnboardingPr
  */
 export async function resolveStartRoute(uid: string): Promise<StartRoute> {
   try {
-    const [progress, dlSkipped, vehicleSkipped] = await Promise.all([
+    const [progress, profileDone, dlSkipped, documentsSkipped] = await Promise.all([
       fetchOnboardingProgress(uid),
+      isOnboardingSkipped('profile', uid),
       isOnboardingSkipped('dl', uid),
-      isOnboardingSkipped('vehicle', uid),
+      isOnboardingSkipped('documents', uid),
     ]);
-    const route = decideStartRoute({ ...progress, dlSkipped, vehicleSkipped });
-    logger.info('start route', { route, ...progress, dlSkipped, vehicleSkipped });
+    const route = decideStartRoute({ ...progress, profileDone, dlSkipped, documentsSkipped });
+    logger.info('start route', { route, ...progress, profileDone, dlSkipped, documentsSkipped });
     return route;
   } catch (e) {
     logger.warn('start route: onboarding progress unavailable → Dashboard', {

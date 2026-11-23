@@ -1,109 +1,43 @@
 import { create } from 'zustand';
 import type { DocumentKey } from '@/constants/onboarding';
-import type { VehicleLookupResult } from '@/constants/vehicleMock';
 import {
-  EMPTY_SERVICE,
-  EMPTY_VEHICLE,
-  EMPTY_VEHICLE_DETAILS,
-  resolveDocuments,
+  EMPTY_DOCUMENTS,
+  type DocumentsFormValues,
+  type DrivingLicenceFormValues,
   type OnboardingValues,
   type ProfileFormValues,
-  type ServiceFormValues,
-  type StoredDocuments,
-  type VehicleEntryMode,
-  type VehicleFormValues,
 } from '@/screens/onboarding/schemas';
 import type { UploadedFile } from '@/utils/uploadFile';
 
 /**
- * One in-memory store for the whole onboarding flow. Each step keeps its own react-hook-form and
- * mirrors every change here, so a step that is left and re-entered (Back, then Next) starts from
- * what was entered. No persistence and no API yet; cleared when the onboarding stack unmounts.
+ * In-memory values of the 3 onboarding steps. Each step keeps its own react-hook-form and mirrors every
+ * change here, so a step left with Back and re-entered starts from what was entered (1/3 and 2/3 are
+ * also saved to the backend on Next). Cleared when the onboarding stack unmounts and on sign-out.
  */
-export type VehicleEntry = Pick<VehicleFormValues, 'vehicleNumber' | 'rcFile'>;
-
-const hasDetails = (v: VehicleFormValues) =>
-  (Object.keys(EMPTY_VEHICLE_DETAILS) as (keyof typeof EMPTY_VEHICLE_DETAILS)[]).some(k => !!v[k]);
-
 type OnboardingState = {
   profile: ProfileFormValues | null;
-  vehicle: VehicleFormValues;
-  vehicleMode: VehicleEntryMode;
-  documents: StoredDocuments;
-  service: ServiceFormValues;
+  drivingLicence: DrivingLicenceFormValues | null;
+  documents: DocumentsFormValues;
   setProfile: (profile: ProfileFormValues) => void;
-  setVehicle: (vehicle: VehicleFormValues) => void;
-  setVehicleMode: (mode: VehicleEntryMode) => void;
-  /** Step 2 entry screen: the typed number / RC. A different number drops the details of the old one. */
-  setVehicleEntry: (entry: VehicleEntry) => void;
-  /**
-   * Step 2 entry "Next": the form opens prefilled. Details already in the store for this number (an
-   * earlier visit to the form) are kept; otherwise the lookup result fills them.
-   */
-  prefillVehicleFromEntry: (entry: VehicleEntry, lookup: VehicleLookupResult | null) => void;
-  /** Step 2 "Add your vehicle details manually": an empty form (the RC stays attached for step 3). */
-  startManualVehicle: () => void;
+  setDrivingLicence: (drivingLicence: DrivingLicenceFormValues) => void;
   setDocument: (key: DocumentKey, file: UploadedFile | null) => void;
-  setService: (service: ServiceFormValues) => void;
-  /**
-   * "Skip for now" on step 2: clears only the vehicle step and keeps everything else (step 1's profile
-   * and DL, any documents / service) when onboarding is left, so it can be resumed from the Dashboard.
-   */
-  skipVehicleStep: () => void;
-  /** Set by skipVehicleStep: the next onboarding exit keeps the store instead of resetting it. */
-  retainOnExit: boolean;
-  /** Called when the onboarding stack unmounts: resets, unless the exit was a step 2 skip. */
-  exitOnboarding: () => void;
   reset: () => void;
 };
 
-const initial = {
-  profile: null,
-  vehicle: EMPTY_VEHICLE,
-  vehicleMode: 'lookup' as VehicleEntryMode,
-  documents: {},
-  service: EMPTY_SERVICE,
-  retainOnExit: false,
-};
+const initial = { profile: null, drivingLicence: null, documents: EMPTY_DOCUMENTS };
 
-export const useOnboardingStore = create<OnboardingState>()((set, get) => ({
+export const useOnboardingStore = create<OnboardingState>()(set => ({
   ...initial,
   setProfile: profile => set({ profile }),
-  setVehicle: vehicle => set({ vehicle }),
-  setVehicleMode: vehicleMode => set({ vehicleMode }),
-  setVehicleEntry: ({ vehicleNumber, rcFile }) =>
-    set(({ vehicle }) => ({
-      vehicle:
-        vehicleNumber === vehicle.vehicleNumber
-          ? { ...vehicle, rcFile }
-          : { ...vehicle, ...EMPTY_VEHICLE_DETAILS, vehicleNumber, rcFile },
-    })),
-  prefillVehicleFromEntry: (entry, lookup) => {
-    get().setVehicleEntry(entry);
-    set(({ vehicle }) => ({
-      vehicle: hasDetails(vehicle) || !lookup ? vehicle : { ...vehicle, ...lookup },
-      vehicleMode: lookup ? 'lookup' : 'rc',
-    }));
-  },
-  startManualVehicle: () =>
-    set(({ vehicle }) => ({ vehicle: { ...EMPTY_VEHICLE, rcFile: vehicle.rcFile }, vehicleMode: 'manual' })),
+  setDrivingLicence: drivingLicence => set({ drivingLicence }),
   setDocument: (key, file) => set(s => ({ documents: { ...s.documents, [key]: file } })),
-  setService: service => set({ service }),
-  skipVehicleStep: () => set({ vehicle: EMPTY_VEHICLE, vehicleMode: 'lookup', retainOnExit: true }),
-  exitOnboarding: () => (get().retainOnExit ? set({ retainOnExit: false }) : get().reset()),
   reset: () => set(initial),
 }));
 
-type Snapshot = Pick<OnboardingState, 'profile' | 'vehicle' | 'vehicleMode' | 'documents' | 'service'>;
-
-export const selectResolvedDocuments = (s: Snapshot) =>
-  resolveDocuments(s.documents, { vehicleRc: s.vehicle.rcFile });
-
-export const selectOnboardingValues = (s: Snapshot): OnboardingValues => ({
+export const selectOnboardingValues = (s: OnboardingState): OnboardingValues => ({
   profile: s.profile,
-  vehicle: { ...s.vehicle, entryMode: s.vehicleMode },
-  documents: selectResolvedDocuments(s),
-  service: s.service,
+  drivingLicence: s.drivingLicence,
+  documents: s.documents,
 });
 
 export const __resetOnboardingStoreForTests = () => useOnboardingStore.getState().reset();

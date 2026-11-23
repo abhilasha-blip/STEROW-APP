@@ -4,7 +4,7 @@ import DocumentsUploadList from '@/components/DocumentsUploadList';
 import LinkButton from '@/components/LinkButton';
 import OnboardingLayout, { FIRST_LABEL_OFFSET } from '@/components/OnboardingLayout';
 import PrimaryButton from '@/components/PrimaryButton';
-import { ONBOARDING_TOTAL_STEPS, type DocumentKey } from '@/constants/onboarding';
+import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS, type DocumentKey } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
 import type { UploadedFile } from '@/utils/uploadFile';
 import { canProceedDocuments, type DocumentsFormValues } from './schemas/documents.schema';
@@ -13,7 +13,7 @@ const t = strings.onboarding;
 const d = t.documents;
 
 export type VehicleDocumentsScreenProps = {
-  /** Prefilled: the RC from step 2 (see resolveDocuments). */
+  /** What was attached before (Back / re-entry). */
   initialValues: DocumentsFormValues;
   onNext: (values: DocumentsFormValues) => void;
   onSkip: () => void;
@@ -22,7 +22,7 @@ export type VehicleDocumentsScreenProps = {
   onDocumentChange?: (key: DocumentKey, file: UploadedFile | null) => void;
 };
 
-/** Onboarding step 3 "Your Vehicle documents": RC, Insurance, Pollution Certificate (UI only). */
+/** Onboarding 3/3 "Your Vehicle documents": RC, Insurance, Pollution Certificate (API pending approval). */
 export default function VehicleDocumentsScreen({
   initialValues,
   onNext,
@@ -43,7 +43,7 @@ export default function VehicleDocumentsScreen({
   return (
     <OnboardingLayout
       testID="onboarding-documents"
-      step={3}
+      step={ONBOARDING_STEP.documents}
       totalSteps={ONBOARDING_TOTAL_STEPS}
       title={d.title}
       subtitle={d.subtitle}

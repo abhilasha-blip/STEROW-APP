@@ -76,12 +76,13 @@ export const drivingLicenseRow = {
 
 /**
  * What the post-login routing reads (onboardingProgress.service). Default: onboarding done (a DL and
- * one vehicle) so auth tests land on the Dashboard; routing tests switch it per test.
+ * one document) so auth tests land on the Dashboard; routing tests switch it per test. The document
+ * count is served by vdocs_regcertificate; the other document tables report 0.
  */
-export const onboardingBackend = { hasDrivingLicense: true, vehicleCount: 1 };
+export const onboardingBackend = { hasDrivingLicense: true, documentCount: 1 };
 export function setOnboardingBackend(next: Partial<typeof onboardingBackend>): void {
   Object.assign(onboardingBackend, next);
 }
 export function resetOnboardingBackend(): void {
-  Object.assign(onboardingBackend, { hasDrivingLicense: true, vehicleCount: 1 });
+  Object.assign(onboardingBackend, { hasDrivingLicense: true, documentCount: 1 });
 }

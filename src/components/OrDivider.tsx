@@ -7,7 +7,7 @@ import AppText from './AppText';
 type OrDividerProps = { label?: string; style?: StyleProp<ViewStyle> };
 
 /** Two 1pt lines with a centred muted "Or" (Figma: lines end 16pt / start 18pt around the word). */
-export default function OrDivider({ label = strings.onboarding.profile.or, style }: OrDividerProps) {
+export default function OrDivider({ label = strings.onboarding.drivingLicence.or, style }: OrDividerProps) {
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.row, style]}>

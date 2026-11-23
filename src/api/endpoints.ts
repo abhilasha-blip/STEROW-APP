@@ -30,6 +30,7 @@ export const ENDPOINTS = {
       VDOCS_RC: 'vdocs_regcertificate',
       VDOCS_INSURANCE: 'vdocs_insurance',
       VDOCS_POLLUTION: 'vdocs_pollution',
+      VDOCS_FASTAG: 'vdocs_fastag',
     },
     RPC: {
       MY_PERMISSIONS: 'my_permissions',

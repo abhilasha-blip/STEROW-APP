@@ -6,16 +6,17 @@ import { logger } from '@/utils/logger';
  * kind of flag in localStorage: `dl-skipped:<uid>`). Not secrets: stored with react-native-keychain,
  * which the app already ships, one service per flag and user, so sign-out never touches them.
  *
- *   onboarding-dl-skipped:<uid>       step 1 (profile + DL) skipped
- *   onboarding-vehicle-skipped:<uid>  step 2 (vehicle) skipped
+ *   onboarding-profile-done:<uid>       1/3 profile saved or skipped (no backend "done" signal)
+ *   onboarding-dl-skipped:<uid>         2/3 driving licence skipped
+ *   onboarding-documents-skipped:<uid>  3/3 documents skipped
  */
-export type OnboardingSkipFlag = 'dl' | 'vehicle';
+export type OnboardingSkipFlag = 'profile' | 'dl' | 'documents';
 
 const ACCOUNT = 'sterow';
 const SET = '1';
 
 export const onboardingFlagKey = (flag: OnboardingSkipFlag, uid: string) =>
-  `onboarding-${flag}-skipped:${uid}`;
+  flag === 'profile' ? `onboarding-profile-done:${uid}` : `onboarding-${flag}-skipped:${uid}`;
 
 export async function isOnboardingSkipped(flag: OnboardingSkipFlag, uid: string): Promise<boolean> {
   try {

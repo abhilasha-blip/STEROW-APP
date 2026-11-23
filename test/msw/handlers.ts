@@ -14,6 +14,9 @@ import {
   userRolesRows,
 } from './fixtures';
 import { urls } from './urls';
+import { ENDPOINTS } from '@/api/endpoints';
+
+const { REST } = ENDPOINTS.SUPABASE;
 
 /** Every request the tests saw, for asserting bodies / headers. */
 export const requestLog: Array<{ url: string; method: string; body: unknown; headers: Headers }> = [];
@@ -86,7 +89,7 @@ export const handlers = [
     await log(request);
     return HttpResponse.json([{ id: userDetailsRow.id }]);
   }),
-  // Post-login routing (select=id, limit 1) and onboarding 1/4 (select=*, maybeSingle).
+  // Post-login routing (select=id, limit 1) and onboarding 2/3 (select=*, maybeSingle).
   http.get(urls.drivingLicenses, async ({ request }) => {
     await log(request);
     return HttpResponse.json(onboardingBackend.hasDrivingLicense ? [drivingLicenseRow] : []);
@@ -112,12 +115,12 @@ export const handlers = [
     await log(request);
     return HttpResponse.json([]);
   }),
-  http.head(urls.userVehicles, async ({ request }) => {
-    await log(request);
-    const n = onboardingBackend.vehicleCount;
-    return new HttpResponse(null, {
-      status: 200,
-      headers: { 'Content-Range': n ? `0-${n - 1}/${n}` : '*/0' },
-    });
-  }),
+  // Post-login routing: document counts (HEAD, count=exact) per vdocs table.
+  ...[REST.VDOCS_RC, REST.VDOCS_INSURANCE, REST.VDOCS_POLLUTION, REST.VDOCS_FASTAG].map(table =>
+    http.head(urls.vdocs(table), async ({ request }) => {
+      await log(request);
+      const n = table === REST.VDOCS_RC ? onboardingBackend.documentCount : 0;
+      return new HttpResponse(null, { status: 200, headers: { 'Content-Range': n ? `0-${n - 1}/${n}` : '*/0' } });
+    }),
+  ),
 ];

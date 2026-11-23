@@ -83,7 +83,7 @@ export const strings = {
     logout: 'Log out',
   },
   onboarding: {
-    /** Always "1/4" – the avatar-picker frame's "1/54" is a Figma typo. */
+    /** Step counter "1/3" (the avatar-picker frame shows "1/54": a Figma typo). */
     stepLabelA11y: (step: number, total: number) => `Step ${step} of ${total}`,
     next: 'Next',
     skip: 'Skip for now',
@@ -92,17 +92,6 @@ export const strings = {
       subtitle: 'Enter your personal details below',
       avatarLabel: 'Profile image',
       editAvatarA11y: 'Edit profile image',
-      dlNumberLabel: 'DL Number',
-      dlNumberPlaceholder: 'e.g.: TS011234567890000',
-      or: 'Or',
-      uploadLabel: 'Upload your DL',
-      uploadTitle: 'Upload DL image',
-      /** Figma says "JPEG, PNG, PDF. Upto 10 MB"; the image picker can't pick PDFs – see summary. */
-      uploadHint: 'JPEG or PNG, up to 10 MB',
-      uploadBrowse: 'Browse File',
-      uploadA11y: 'Upload a photo of your driving licence',
-      uploadedPreviewA11y: 'Uploaded driving licence',
-      removeUploadA11y: 'Remove uploaded licence',
       fullNameLabel: 'Full Name',
       fullNamePlaceholder: 'Enter your full name',
       dobLabel: 'Date of Birth',
@@ -112,16 +101,39 @@ export const strings = {
       emailLabel: 'Email',
       emailPlaceholder: 'Enter your email address',
     },
-    /** Save toasts (same wording as the web). */
+    /** 2/3 (no Figma frame yet: the DL part of the old step 1 frames + the web's date fields). */
+    drivingLicence: {
+      title: 'Your Driving Licence',
+      subtitle: 'Enter your licence details below',
+      dlNumberLabel: 'DL Number',
+      dlNumberPlaceholder: 'e.g.: TS011234567890000',
+      or: 'Or',
+      uploadLabel: 'Upload your DL',
+      uploadTitle: 'Upload DL image',
+      /** Figma says "JPEG, PNG, PDF. Upto 10 MB"; the image picker can't pick PDFs. */
+      uploadHint: 'JPEG or PNG, up to 10 MB',
+      uploadBrowse: 'Browse File',
+      uploadA11y: 'Upload a photo of your driving licence',
+      uploadedPreviewA11y: 'Uploaded driving licence',
+      removeUploadA11y: 'Remove uploaded licence',
+      issuedOnLabel: 'Issued on',
+      issuedOnPickerA11y: 'Choose the date the licence was issued',
+      validUptoLabel: 'Valid up to',
+      validUptoPickerA11y: 'Choose the date the licence is valid up to',
+      datePlaceholder: 'DD-MM-YYYY',
+    },
     saved: {
+      profile: 'Profile saved',
       photo: 'Photo updated',
       drivingLicence: 'Driving licence saved',
     },
-    /** Step 1 while the saved profile / DL loads. */
+    /** While a step's saved data loads. */
     loadingA11y: 'Loading your profile',
     errors: {
       dlRequired: 'Enter the licence number',
       dlFileRequired: 'Upload a photo or PDF of your licence',
+      issuedInFuture: "Issued on can't be in the future",
+      validUptoBeforeIssued: 'Valid up to must be after Issued on',
       dlInvalid: 'Enter a valid DL number, e.g. TS0112345678901',
       fullName: 'Enter your full name',
       dobRequired: 'Select your date of birth',
@@ -210,27 +222,6 @@ export const strings = {
       insuranceTitle: 'Upload Insurance',
       pollutionLabel: 'Upload Pollution Certificate',
       pollutionTitle: 'Upload Pollution Certificate',
-    },
-    service: {
-      title: 'Vehicle Service Details',
-      subtitle: 'Enter your vehicle service details below',
-      lastServiceLabel: 'Last Service Date',
-      lastServicePickerA11y: 'Choose the last service date',
-      centreLabel: 'Service centre',
-      centreAuthorised: 'Authorised',
-      centreOther: 'Other',
-      centreSearchLabel: 'Search service centre',
-      centreSearchPlaceholder: 'Search service centre',
-      centreNoResults: 'No service centres found',
-      centreSuggestionsA11y: 'Service centre suggestions',
-      serviceTypeLabel: 'Service Type',
-      odometerLabel: 'Odometer',
-      odometerPlaceholder: 'Enter odometer reading',
-      odometerUnit: 'km',
-      /** Figma spells it "Ammount" (typo). */
-      amountLabel: 'Amount',
-      amountPlaceholder: 'Enter amount',
-      currency: '₹',
     },
   },
   network: {

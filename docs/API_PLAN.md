@@ -326,24 +326,26 @@ Rules (unchanged): screens → hooks only; no `any`; every service function unit
 
 ## 9. Phase 1 onboarding API plan (2026-11-23, branch `feat/phase1-onboarding-api`)
 
-Flow: Sign-in / Sign-up → 1/4 My Profile + DL → 2/4 Add Vehicle → [3/4 Documents → 4/4 Service, if a
-vehicle was added] → Dashboard. Facts: `docs/api/web-profile-dl-findings.md`,
+Flow (since 2026-11-23, 3 steps): Sign-in / Sign-up → 1/3 My Profile → 2/3 Driving Licence → 3/3 Documents
+→ Dashboard. The vehicle and service steps left onboarding (the reusable `VehicleForm` /
+`DocumentsUploadList` stay for the Dashboard). Facts: `docs/api/web-profile-dl-findings.md`,
 `docs/api/web-vehicle-findings.md` (web bundles read, never executed; read-only live probe
 `scripts/smoke-onboarding.ts`). **No `/_serverFn/` calls, ever** (`check:urls` enforces it).
 
-### 9.1 Post-login routing (Part B, done)
+### 9.1 Post-login routing (3-step flow)
 
 | Read | Request | Rule |
 |---|---|---|
-| DL row | `GET SB/rest/v1/user_driving_licenses?select=id&user_id=eq.<uid>&limit=1` | none + not skipped → **1/4** |
-| Vehicle count | `HEAD SB/rest/v1/user_vehicles?select=id` + `Prefer: count=exact` | 0 + not skipped → **2/4** |
-| Skip flags | Keychain `onboarding-dl-skipped:<uid>`, `onboarding-vehicle-skipped:<uid>` | (web: `localStorage dl-skipped:<uid>`) |
+| DL row | `GET SB/rest/v1/user_driving_licenses?select=id&user_id=eq.<uid>&limit=1` | none + DL not skipped → **1/3**, or **2/3** if the profile was done/skipped |
+| Documents | `HEAD SB/rest/v1/{vdocs_regcertificate,vdocs_insurance,vdocs_pollution,vdocs_fastag}?select=id` + `Prefer: count=exact` | sum 0 + documents not skipped → **3/3** |
+| Local flags | Keychain `onboarding-profile-done:<uid>`, `onboarding-dl-skipped:<uid>`, `onboarding-documents-skipped:<uid>` | (web: `localStorage dl-skipped:<uid>`) |
 
 Decided in `auth.store` → `establish()` (`resolveStartRoute`, never throws: failure → Dashboard) before
 `status = signedIn`, so the splash / OTP spinner covers it. `AppStack` opens at that route with nothing
-underneath; onboarding exits with `reset` → Dashboard.
+underneath; onboarding exits with `reset` → Dashboard. 1/3 has no backend "done" signal (the name is set
+at sign-up), hence the local `profile-done` flag (set on 1/3 Next or Skip).
 
-### 9.2 C1 — My Profile (1/4)
+### 9.2 C1 — My Profile (1/3)
 
 | Step | Request | Notes |
 |---|---|---|
@@ -354,18 +356,19 @@ underneath; onboarding exits with `reset` → Dashboard.
 | Display | `POST SB/storage/v1/object/sign/avatars/<path>` `{ expiresIn: 3600 }` | Cached in memory until 60 s before expiry. |
 | DOB, Email | — | **Pending backend**: no DOB column; email is the auth email, read-only on the web (synthetic `…@phone.local` for phone users). Kept in the UI, **not sent**. |
 
-### 9.3 C2 — Driving licence (1/4)
+### 9.3 C2 — Driving licence (2/3)
 
 | Step | Request | Notes |
 |---|---|---|
 | Load | `GET user_driving_licenses?select=*&user_id=eq.<uid>` (maybe single) | Prefills the number; file shown via a signed URL (`driving-licenses`). |
 | Upload | `POST SB/storage/v1/object/driving-licenses/<uid>/<timestamp>-<sanitised name>` (upsert) | jpg/png/webp/pdf ≤ 10 MB. Only a **new** local file is uploaded. |
-| Save | `POST user_driving_licenses?on_conflict=user_id` + `Prefer: resolution=merge-duplicates` `{ user_id, dl_number: trim().toUpperCase(), document_path }` → **"Driving licence saved"** | `issued_on / valid_upto / vehicle_classes` omitted (not collected; an upsert leaves them as they are). |
+| Save | `POST user_driving_licenses?on_conflict=user_id` + `Prefer: resolution=merge-duplicates` `{ user_id, dl_number: trim().toUpperCase(), document_path, issued_on, valid_upto }` → **"Driving licence saved"** | Dates `YYYY-MM-DD`, optional (empty → `null`, as the web); Issued on ≤ today, Valid up to > Issued on. `vehicle_classes` not collected (never sent). **Confirmed live 2026-11-23** (`scripts/live-profile-dl.ts`). |
 | Rules | "Enter the licence number" / "Upload a photo or PDF of your licence" | Both are required (as on the web). With OCR unavailable the upload box is always shown (no "Or"). |
 | OCR | `ocrService.readDl()` → `{ status: 'unavailable' }` | As instructed. **But** `APP/ocr/driving-license` exists (401 without a token): see O1. |
 
-**1/4 Next** = validate → (photo upload + PATCH) → PATCH name → DL upload → DL upsert → 2/4. One
-mutation, button loading + disabled, no double submit; steps already done are not repeated on retry.
+**1/3 Next** = avatar upload → PATCH name / avatar_url ("Photo updated" / "Profile saved"). **2/3 Next** =
+validate → DL upload → DL upsert. One mutation per step, button loading + disabled, no double submit;
+uploads already done are not repeated on retry. Both writes **confirmed live** with the test login.
 
 ### 9.4 C3 — Vehicle (2/4 + 3/4 + 4/4): **waiting for approval**
 
@@ -394,7 +397,9 @@ See `web-vehicle-findings.md` §1–§6 for tables, buckets, master data and the
 | Part | Status |
 |---|---|
 | A — meeting UI verified | ✅ committed |
-| B — post-login routing | ✅ committed |
-| C1 — profile | ⏳ implementing (msw); **first live avatar upload needs approval** |
-| C2 — DL | ⏳ implementing (msw); **first live DL upload needs approval** |
-| C3 — vehicle | ⛔ waiting for approval of `web-vehicle-findings.md` |
+| B — post-login routing | ✅ committed; re-done for the 3-step flow |
+| C1 — profile | ✅ msw + **live** (avatar upload, PATCH, signed URL) |
+| C2 — DL | ✅ msw + **live** (upload, upsert with dates, signed URL) |
+| Profile / DL split, 3-step progress | ✅ |
+| Documents (3/3) API | ⛔ waiting for approval of `web-documents-findings.md` (Next goes to the Dashboard without saving) |
+| OCR / vehicle lookup | ⏸ `unavailable` stubs until the backend replies (O1); no calls made |

@@ -32,7 +32,7 @@ type UploadBoxProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-const t = strings.onboarding.profile;
+const t = strings.onboarding.drivingLicence;
 
 /**
  * Dashed upload area (354 x 218, radius 8). Measured from design/onboarding:

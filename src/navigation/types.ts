@@ -19,15 +19,12 @@ export type AuthStackParamList = {
 };
 
 export type OnboardingStackParamList = {
-  /** Step 1 "My Profile". Tomorrow: initial values from user_details / OCR. */
+  /** 1/3 "My Profile": avatar, Full Name, DOB, Email (prefilled from user_details). */
   Step1Profile: { initialValues?: OnboardingProfileInitialValues } | undefined;
-  /** Step 2 entry: Vehicle Number, "Or", Upload RC, "Add your vehicle details manually". */
-  Step2Vehicle: undefined;
-  /** Step 2 form (2b/2c), prefilled from the store. `qaOpenMakeSheet`: dev QA screenshots only. */
-  Step2VehicleForm: { qaOpenMakeSheet?: boolean } | undefined;
+  /** 2/3 "Driving Licence": number, file, Issued on, Valid up to. */
+  Step2DrivingLicence: undefined;
+  /** 3/3 Documents: RC, Insurance, Pollution. Next / Skip → the Dashboard (onboarding reset out of history). */
   Step3Documents: undefined;
-  /** Next / Skip → the Dashboard (onboarding reset out of history). */
-  Step4Service: undefined;
 };
 
 export type AppStackParamList = {

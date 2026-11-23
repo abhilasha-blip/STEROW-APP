@@ -8,6 +8,7 @@ import {
   type ProfileStepData,
   type ProfileStepProgress,
   type ProfileStepResult,
+  type ProfileStepSave,
 } from '@/api/services/profileStep.service';
 import type { LocalFile } from '@/api/services/storage.service';
 import { getAvatar, type AvatarValue } from '@/constants/avatars';
@@ -44,20 +45,16 @@ const sameAvatar = (a: AvatarValue, b: AvatarValue) =>
   a === b ||
   (!!a && !!b && (a.type === 'preset' ? b.type === 'preset' && a.id === b.id : b.type === 'photo' && a.uri === b.uri));
 
-/** Form values → the save request: only what changed is sent; the saved DL file isn't re-uploaded. */
-export function toProfileStepSave(values: ProfileFormValues, saved: ProfileStepData | undefined) {
+/** Form values → the save request: only what changed is sent (email / DOB never). */
+export function toProfileStepSave(values: ProfileFormValues, saved: ProfileStepData | undefined): ProfileStepSave {
   const avatarChanged = !sameAvatar(values.avatar, savedAvatar(saved));
-  const dlUri = values.dlImageUri;
   return {
     fullName: values.fullName && values.fullName !== (saved?.fullName ?? '') ? values.fullName : undefined,
     avatar: !avatarChanged ? undefined : values.avatar ? avatarFile(values.avatar) : saved?.avatarPath ? null : undefined,
-    dlNumber: values.dlNumber,
-    dlFile: dlUri && dlUri !== saved?.dl?.previewUrl ? localFileFromUri(dlUri) : undefined,
-    existingDlPath: dlUri ? saved?.dl?.documentPath ?? null : null,
   };
 }
 
-/** Onboarding 1/4: the saved profile + DL (prefill). Disabled without a user (dev QA screens). */
+/** Onboarding 1/3: the saved profile (prefill). Disabled without a user (dev QA screens). */
 export function useProfileStepData(uid: string | undefined) {
   return useQuery<ProfileStepData, ApiError>({
     queryKey: queryKeys.profileStep(uid ?? ''),
@@ -68,7 +65,7 @@ export function useProfileStepData(uid: string | undefined) {
   });
 }
 
-/** Onboarding 1/4 Next: saves profile + DL; re-pressing Next after a failure doesn't re-upload. */
+/** Onboarding 1/3 Next: saves name + avatar; re-pressing Next after a failure doesn't re-upload. */
 export function useSaveProfileStep(uid: string, saved: ProfileStepData | undefined) {
   const queryClient = useQueryClient();
   const progress = useRef<ProfileStepProgress>({});

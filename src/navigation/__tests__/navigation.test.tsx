@@ -30,7 +30,7 @@ describe('navigation', () => {
     expect((await getSupabase().auth.getSession()).data.session).toBeNull();
   });
 
-  it('log out clears onboarding data kept by a step 2 skip', async () => {
+  it('log out clears the in-memory onboarding values', async () => {
     await renderApp();
     await goToVerify();
     await typeOtp(TEST_OTP);

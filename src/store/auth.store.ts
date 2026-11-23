@@ -28,7 +28,7 @@ type AuthState = {
   user: AuthUser | null;
   notice: AuthNotice | null;
   /**
-   * Where the app stack opens once signed in (onboarding 1/4, 2/4 or the Dashboard). Decided with the
+   * Where the app stack opens once signed in (onboarding 1/3, 2/3, 3/3 or the Dashboard). Decided with the
    * bootstrap, before `status` turns 'signedIn', so the splash / sign-in spinner covers it.
    */
   startRoute: StartRoute;

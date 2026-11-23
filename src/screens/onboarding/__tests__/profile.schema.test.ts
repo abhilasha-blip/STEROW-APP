@@ -1,17 +1,10 @@
 import { strings } from '@/constants/strings';
-import { createProfileSchema, getProfileVisibility, type ProfileFormValues } from '../schemas/profile.schema';
+import { createProfileSchema, type ProfileFormValues } from '../schemas/profile.schema';
 
 const e = strings.onboarding.errors;
 const schema = createProfileSchema(() => new Date(2026, 10, 19));
 
-const base: ProfileFormValues = {
-  avatar: { type: 'preset', id: 'avatar-01' },
-  dlNumber: '',
-  dlImageUri: null,
-  fullName: '',
-  dob: null,
-  email: '',
-};
+const base: ProfileFormValues = { avatar: { type: 'preset', id: 'avatar-01' }, fullName: '', dob: null, email: '' };
 const personal = { fullName: 'John Cooper', dob: '1990-01-01', email: 'john.cooper@gmail.com' };
 
 const issues = (v: ProfileFormValues) => {
@@ -19,57 +12,20 @@ const issues = (v: ProfileFormValues) => {
   return r.success ? {} : Object.fromEntries(r.error.issues.map(i => [i.path.join('.'), i.message]));
 };
 
-const FILE = 'file:///dl.jpg';
-
-describe('getProfileVisibility', () => {
-  it.each([
-    ['empty', { dlNumber: '', dlImageUri: null }, { showUpload: true, showOr: false, showPersonal: false }],
-    ['typing (invalid yet)', { dlNumber: 'TS01', dlImageUri: null }, { showUpload: true, showOr: false, showPersonal: false }],
-    ['valid DL typed', { dlNumber: 'TS0120110012345', dlImageUri: null }, { showUpload: true, showOr: false, showPersonal: true }],
-    ['uploaded', { dlNumber: '', dlImageUri: FILE }, { showUpload: true, showOr: false, showPersonal: true }],
-    ['uploaded + typing', { dlNumber: 'TS', dlImageUri: FILE }, { showUpload: true, showOr: false, showPersonal: true }],
-  ])('without OCR (phase 1): %s', (_name, v, expected) => expect(getProfileVisibility(v)).toEqual(expected));
-
-  it.each([
-    ['empty', { dlNumber: '', dlImageUri: null }, { showUpload: true, showOr: true, showPersonal: false }],
-    ['typing (invalid yet)', { dlNumber: 'TS01', dlImageUri: null }, { showUpload: false, showOr: false, showPersonal: false }],
-    ['valid DL typed', { dlNumber: 'TS0120110012345', dlImageUri: null }, { showUpload: false, showOr: false, showPersonal: true }],
-    ['uploaded', { dlNumber: '', dlImageUri: FILE }, { showUpload: true, showOr: true, showPersonal: true }],
-  ])('with OCR (original Figma "Or"): %s', (_name, v, expected) => expect(getProfileVisibility(v, true)).toEqual(expected));
-});
-
-describe('profile schema', () => {
-  it('needs the licence number AND the licence file (as on the web)', () => {
-    expect(issues(base)).toEqual({ dlNumber: e.dlRequired, dlImageUri: e.dlFileRequired });
-    expect(e.dlRequired).toBe('Enter the licence number');
-    expect(e.dlFileRequired).toBe('Upload a photo or PDF of your licence');
-  });
-
-  it('rejects an invalid DL number and validates only the visible fields', () => {
-    expect(issues({ ...base, dlNumber: 'TS01' })).toEqual({ dlNumber: e.dlInvalid, dlImageUri: e.dlFileRequired });
-  });
-
-  it('a valid DL number reveals the personal fields, which are then required', () => {
-    expect(issues({ ...base, dlNumber: 'TS0120110012345', dlImageUri: FILE })).toEqual({
-      fullName: e.fullName,
-      dob: e.dobRequired,
-      email: e.emailRequired,
-    });
-  });
-
-  it('an upload alone is not enough: the number is still required', () => {
-    expect(issues({ ...base, dlImageUri: FILE, ...personal })).toEqual({ dlNumber: e.dlRequired });
-    expect(issues({ ...base, dlImageUri: FILE, dlNumber: 'TS', ...personal })).toEqual({ dlNumber: e.dlInvalid });
+describe('profile schema (1/3)', () => {
+  it('Full Name, DOB and Email are required', () => {
+    expect(issues(base)).toEqual({ fullName: e.fullName, dob: e.dobRequired, email: e.emailRequired });
   });
 
   it('checks email format and the 18+ rule', () => {
-    expect(
-      issues({ ...base, dlNumber: 'TS0120110012345', dlImageUri: FILE, ...personal, email: 'john@gmail', dob: '2010-05-05' }),
-    ).toEqual({ email: e.emailInvalid, dob: e.dobTooYoung(18) });
+    expect(issues({ ...base, ...personal, email: 'john@gmail', dob: '2010-05-05' })).toEqual({
+      email: e.emailInvalid,
+      dob: e.dobTooYoung(18),
+    });
   });
 
   it('accepts a complete profile with any avatar choice', () => {
-    const ok = { ...base, dlNumber: 'TS0120110012345', dlImageUri: FILE, ...personal };
+    const ok = { ...base, ...personal };
     expect(issues(ok)).toEqual({});
     expect(issues({ ...ok, avatar: null })).toEqual({});
     expect(issues({ ...ok, avatar: { type: 'photo', uri: 'file:///me.jpg' } })).toEqual({});
@@ -77,7 +33,6 @@ describe('profile schema', () => {
   });
 
   it('uses the real clock by default', () => {
-    const r = createProfileSchema().safeParse({ ...base, dlNumber: 'TS0120110012345', dlImageUri: FILE, ...personal });
-    expect(r.success).toBe(true);
+    expect(createProfileSchema().safeParse({ ...base, ...personal }).success).toBe(true);
   });
 });

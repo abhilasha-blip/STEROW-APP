@@ -8,7 +8,7 @@ import { getSignedUrl, uploadFile, type LocalFile } from './storage.service';
 
 const { REST, STORAGE } = ENDPOINTS.SUPABASE;
 
-/** `user_details` columns read by onboarding 1/4 (key `id` = uid). No DOB column exists (pending backend). */
+/** `user_details` columns read by onboarding 1/3 (key `id` = uid). No DOB column exists (pending backend). */
 const ProfileRow = z.object({
   full_name: z.string().nullable().optional(),
   email: z.string().nullable().optional(),

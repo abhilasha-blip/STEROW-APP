@@ -6,13 +6,14 @@ import {
 } from '@/storage/onboardingFlags';
 
 describe('onboarding skip flags', () => {
-  it('per flag and per user, under onboarding-<flag>-skipped:<uid>', async () => {
+  it('per flag and per user', async () => {
+    expect(onboardingFlagKey('profile', 'u1')).toBe('onboarding-profile-done:u1');
     expect(onboardingFlagKey('dl', 'u1')).toBe('onboarding-dl-skipped:u1');
-    expect(onboardingFlagKey('vehicle', 'u1')).toBe('onboarding-vehicle-skipped:u1');
+    expect(onboardingFlagKey('documents', 'u1')).toBe('onboarding-documents-skipped:u1');
     expect(await isOnboardingSkipped('dl', 'u1')).toBe(false);
     await markOnboardingSkipped('dl', 'u1');
     expect(await isOnboardingSkipped('dl', 'u1')).toBe(true);
-    expect(await isOnboardingSkipped('vehicle', 'u1')).toBe(false);
+    expect(await isOnboardingSkipped('documents', 'u1')).toBe(false);
     expect(await isOnboardingSkipped('dl', 'u2')).toBe(false);
   });
 

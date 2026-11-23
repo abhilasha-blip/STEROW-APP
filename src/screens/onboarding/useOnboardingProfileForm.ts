@@ -4,24 +4,20 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { DEFAULT_AVATAR_ID, type AvatarValue } from '@/constants/avatars';
 import { MIN_AGE_YEARS } from '@/constants/onboarding';
 import { haptics } from '@/services/haptics';
-import { latestDobFor, normalizeDlNumber, normalizeFullName } from '@/utils/validation';
-import {
-  createProfileSchema,
-  getProfileVisibility,
-  type ProfileFormValues,
-} from './schemas/profile.schema';
+import { latestDobFor, normalizeFullName } from '@/utils/validation';
+import { createProfileSchema, type ProfileFormValues } from './schemas/profile.schema';
 import { useFormMirror } from './useFormMirror';
 import { useFormSelector } from './useFormSelector';
 
 export type OnboardingProfileInitialValues = Partial<ProfileFormValues>;
 
 export type UseOnboardingProfileFormOptions = {
-  /** Tomorrow: fullName from user_details.full_name, later OCR results. */
+  /** Saved user_details (Full Name, avatar) and / or the store's values on re-entry. */
   initialValues?: OnboardingProfileInitialValues;
   /** Receives the validated, normalised values. */
   onNext: (values: ProfileFormValues) => void;
   onSkip: () => void;
-  /** Every change (mirrored into the onboarding store so step 3 can reuse the DL photo). */
+  /** Every change (mirrored into the onboarding store). */
   onValuesChange?: (values: ProfileFormValues) => void;
   /** Injectable clock (tests). */
   today?: () => Date;
@@ -30,14 +26,12 @@ export type UseOnboardingProfileFormOptions = {
 export const EMPTY_PROFILE: ProfileFormValues = {
   // The design shows the first avatar pre-selected.
   avatar: { type: 'preset', id: DEFAULT_AVATAR_ID },
-  dlNumber: '',
-  dlImageUri: null,
   fullName: '',
   dob: null,
   email: '',
 };
 
-/** Form state + actions for Onboarding Step 1. The screen only renders what this returns. */
+/** Form state + actions for onboarding 1/3 "My Profile". The screen only renders what this returns. */
 export function useOnboardingProfileForm({
   initialValues,
   onNext,
@@ -56,36 +50,13 @@ export function useOnboardingProfileForm({
   const { control, setValue, getValues, trigger, formState, handleSubmit, watch } = form;
   useFormMirror(watch, onValuesChange);
 
-  // Re-renders the step only when a section appears/disappears or the avatar changes, not per keystroke.
-  const { avatar, showUpload, showOr, showPersonal } = useFormSelector(watch, getValues, v => ({
-    avatar: v.avatar,
-    ...getProfileVisibility(v),
-  }));
-  const visibility = useMemo(() => ({ showUpload, showOr, showPersonal }), [showUpload, showOr, showPersonal]);
-
-  const revalidate = formState.isSubmitted;
+  // Re-renders the step only when the avatar changes, not per keystroke.
+  const avatar = useFormSelector(watch, getValues, v => v.avatar);
 
   const setAvatar = useCallback(
     (next: AvatarValue) => setValue('avatar', next, { shouldDirty: true }),
     [setValue],
   );
-
-  const setDlImage = useCallback(
-    (uri: string) => {
-      setValue('dlImageUri', uri, { shouldDirty: true });
-      if (revalidate) {
-        trigger();
-      }
-    },
-    [setValue, trigger, revalidate],
-  );
-
-  const removeDlImage = useCallback(() => {
-    setValue('dlImageUri', null, { shouldDirty: true });
-    if (revalidate) {
-      trigger('dlImageUri');
-    }
-  }, [setValue, trigger, revalidate]);
 
   /** Email is validated when the field loses focus (once something was typed). */
   const validateEmailOnBlur = useCallback(() => {
@@ -101,13 +72,7 @@ export function useOnboardingProfileForm({
   }, [getValues, trigger]);
 
   const submit = handleSubmit(
-    values =>
-      onNext({
-        ...values,
-        dlNumber: normalizeDlNumber(values.dlNumber),
-        fullName: normalizeFullName(values.fullName),
-        email: values.email.trim(),
-      }),
+    values => onNext({ ...values, fullName: normalizeFullName(values.fullName), email: values.email.trim() }),
     () => haptics.error(),
   );
 
@@ -119,11 +84,8 @@ export function useOnboardingProfileForm({
     control,
     errors: formState.errors,
     avatar,
-    visibility,
     maxDob,
     setAvatar,
-    setDlImage,
-    removeDlImage,
     validateEmailOnBlur,
     validateDobOnClose,
     submit,

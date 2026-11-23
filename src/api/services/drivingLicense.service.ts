@@ -11,20 +11,33 @@ const { REST, STORAGE } = ENDPOINTS.SUPABASE;
 /** What the `driving-licenses` bucket accepts (as the web's file input). */
 export const DL_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] as const;
 
-/** One row per user (unique user_id). issued_on / valid_upto / vehicle_classes aren't collected by the app. */
+const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/** One row per user (unique user_id). vehicle_classes isn't collected by the app (never sent). */
 const DrivingLicenseRow = z.object({
   id: z.string(),
   user_id: z.string(),
   dl_number: z.string(),
   document_path: z.string().nullable().optional(),
+  issued_on: IsoDate.nullable().optional(),
+  valid_upto: IsoDate.nullable().optional(),
 });
 
-export type DrivingLicense = { id: string; dlNumber: string; documentPath: string | null };
+export type DrivingLicense = {
+  id: string;
+  dlNumber: string;
+  documentPath: string | null;
+  /** "YYYY-MM-DD" or null. */
+  issuedOn: string | null;
+  validUpto: string | null;
+};
 
 const toModel = (row: z.infer<typeof DrivingLicenseRow>): DrivingLicense => ({
   id: row.id,
   dlNumber: row.dl_number,
   documentPath: row.document_path || null,
+  issuedOn: row.issued_on ?? null,
+  validUpto: row.valid_upto ?? null,
 });
 
 export const normaliseDlNumber = (value: string) => value.trim().toUpperCase();
@@ -47,12 +60,13 @@ export function uploadDrivingLicenseFile(uid: string, file: LocalFile, now: numb
 }
 
 /**
- * Upsert on user_id (one DL per user): `{ user_id, dl_number (trimmed, upper-case), document_path }`.
- * Both are required, as on the web.
+ * Upsert on user_id (one DL per user):
+ * `{ user_id, dl_number (trimmed, upper-case), document_path, issued_on, valid_upto }`.
+ * Number and document are required (as on the web); empty dates are sent as null (as the web does).
  */
 export async function saveDrivingLicense(
   uid: string,
-  input: { dlNumber: string; documentPath: string | null },
+  input: { dlNumber: string; documentPath: string | null; issuedOn?: string | null; validUpto?: string | null },
 ): Promise<DrivingLicense> {
   const dlNumber = normaliseDlNumber(input.dlNumber);
   if (!dlNumber) {
@@ -64,7 +78,16 @@ export async function saveDrivingLicense(
   const res = unwrap(
     await getSupabase()
       .from(REST.USER_DRIVING_LICENSES)
-      .upsert({ user_id: uid, dl_number: dlNumber, document_path: input.documentPath }, { onConflict: 'user_id' })
+      .upsert(
+        {
+          user_id: uid,
+          dl_number: dlNumber,
+          document_path: input.documentPath,
+          issued_on: input.issuedOn || null,
+          valid_upto: input.validUpto || null,
+        },
+        { onConflict: 'user_id' },
+      )
       .select('*')
       .single(),
   );

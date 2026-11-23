@@ -20,6 +20,7 @@ export const urls = {
   myPermissions: `${sb}/rest/v1/rpc/${ENDPOINTS.SUPABASE.RPC.MY_PERMISSIONS}`,
   drivingLicenses: `${sb}/rest/v1/${ENDPOINTS.SUPABASE.REST.USER_DRIVING_LICENSES}`,
   userVehicles: `${sb}/rest/v1/${ENDPOINTS.SUPABASE.REST.USER_VEHICLES}`,
+  vdocs: (table: string) => `${sb}/rest/v1/${table}`,
   /** Storage: `${storageRoot}/object/<bucket>/<path>` (upload), `/object/sign/<bucket>/<path>` (sign). */
   storageRoot: `${sb}/storage/v1`,
 };

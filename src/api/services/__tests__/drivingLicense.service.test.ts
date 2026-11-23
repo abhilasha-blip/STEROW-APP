@@ -7,6 +7,11 @@ import {
   uploadDrivingLicenseFile,
 } from '@/api/services/drivingLicense.service';
 import { ocrService } from '@/api/services/ocr.service';
+import {
+  loadDrivingLicenceStep,
+  saveDrivingLicenceStep,
+  type DrivingLicenceStepProgress,
+} from '@/api/services/drivingLicenceStep.service';
 import { loadProfileStep, saveProfileStep, type ProfileStepProgress } from '@/api/services/profileStep.service';
 import { strings } from '@/constants/strings';
 import { drivingLicenseRow, makeSession, setOnboardingBackend, UID } from '../../../../test/msw/fixtures';
@@ -35,6 +40,8 @@ describe('drivingLicense.service (C2)', () => {
       id: 'dl-1',
       dlNumber: drivingLicenseRow.dl_number,
       documentPath: drivingLicenseRow.document_path,
+      issuedOn: null,
+      validUpto: null,
     });
     expect(calls('GET', urls.drivingLicenses)[0].url).toContain(`user_id=eq.${UID}`);
     setOnboardingBackend({ hasDrivingLicense: false });
@@ -57,7 +64,24 @@ describe('drivingLicense.service (C2)', () => {
     const [req] = calls('POST', urls.drivingLicenses);
     expect(req.url).toContain('on_conflict=user_id');
     expect(req.headers.get('prefer')).toContain('resolution=merge-duplicates');
-    expect(req.body).toEqual({ user_id: UID, dl_number: 'TS0120110012345', document_path: `${UID}/1-dl.jpg` });
+    expect(req.body).toEqual({
+      user_id: UID,
+      dl_number: 'TS0120110012345',
+      document_path: `${UID}/1-dl.jpg`,
+      issued_on: null,
+      valid_upto: null,
+    });
+  });
+
+  it('save: Issued on / Valid up to as YYYY-MM-DD; read back on the model', async () => {
+    const saved = await saveDrivingLicense(UID, {
+      dlNumber: 'TS0120110012345',
+      documentPath: 'p',
+      issuedOn: '2020-01-15',
+      validUpto: '2040-01-14',
+    });
+    expect(calls('POST', urls.drivingLicenses)[0].body).toMatchObject({ issued_on: '2020-01-15', valid_upto: '2040-01-14' });
+    expect(saved).toMatchObject({ issuedOn: '2020-01-15', validUpto: '2040-01-14' });
   });
 
   it('save: the number and a document are both required (web wording)', async () => {
@@ -77,83 +101,116 @@ describe('ocr.service', () => {
   });
 });
 
-describe('profileStep.service (1/4 load + Next)', () => {
-  it('load: profile + DL, files signed for display', async () => {
+describe('profileStep.service (1/3 load + Next)', () => {
+  it('load: the profile, the avatar signed for display', async () => {
     server.use(
       http.get(urls.userDetails, () =>
         HttpResponse.json([{ full_name: 'Ravi', phone: '9999999999', email: null, avatar_url: `${UID}/1-a.png` }]),
       ),
     );
     const data = await loadProfileStep(UID);
-    expect(data.fullName).toBe('Ravi');
-    expect(data.avatarPath).toBe(`${UID}/1-a.png`);
+    expect(data).toMatchObject({ fullName: 'Ravi', avatarPath: `${UID}/1-a.png` });
     expect(data.avatarUrl).toContain('/object/sign/avatars/');
-    expect(data.dl).toMatchObject({ dlNumber: drivingLicenseRow.dl_number, documentPath: drivingLicenseRow.document_path });
-    expect(data.dl?.previewUrl).toContain('/object/sign/driving-licenses/');
+    expect(calls('GET', urls.drivingLicenses)).toHaveLength(0); // the DL has its own step now
+  });
+
+  it('Next: avatar upload → PATCH (name + avatar_url)', async () => {
+    const result = await saveProfileStep(UID, { fullName: 'Ravi Kumar', avatar: PNG }, {}, () => NOW);
+    expect(result).toEqual({ photoUpdated: true, profileUpdated: true });
+    expect(uploads()).toEqual([`avatars/${UID}/${NOW}-me.png`]);
+    expect(calls('PATCH', urls.userDetails)[0].body).toEqual({ full_name: 'Ravi Kumar', avatar_url: `${UID}/${NOW}-me.png` });
+  });
+
+  it('Next with nothing changed sends nothing', async () => {
+    await expect(saveProfileStep(UID, {})).resolves.toEqual({ photoUpdated: false, profileUpdated: false });
+    expect(requestLog).toHaveLength(0);
+  });
+
+  it('name only → "Profile saved" case; "No avatar" clears avatar_url', async () => {
+    await expect(saveProfileStep(UID, { fullName: 'Ravi' })).resolves.toEqual({ photoUpdated: false, profileUpdated: true });
+    await saveProfileStep(UID, { avatar: null });
+    expect(calls('PATCH', urls.userDetails).map(r => r.body)).toEqual([{ full_name: 'Ravi' }, { avatar_url: null }]);
+  });
+
+  it('retry after a failed PATCH does not upload the avatar again', async () => {
+    const progress: ProfileStepProgress = {};
+    server.use(http.patch(urls.userDetails, () => HttpResponse.json({ message: 'boom' }, { status: 500 }), { once: true }));
+    await expect(saveProfileStep(UID, { avatar: PNG }, progress, () => NOW)).rejects.toMatchObject({ status: 500 });
+    await saveProfileStep(UID, { avatar: PNG }, progress, () => NOW + 1);
+    expect(uploads()).toHaveLength(1);
+  });
+});
+
+describe('drivingLicenceStep.service (2/3 load + Next)', () => {
+  it('load: the licence with dates, the file signed for display; none → null', async () => {
+    server.use(
+      http.get(urls.drivingLicenses, () =>
+        HttpResponse.json([{ ...drivingLicenseRow, issued_on: '2020-01-15', valid_upto: '2040-01-14' }]),
+      ),
+    );
+    const data = await loadDrivingLicenceStep(UID);
+    expect(data).toMatchObject({
+      dlNumber: drivingLicenseRow.dl_number,
+      documentPath: drivingLicenseRow.document_path,
+      issuedOn: '2020-01-15',
+      validUpto: '2040-01-14',
+    });
+    expect(data?.previewUrl).toContain('/object/sign/driving-licenses/');
+    server.resetHandlers();
+    setOnboardingBackend({ hasDrivingLicense: false });
+    await expect(loadDrivingLicenceStep(UID)).resolves.toBeNull();
   });
 
   it('load: a signing failure only drops the preview', async () => {
     server.use(http.post(`${urls.storageRoot}/object/sign/*`, () => HttpResponse.json({ message: 'nope' }, { status: 400 })));
-    const data = await loadProfileStep(UID);
-    expect(data.dl).toMatchObject({ dlNumber: drivingLicenseRow.dl_number, previewUrl: null });
+    await expect(loadDrivingLicenceStep(UID)).resolves.toMatchObject({ previewUrl: null });
   });
 
-  it('Next: avatar upload → PATCH (name + avatar_url) → DL upload → DL upsert, in that order', async () => {
-    const result = await saveProfileStep(
+  it('Next: DL upload → upsert with number, path and dates', async () => {
+    await saveDrivingLicenceStep(
       UID,
-      { fullName: 'Ravi Kumar', avatar: PNG, dlNumber: 'ts0120110012345', dlFile: JPG, existingDlPath: null },
+      { dlNumber: 'ts0120110012345', dlFile: JPG, existingDlPath: null, issuedOn: '2020-01-15', validUpto: null },
       {},
       () => NOW,
     );
-    expect(result).toEqual({ photoUpdated: true });
-    expect(requestLog.map(r => `${r.method} ${r.url.split('?')[0].replace(urls.storageRoot, 'storage').replace(/^https:\/\/[^/]+/, '')}`)).toEqual([
-      `POST storage/object/avatars/${UID}/${NOW}-me.png`,
-      'PATCH /rest/v1/user_details',
-      `POST storage/object/driving-licenses/${UID}/${NOW}-My_Licence__1_.jpg`,
-      'POST /rest/v1/user_driving_licenses',
-    ]);
-    expect(calls('PATCH', urls.userDetails)[0].body).toEqual({ full_name: 'Ravi Kumar', avatar_url: `${UID}/${NOW}-me.png` });
+    expect(uploads()).toEqual([`driving-licenses/${UID}/${NOW}-My_Licence__1_.jpg`]);
     expect(calls('POST', urls.drivingLicenses)[0].body).toEqual({
       user_id: UID,
       dl_number: 'TS0120110012345',
       document_path: `${UID}/${NOW}-My_Licence__1_.jpg`,
+      issued_on: '2020-01-15',
+      valid_upto: null,
     });
   });
 
-  it('Next with nothing changed but the number: no upload, no PATCH; the saved DL file is kept', async () => {
-    const result = await saveProfileStep(UID, { dlNumber: 'TS0120110012345', existingDlPath: `${UID}/old.jpg` });
-    expect(result).toEqual({ photoUpdated: false });
+  it('the saved file is kept when no new file was picked', async () => {
+    await saveDrivingLicenceStep(UID, {
+      dlNumber: 'TS0120110012345',
+      existingDlPath: `${UID}/old.jpg`,
+      issuedOn: null,
+      validUpto: null,
+    });
     expect(uploads()).toEqual([]);
-    expect(calls('PATCH', urls.userDetails)).toHaveLength(0);
     expect(calls('POST', urls.drivingLicenses)[0].body).toMatchObject({ document_path: `${UID}/old.jpg` });
   });
 
-  it('"No avatar" clears avatar_url', async () => {
-    await saveProfileStep(UID, { avatar: null, dlNumber: 'TS0120110012345', existingDlPath: 'p' });
-    expect(calls('PATCH', urls.userDetails)[0].body).toEqual({ avatar_url: null });
-  });
-
-  it('invalid DL input fails before anything is uploaded', async () => {
-    await expect(saveProfileStep(UID, { avatar: PNG, dlNumber: '', dlFile: JPG, existingDlPath: null })).rejects.toMatchObject({
+  it('invalid input fails before anything is uploaded', async () => {
+    const base = { existingDlPath: null, issuedOn: null, validUpto: null };
+    await expect(saveDrivingLicenceStep(UID, { ...base, dlNumber: '', dlFile: JPG })).rejects.toMatchObject({
       code: 'DL_NUMBER_REQUIRED',
     });
-    await expect(saveProfileStep(UID, { avatar: PNG, dlNumber: 'TS01', existingDlPath: null })).rejects.toMatchObject({
-      code: 'DL_FILE_REQUIRED',
-    });
+    await expect(saveDrivingLicenceStep(UID, { ...base, dlNumber: 'TS01' })).rejects.toMatchObject({ code: 'DL_FILE_REQUIRED' });
     expect(requestLog).toHaveLength(0);
   });
 
-  it('retry after a failed DL save does not upload the same files again', async () => {
-    const progress: ProfileStepProgress = {};
-    server.use(
-      http.post(urls.drivingLicenses, () => HttpResponse.json({ message: 'boom' }, { status: 500 }), { once: true }),
-    );
-    const input = { fullName: 'Ravi', avatar: PNG, dlNumber: 'TS0120110012345', dlFile: JPG, existingDlPath: null };
-    await expect(saveProfileStep(UID, input, progress, () => NOW)).rejects.toMatchObject({ status: 500 });
-    expect(uploads()).toHaveLength(2);
-    requestLog.length = 0;
-    await expect(saveProfileStep(UID, input, progress, () => NOW + 1)).resolves.toEqual({ photoUpdated: true });
-    expect(uploads()).toEqual([]); // reused the paths from the first attempt
+  it('retry after a failed upsert does not upload the file again', async () => {
+    const progress: DrivingLicenceStepProgress = {};
+    server.use(http.post(urls.drivingLicenses, () => HttpResponse.json({ message: 'boom' }, { status: 500 }), { once: true }));
+    const input = { dlNumber: 'TS0120110012345', dlFile: JPG, existingDlPath: null, issuedOn: null, validUpto: null };
+    await expect(saveDrivingLicenceStep(UID, input, progress, () => NOW)).rejects.toMatchObject({ status: 500 });
+    await saveDrivingLicenceStep(UID, input, progress, () => NOW + 1);
+    expect(uploads()).toHaveLength(1);
+    // (the failing override doesn't log; the logged upsert is the successful retry)
     expect(calls('POST', urls.drivingLicenses)[0].body).toMatchObject({ document_path: `${UID}/${NOW}-My_Licence__1_.jpg` });
   });
 });
