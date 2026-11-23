@@ -20,6 +20,8 @@ import {
   resetMyVehicles,
   countsBackend,
   resetCounts,
+  vdocsRows,
+  resetVdocs,
   vehicleRow,
 } from './fixtures';
 import { urls } from './urls';
@@ -48,6 +50,7 @@ export function resetHandlerState(): void {
   resetOnboardingBackend();
   resetMyVehicles();
   resetCounts();
+  resetVdocs();
 }
 
 /** Happy-path defaults; tests override with server.use(...). */
@@ -161,6 +164,13 @@ export const handlers = [
         countsBackend[table] ??
         (table === REST.USER_DRIVING_LICENSES ? (onboardingBackend.hasDrivingLicense ? 1 : 0) : 0);
       return new HttpResponse(null, { status: 200, headers: { 'Content-Range': n ? `0-${n - 1}/${n}` : '*/0' } });
+    }),
+  ),
+  ...[REST.VDOCS_RC, REST.VDOCS_INSURANCE, REST.VDOCS_POLLUTION, REST.VDOCS_FASTAG].map(table =>
+    http.get(urls.table(table), async ({ request }) => {
+      await log(request);
+      const vehicle = new URL(request.url).searchParams.get('vehicle_id')?.replace('eq.', '');
+      return HttpResponse.json((vdocsRows[table] ?? []).filter(r => !vehicle || r.vehicle_id === vehicle));
     }),
   ),
   http.get(urls.userVehicles, async ({ request }) => {

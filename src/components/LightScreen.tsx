@@ -1,5 +1,6 @@
-import React, { type PropsWithChildren, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, type PropsWithChildren, type ReactNode } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ArrowLeft from '@/assets/icons/arrow-left.svg';
 import { strings } from '@/constants/strings';
@@ -37,6 +38,8 @@ export default function LightScreen({
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const Body = scroll ? ScrollView : View;
+  // Dark status bar text on the light background while this screen is focused (tab screens stay mounted).
+  useFocusEffect(useCallback(() => StatusBar.setBarStyle('dark-content', true), []));
   return (
     <View testID={testID} style={[styles.root, { paddingTop: insets.top + 16 }]}>
       <View style={styles.header}>

@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -25,6 +25,8 @@ type PrimaryButtonProps = {
    */
   disabled?: boolean;
   showArrow?: boolean;
+  /** Before the label ("Upload documents", "Share Access"). */
+  icon?: ReactNode;
   /** 'button' (Medium 18, auth screens) or 'buttonStrong' (SemiBold 18, onboarding). */
   labelVariant?: 'button' | 'buttonStrong';
   accessibilityLabel?: string;
@@ -40,6 +42,7 @@ function PrimaryButton({
   loading = false,
   disabled = false,
   showArrow = true,
+  icon,
   labelVariant = 'button',
   accessibilityLabel,
   testID,
@@ -90,6 +93,7 @@ function PrimaryButton({
           <ActivityIndicator color={colors.primary.contrastText} />
         ) : (
           <View style={styles.row}>
+            {icon && <View style={styles.icon}>{icon}</View>}
             <AppText variant={labelVariant} color="primary.contrastText">
               {label}
             </AppText>
@@ -120,6 +124,7 @@ const makeStyles = ({ colors, sizes, radius }: Theme) =>
     disabled: { backgroundColor: colors.primary.disabled },
     row: { flexDirection: 'row', alignItems: 'center' },
     arrow: { marginLeft: 8 },
+    icon: { marginRight: 10 },
   });
 
 export default memo(PrimaryButton);

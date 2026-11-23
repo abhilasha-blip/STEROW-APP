@@ -1,23 +1,21 @@
-import React from 'react';
-import { strings } from '@/constants/strings';
-import ComingSoonScreen from '@/screens/common/ComingSoonScreen';
+import type React from 'react';
+import MyDocumentsScreen from '@/screens/app/documents/MyDocumentsScreen';
+import UploadDocumentsScreen from '@/screens/app/documents/UploadDocumentsScreen';
+import MyProfileScreen from '@/screens/app/profile/MyProfileScreen';
+import ShareAccessScreen from '@/screens/app/share/ShareAccessScreen';
+import MyVehiclesScreen from '@/screens/app/vehicles/MyVehiclesScreen';
 import type { HomeStackParamList, HomeStackScreenProps } from './types';
 
 type Name = Exclude<keyof HomeStackParamList, 'Home' | 'AddVehicle' | 'ComingSoon'>;
 type Screens = { [K in Name]: React.ComponentType<HomeStackScreenProps<K>> };
 
-const placeholder = (title: string) =>
-  function Placeholder({ navigation }: { navigation: { goBack: () => void } }) {
-    return <ComingSoonScreen title={title} onBack={() => navigation.goBack()} />;
-  };
-
-/** The Home stack's light screens (Part 4 replaces the placeholders). */
+/** The Home stack's light screens (opened from the dashboard tiles and the drawer). */
 export function homeScreens(): Screens {
   return {
-    MyProfile: placeholder(strings.myProfile.title),
-    MyDocuments: placeholder(strings.myDocuments.title),
-    UploadDocuments: placeholder(strings.myDocuments.uploadTitle),
-    ShareAccess: placeholder(strings.shareAccess.title),
-    MyVehicles: placeholder(strings.myVehicles.title),
+    MyProfile: MyProfileScreen,
+    MyDocuments: MyDocumentsScreen,
+    UploadDocuments: UploadDocumentsScreen,
+    ShareAccess: ShareAccessScreen,
+    MyVehicles: MyVehiclesScreen,
   };
 }

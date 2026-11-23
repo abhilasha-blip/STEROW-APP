@@ -1,6 +1,6 @@
 import React from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { DrawerActions } from '@react-navigation/native';
+import { RefreshControl, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { DrawerActions, useFocusEffect } from '@react-navigation/native';
 import BookService from '@/assets/icons/dashboard/book-service.svg';
 import Car from '@/assets/icons/dashboard/car.svg';
 import Driver from '@/assets/icons/dashboard/driver.svg';
@@ -44,6 +44,8 @@ export default function DashboardScreen({ navigation }: HomeStackScreenProps<'Ho
   const queryClient = useQueryClient();
   const uid = useAuthStore(s => s.user?.id);
   const [refreshing, setRefreshing] = React.useState(false);
+  // Light status bar text over the dark header (light screens switch it to dark while focused).
+  useFocusEffect(React.useCallback(() => StatusBar.setBarStyle('light-content', true), []));
   const hasVehicle = data.vehicles.length > 0;
   const comingSoon = (title: string) => navigation.navigate('ComingSoon', { title });
   const showBanner = !data.loading && data.completion.percent < 100;

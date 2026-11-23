@@ -13,6 +13,7 @@ import { Platform, Settings } from 'react-native';
 import { DrawerActions, NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { queryClient } from '@/api/queryClient';
 import type { DashboardCounts } from '@/api/services/dashboard.service';
+import type { MyDocument } from '@/api/services/myDocuments.service';
 import type { MyVehicle } from '@/api/services/vehicle.service';
 import { queryKeys } from '@/hooks/api/queryKeys';
 import MainNavigator from '@/navigation/MainNavigator';
@@ -37,6 +38,13 @@ const VEHICLES = [vehicle('v1', 'TS09 EV 2345', 'MG', 'ZS EV'), vehicle('v2', 'T
 const PROFILE = { fullName: 'John Cooper', email: 'john.doe@example.com', avatarPath: null, avatarUrl: null };
 const DL = { dlNumber: 'DL0000000000000', documentPath: null, previewUrl: null, issuedOn: '2020-05-15', validUpto: '2040-05-15' };
 const COUNTS: DashboardCounts = { documents: 5, shares: 2, bookings: 5 };
+/** my-documents.png's list (expiries chosen to show Active / Expiring soon / Expired). */
+const DOCS: MyDocument[] = [
+  { key: 'insurance', id: 'd1', issuer: 'ICICI Lombard', expiry: '2027-01-15', documentPath: 'x/policy.pdf', bucket: 'vehicle-docs' },
+  { key: 'pollution', id: 'd2', issuer: null, expiry: '2026-12-10', documentPath: 'x/puc.jpg', bucket: 'vehicle-docs' },
+  { key: 'rc', id: 'd3', issuer: null, expiry: '2038-03-20', documentPath: 'x/rc.jpg', bucket: 'vehicle-docs' },
+  { key: 'drivingLicence', id: 'd4', issuer: null, expiry: '2040-05-15', documentPath: 'x/dl.pdf', bucket: 'driving-licenses' },
+];
 
 type Scenario = {
   vehicles: MyVehicle[];
@@ -82,6 +90,9 @@ function seed(s: Scenario) {
   queryClient.setQueryData(queryKeys.drivingLicenceStep(UID), s.dl);
   queryClient.setQueryData(queryKeys.myVehicles(UID), s.vehicles);
   queryClient.setQueryData(queryKeys.dashboardCounts(UID), s.counts);
+  const docsKey = [...queryKeys.vehicleDocuments(UID), s.vehicles[0]?.id ?? null];
+  queryClient.setQueryDefaults(docsKey, fresh);
+  queryClient.setQueryData(docsKey, DOCS);
   qaSeeders.forEach(f => f(UID, s));
   useAuthStore.setState({
     user: { id: UID, fullName: PROFILE.fullName, phone: '9876543210', roles: ['user'], permissions: [] },

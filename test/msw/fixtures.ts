@@ -113,6 +113,17 @@ export function resetCounts(): void {
   }
 }
 
+/** vdocs rows per table (GET <table>?vehicle_id=eq.<id>); reset before each test. */
+export const vdocsRows: Record<string, Record<string, unknown>[]> = {};
+export function setVdocs(table: string, rows: Record<string, unknown>[]): void {
+  vdocsRows[table] = rows;
+}
+export function resetVdocs(): void {
+  for (const k of Object.keys(vdocsRows)) {
+    delete vdocsRows[k];
+  }
+}
+
 /** A user_vehicles row as listMyVehicles reads it (names embedded). */
 export const vehicleRow = (id: string, number: string) => ({
   id,

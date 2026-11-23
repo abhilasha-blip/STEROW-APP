@@ -1,12 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import CheckCircle from '@/assets/icons/check-circle.svg';
 import ChevronDown from '@/assets/icons/chevron-down.svg';
 import Car from '@/assets/icons/dashboard/car.svg';
 import AppText from '@/components/AppText';
-import BottomSheet from '@/components/BottomSheet';
 import { strings } from '@/constants/strings';
 import { useTheme, useThemedStyles, type Theme } from '@/theme';
+import VehiclePickerSheet from './VehiclePickerSheet';
 
 const d = strings.onboarding.documents;
 
@@ -81,10 +80,20 @@ export default function VehicleSelectCard({
         )}
       </Pressable>
 
-      <BottomSheet
+      <VehiclePickerSheet
         testID={`${testID}-sheet`}
+        optionTestIDPrefix={testID}
         visible={open}
-        title={d.vehicleSheetTitle}
+        vehicles={vehicles}
+        selectedId={selectedId}
+        onSelect={id => {
+          onSelect(id);
+          setOpen(false);
+        }}
+        onAdd={() => {
+          addAfterClose.current = true;
+          setOpen(false);
+        }}
         onClose={() => setOpen(false)}
         onClosed={() => {
           if (addAfterClose.current) {
@@ -92,55 +101,7 @@ export default function VehicleSelectCard({
             onAddVehicle();
           }
         }}
-      >
-        <View style={styles.list}>
-          {vehicles.map(v => {
-            const active = v.id === selectedId;
-            return (
-              <Pressable
-                key={v.id}
-                testID={`${testID}-option-${v.id}`}
-                style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-                onPress={() => {
-                  onSelect(v.id);
-                  setOpen(false);
-                }}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={vehicleLabel(v)}
-              >
-                <View style={styles.carTile}>
-                  <Car width={20} height={20} color={colors.documents.icon} />
-                </View>
-                <View style={styles.rowText}>
-                  <AppText variant="cardTitle" color="text.onLight">
-                    {v.vehicleNumber}
-                  </AppText>
-                  {!!v.name && (
-                    <AppText variant="cardSubtitle" color="text.onLightMuted">
-                      {v.name}
-                    </AppText>
-                  )}
-                </View>
-                {active && <CheckCircle width={20} height={20} color={colors.chip.selectedIcon} />}
-              </Pressable>
-            );
-          })}
-          <Pressable
-            testID={`${testID}-add`}
-            style={({ pressed }) => [styles.row, styles.addRow, pressed && styles.pressed]}
-            onPress={() => {
-              addAfterClose.current = true;
-              setOpen(false);
-            }}
-            accessibilityRole="button"
-          >
-            <AppText variant="link" color="text.link">
-              {`+ ${d.addVehicle}`}
-            </AppText>
-          </Pressable>
-        </View>
-      </BottomSheet>
+      />
     </View>
   );
 }
@@ -171,9 +132,5 @@ const makeStyles = ({ colors, radius, spacing }: Theme) =>
       justifyContent: 'center',
     },
     value: { flex: 1 },
-    list: { paddingVertical: spacing.sm },
-    row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
-    rowText: { flex: 1 },
-    addRow: { justifyContent: 'center' },
     pressed: { opacity: 0.8 },
   });
