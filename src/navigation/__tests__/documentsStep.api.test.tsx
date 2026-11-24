@@ -49,7 +49,13 @@ async function addVehicle(number = 'TS09EV1234') {
   await fireEvent.changeText(screen.getByTestId('add-vehicle-number'), number);
   await choose('add-vehicle-make', 'make-mg');
   await choose('add-vehicle-model', 'model-zs');
-  expect(screen.queryByTestId('add-vehicle-variant')).toBeNull(); // one variant → picked automatically
+  // One variant → picked automatically; it fills fuel / transmission; the RC number follows the vehicle number.
+  expect(screen.getByTestId('add-vehicle-variant-input', HIDDEN)).toHaveDisplayValue(/Essence/);
+  expect(screen.getByTestId('add-vehicle-fuel-input', HIDDEN)).toHaveDisplayValue('Electric');
+  expect(screen.getByTestId('add-vehicle-transmission-input', HIDDEN)).toHaveDisplayValue('Automatic');
+  expect(screen.getByTestId('add-vehicle-rc-number').props.value).toBe(number);
+  expect(disabled('add-vehicle-save')).toBe(true); // odometer is required
+  await fireEvent.changeText(screen.getByTestId('add-vehicle-odometer'), '12,000');
   await fireEvent.press(screen.getByTestId('add-vehicle-save'));
   await waitFor(() => expect(screen.queryByTestId('add-vehicle', HIDDEN)).toBeNull());
 }
@@ -94,7 +100,15 @@ describe('3/3 "Your Vehicle Documents" with the API', () => {
     await onStep3();
     await addVehicle();
     expect(screen.getByTestId('vehicle-select')).toHaveTextContent('TS09EV1234 (MG ZS EV)');
-    expect(bodyOf(urls.userVehicles)).toMatchObject({ vehicle_number: 'TS09EV1234', variant_id: 'variant-essence' });
+    expect(bodyOf(urls.userVehicles)).toMatchObject({
+      vehicle_number: 'TS09EV1234',
+      variant_id: 'variant-essence',
+      fuel_type: 'Electric',
+      transmission_type: 'Automatic',
+      rc_number: 'TS09EV1234',
+      current_odometer: 12000,
+    });
+    expect(bodyOf(urls.userVehicles)).not.toHaveProperty('is_active'); // onboarding: always active
     expect(await screen.findByText(strings.onboarding.addVehicle.saved)).toBeTruthy();
 
     await uploadPhoto('rc', 'file:///tmp/rc.jpg');
@@ -177,6 +191,7 @@ describe('3/3 "Your Vehicle Documents" with the API', () => {
     await fireEvent.changeText(screen.getByTestId('add-vehicle-number'), 'TS09EV1234');
     await choose('add-vehicle-make', 'make-mg');
     await choose('add-vehicle-model', 'model-zs');
+    await fireEvent.changeText(screen.getByTestId('add-vehicle-odometer'), '0');
     await fireEvent.press(screen.getByTestId('add-vehicle-save'));
     expect(await screen.findByText(strings.errors.vehicleNumberTaken)).toBeTruthy();
     expect(screen.getByTestId('add-vehicle')).toBeTruthy();
@@ -184,7 +199,6 @@ describe('3/3 "Your Vehicle Documents" with the API', () => {
 });
 
 describe('3/3 RC "Add Manually" → "Your Vehicle details"', () => {
-  const selected = (id: string) => screen.getByTestId(id).props.accessibilityState?.checked === true;
 
   it('opens prefilled from the selected vehicle; changes are saved to the vehicle and the RC on Next', async () => {
     resetMyVehicles([vehicleRow('v-1', 'TS09EV2345')]);
@@ -201,12 +215,21 @@ describe('3/3 RC "Add Manually" → "Your Vehicle details"', () => {
     expect(screen.getByTestId('rc-details-number').props.value).toBe('TS09EV2345');
     await waitFor(() => expect(screen.getByTestId('rc-details-make-input', HIDDEN)).toHaveDisplayValue('MG'));
     expect(screen.getByTestId('rc-details-model-input', HIDDEN)).toHaveDisplayValue(/ZS/);
-    expect(selected('rc-details-fuel-Electric')).toBe(true);
-    expect(selected('rc-details-transmission-Automatic')).toBe(true);
-    expect(screen.queryByTestId('rc-details-transmission-CVT')).toBeNull();
+    expect(screen.getByTestId('rc-details-fuel-input', HIDDEN)).toHaveDisplayValue('Electric');
+    // The RC form: registration number defaults to the vehicle number; no transmission (not on the RC).
+    expect(screen.getByTestId('rc-details-registration').props.value).toBe('TS09EV2345');
+    expect(screen.queryByTestId('rc-details-transmission')).toBeNull();
 
-    await fireEvent.press(screen.getByTestId('rc-details-transmission-Manual'));
     await fireEvent.changeText(screen.getByTestId('rc-details-colour'), ' White ');
+    await fireEvent.changeText(screen.getByTestId('rc-details-address'), ' 1 MG Road, Hyderabad ');
+    await choose('rc-details-body-type', 'SUV');
+    await fireEvent.changeText(screen.getByTestId('rc-details-chassis'), 'mazs123');
+    await fireEvent.changeText(screen.getByTestId('rc-details-engine'), 'en9');
+    await fireEvent.changeText(screen.getByTestId('rc-details-seating'), '5');
+    await fireEvent.changeText(screen.getByTestId('rc-details-gross-weight'), '1890.5');
+    await fireEvent.changeText(screen.getByTestId('rc-details-unladen-weight'), '1500');
+    await pickDate('rc-details-reg-date', new Date(2022, 2, 21));
+    await pickDate('rc-details-valid-upto', new Date(2037, 2, 20));
     await fireEvent.press(screen.getByTestId('rc-details-next'));
 
     await screen.findByTestId('document-rc-added');
@@ -217,7 +240,7 @@ describe('3/3 RC "Add Manually" → "Your Vehicle details"', () => {
 
     const patch = requestLog.find(r => r.method === 'PATCH' && r.url.startsWith(urls.userVehicles));
     expect(patch?.url).toContain('id=eq.v-1');
-    expect(patch?.body).toEqual({ transmission_type: 'Manual', color: 'White' });
+    expect(patch?.body).toEqual({ color: 'White' });
     expect(bodyOf(urls.vdocs('vdocs_regcertificate'))).toMatchObject({
       vehicle_id: 'v-1',
       registration_number: 'TS09EV2345',
@@ -226,6 +249,15 @@ describe('3/3 RC "Add Manually" → "Your Vehicle details"', () => {
       variant_id: 'variant-essence',
       fuel_type: 'Electric',
       colour: 'White',
+      reg_date: '2022-03-21',
+      valid_upto: '2037-03-20',
+      address: '1 MG Road, Hyderabad',
+      body_type: 'SUV',
+      chassis_number: 'MAZS123',
+      engine_number: 'EN9',
+      seating_capacity: 5,
+      gross_weight: 1890.5,
+      unladen_weight: 1500,
     });
     // The vehicle is updated before its RC is saved.
     expect(writes().indexOf(`PATCH ${urls.userVehicles.replace(/^https:\/\/[^/]+/, '')}`)).toBe(0);
@@ -240,9 +272,9 @@ describe('3/3 RC "Add Manually" → "Your Vehicle details"', () => {
     await fireEvent.changeText(screen.getByTestId('rc-details-number'), 'ts 09 ab 1234');
     await choose('rc-details-make', 'make-mg');
     await choose('rc-details-model', 'model-zs');
-    // The model's only variant fills fuel / transmission.
-    expect(selected('rc-details-fuel-Electric')).toBe(true);
-    expect(selected('rc-details-transmission-Automatic')).toBe(true);
+    // The model's only variant fills fuel (and the vehicle's transmission).
+    expect(screen.getByTestId('rc-details-fuel-input', HIDDEN)).toHaveDisplayValue('Electric');
+    expect(screen.getByTestId('rc-details-registration').props.value).toBe('TS09AB1234');
     await fireEvent.press(screen.getByTestId('rc-details-next'));
 
     await screen.findByTestId('document-rc-added');

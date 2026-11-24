@@ -112,6 +112,62 @@ export function minimalVehicleRow(vehicleNumber: string, model: VehicleModelOpti
   };
 }
 
+/**
+ * "Add new vehicle" (full form, as the web's Manual tab): the optional / overridable user_vehicles
+ * columns on top of the minimal row. Empty values are left out (the columns are nullable / defaulted).
+ */
+export type NewVehicleExtras = {
+  fuelType?: string;
+  transmissionType?: string;
+  colour?: string;
+  rcNumber?: string;
+  /** Both or neither (web rule). */
+  registrationMonth?: number | null;
+  registrationYear?: number | null;
+  chassisNumber?: string;
+  currentOdometer?: number;
+  /** "YYYY-MM-DD". */
+  lastServiceDate?: string | null;
+  isActive?: boolean;
+};
+
+/** The user_vehicles row for "Add new vehicle": the minimal row plus the extras that were filled. */
+export function newVehicleRow(vehicleNumber: string, model: VehicleModelOption, extras: NewVehicleExtras = {}) {
+  const row: Record<string, string | number | boolean> = { ...minimalVehicleRow(vehicleNumber, model) };
+  if (extras.fuelType && FUEL_TYPES.includes(extras.fuelType)) {
+    row.fuel_type = extras.fuelType;
+  }
+  if (extras.transmissionType && TRANSMISSIONS.includes(extras.transmissionType)) {
+    row.transmission_type = extras.transmissionType;
+  }
+  const colour = extras.colour?.trim();
+  if (colour) {
+    row.color = colour;
+  }
+  const rc = extras.rcNumber?.trim().toUpperCase();
+  if (rc) {
+    row.rc_number = rc;
+  }
+  if (extras.registrationMonth && extras.registrationYear) {
+    row.registration_month = extras.registrationMonth;
+    row.registration_year = extras.registrationYear;
+  }
+  const chassis = extras.chassisNumber?.trim().toUpperCase();
+  if (chassis) {
+    row.chassis_number = chassis;
+  }
+  if (extras.currentOdometer !== undefined && Number.isInteger(extras.currentOdometer) && extras.currentOdometer >= 0) {
+    row.current_odometer = extras.currentOdometer;
+  }
+  if (extras.lastServiceDate) {
+    row.last_service_date = extras.lastServiceDate;
+  }
+  if (extras.isActive === false) {
+    row.is_active = false;
+  }
+  return row;
+}
+
 /** The vehicle's own details, as RC "Add Manually" edits them. */
 export type VehicleDetails = {
   vehicleNumber: string;
@@ -171,8 +227,12 @@ export async function updateVehicle(vehicleId: string, patch: Record<string, str
 }
 
 /** Creates the vehicle (owned by the signed-in user). A taken number → VEHICLE_NUMBER_TAKEN. */
-export async function createVehicle(vehicleNumber: string, model: VehicleModelOption): Promise<CreatedVehicle> {
-  const row = minimalVehicleRow(vehicleNumber, model);
+export async function createVehicle(
+  vehicleNumber: string,
+  model: VehicleModelOption,
+  extras?: NewVehicleExtras,
+): Promise<CreatedVehicle> {
+  const row = extras ? newVehicleRow(vehicleNumber, model, extras) : minimalVehicleRow(vehicleNumber, model);
   const res = await getSupabase().from(REST.USER_VEHICLES).insert(row).select('id').single();
   if (res.error) {
     if (res.error.code === '23505') {
@@ -182,7 +242,7 @@ export async function createVehicle(vehicleNumber: string, model: VehicleModelOp
   }
   return {
     id: parseOrThrow(Created, res.data, 'user_vehicles insert').id,
-    vehicleNumber: row.vehicle_number,
+    vehicleNumber: String(row.vehicle_number),
     makeId: model.makeId,
     modelId: model.modelId,
     variantId: model.variantId,

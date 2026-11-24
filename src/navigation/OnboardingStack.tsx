@@ -5,7 +5,7 @@ import { toUserError } from '@/api/errorMessages';
 import type { DrivingLicenceStepData } from '@/api/services/drivingLicenceStep.service';
 import { ocrService } from '@/api/services/ocr.service';
 import type { ProfileStepData } from '@/api/services/profileStep.service';
-import { vehicleDetailsOf, type VehicleDetails } from '@/api/services/vehicle.service';
+import { vehicleDetailsOf } from '@/api/services/vehicle.service';
 import OnboardingLayout from '@/components/OnboardingLayout';
 import { useToast } from '@/components/Toast';
 import { DOCUMENT_KEYS, ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from '@/constants/onboarding';
@@ -20,7 +20,7 @@ import { savedAvatar, useProfileStepData, useSaveProfileStep } from '@/hooks/api
 import { useOnboardingSkip } from '@/hooks/useOnboardingSkip';
 import DrivingLicenceScreen from '@/screens/onboarding/DrivingLicenceScreen';
 import OnboardingProfileScreen from '@/screens/onboarding/OnboardingProfileScreen';
-import RcDetailsScreen from '@/screens/onboarding/RcDetailsScreen';
+import RcDetailsScreen, { type RcDetailsResult } from '@/screens/onboarding/RcDetailsScreen';
 import VehicleDocumentsScreen from '@/screens/onboarding/VehicleDocumentsScreen';
 import AddVehicleScreen from '@/screens/vehicles/AddVehicleScreen';
 import type {
@@ -338,12 +338,12 @@ function Step3RcDetailsRoute({ navigation }: OnboardingStackScreenProps<'Step3Rc
   const vehicle = vehicles.data?.find(v => v.id === documents.vehicleId);
   const initialValues = documents.rc.fields?.vehicle ?? (vehicle && vehicleDetailsOf(vehicle));
 
-  const apply = (vehicleId: string, details: VehicleDetails) => {
+  const apply = (vehicleId: string, { vehicle: details, registrationNumber, rc }: RcDetailsResult) => {
     const current = useOnboardingStore.getState().documents;
     useOnboardingStore.getState().setDocuments({
       ...current,
       vehicleId,
-      rc: { file: current.rc.file, fields: { registrationNumber: details.vehicleNumber, vehicle: details } },
+      rc: { file: current.rc.file, fields: { registrationNumber, vehicle: details, rc } },
     });
     navigation.goBack();
   };
@@ -353,11 +353,14 @@ function Step3RcDetailsRoute({ navigation }: OnboardingStackScreenProps<'Step3Rc
       // Remount once the vehicles load so the form starts from the selected vehicle.
       key={vehicles.isLoading ? 'loading' : 'ready'}
       initialValues={initialValues}
+      initialRegistrationNumber={documents.rc.fields?.registrationNumber}
+      initialRc={documents.rc.fields?.rc}
       saving={create.isPending}
       onBack={() => navigation.goBack()}
-      onSave={details => {
+      onSave={result => {
+        const details = result.vehicle;
         if (vehicle) {
-          apply(vehicle.id, details); // changed details are saved with the documents (3/3 Next)
+          apply(vehicle.id, result); // changed details are saved with the documents (3/3 Next)
           return;
         }
         // No vehicle yet: these details create it (as "Add new vehicle").
@@ -373,11 +376,17 @@ function Step3RcDetailsRoute({ navigation }: OnboardingStackScreenProps<'Step3Rc
               fuelType: details.fuelType,
               transmissionType: details.transmissionType,
             },
+            extras: {
+              fuelType: details.fuelType,
+              transmissionType: details.transmissionType,
+              colour: details.colour,
+              chassisNumber: result.rc.chassisNumber,
+            },
           },
           {
             onSuccess: ({ id }) => {
               toast.success(strings.onboarding.addVehicle.saved);
-              apply(id, details);
+              apply(id, result);
             },
             onError: e => toast.error(toUserError(e).userMessage),
           },

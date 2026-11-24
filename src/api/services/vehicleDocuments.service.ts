@@ -44,7 +44,69 @@ export type DocumentFields = {
   expiry?: string | null;
   /** RC "Add Manually" (Your Vehicle details): the make / model / variant, fuel and colour on the RC. */
   vehicle?: VehicleDetails;
+  /** RC "Add Manually": dates, address, body type, chassis / engine no., seating, weights. */
+  rc?: RcDetails;
 };
+/**
+ * RC "Add Manually": the vdocs_regcertificate columns beyond the vehicle (web form). Strings as typed;
+ * empty → left out. Dates "YYYY-MM-DD".
+ */
+export type RcDetails = {
+  regDate?: string | null;
+  validUpto?: string | null;
+  address?: string;
+  bodyType?: string | null;
+  chassisNumber?: string;
+  engineNumber?: string;
+  seatingCapacity?: string;
+  grossWeight?: string;
+  unladenWeight?: string;
+};
+
+/** Body types the web offers for the RC. */
+export const RC_BODY_TYPES = [
+  'Hatchback',
+  'Sedan',
+  'SUV',
+  'MUV/MPV',
+  'Coupe',
+  'Convertible',
+  'Wagon/Estate',
+  'Pickup Truck',
+  'Van',
+] as const;
+
+/** The filled RC columns (seating capacity an integer ≥ 1, weights numbers ≥ 0; others dropped). */
+export function rcDetailsColumns(rc: RcDetails | undefined): Record<string, string | number> {
+  if (!rc) {
+    return {};
+  }
+  const out: Record<string, string | number> = {};
+  const text = (col: string, v: string | null | undefined, up = false) => {
+    const t = v?.trim();
+    if (t) {
+      out[col] = up ? t.toUpperCase() : t;
+    }
+  };
+  const num = (col: string, v: string | undefined, int: boolean, min: number) => {
+    const t = v?.trim();
+    const n = t ? Number(t) : NaN;
+    if (Number.isFinite(n) && n >= min && (!int || Number.isInteger(n))) {
+      out[col] = n;
+    }
+  };
+  text('reg_date', rc.regDate);
+  text('valid_upto', rc.validUpto);
+  text('address', rc.address);
+  text('body_type', rc.bodyType);
+  text('chassis_number', rc.chassisNumber, true);
+  text('engine_number', rc.engineNumber, true);
+  num('seating_capacity', rc.seatingCapacity, true, 1);
+  num('gross_weight', rc.grossWeight, false, 0);
+  num('unladen_weight', rc.unladenWeight, false, 0);
+  return out;
+}
+
 /** @deprecated name kept for older call sites. */
 export type DocumentNumbers = DocumentFields;
 
@@ -66,7 +128,7 @@ export function documentRow(
   vehicle: VehicleRef,
   fields: DocumentFields,
   documentPath: string | null,
-): Record<string, string | null> {
+): Record<string, string | number | null> {
   const base: Record<string, string | null> = {
     vehicle_id: vehicle.id,
     registration_number: vehicle.vehicleNumber,
@@ -87,6 +149,7 @@ export function documentRow(
           fuel_type: v.fuelType,
           ...(v.colour.trim() && { colour: v.colour.trim() }),
         }),
+        ...rcDetailsColumns(fields.rc),
         registration_number: upper(fields.registrationNumber?.trim() || vehicle.vehicleNumber),
       };
     }

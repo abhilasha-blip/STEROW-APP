@@ -68,6 +68,33 @@ describe('My Documents', () => {
       fastag_id: 'FT-1',
     });
   });
+
+  it('RC "Add Manually" opens the full RC form (not the one-field sheet); Save sends its fields', async () => {
+    await openFromDrawer('documents');
+    await fireEvent.press(await screen.findByTestId('my-documents-upload'));
+    await screen.findByTestId('upload-documents');
+    await fireEvent.press(screen.getByTestId('document-rc-manual'));
+    await screen.findByTestId('rc-details');
+    expect(screen.queryByTestId('document-rc-details-registrationNumber')).toBeNull();
+    expect(screen.getByTestId('rc-details-registration').props.value).toBe('TS09EV2345');
+    for (const id of ['reg-date', 'valid-upto', 'address', 'body-type', 'fuel', 'chassis', 'engine', 'colour', 'seating', 'gross-weight', 'unladen-weight']) {
+      expect(screen.getByTestId(`rc-details-${id}`)).toBeTruthy();
+    }
+    await waitFor(() => expect(screen.getByTestId('rc-details-next').props.accessibilityState).toMatchObject({ disabled: false }));
+    await fireEvent.changeText(screen.getByTestId('rc-details-engine'), 'en9');
+    await fireEvent.changeText(screen.getByTestId('rc-details-seating'), '5');
+    await fireEvent.press(screen.getByTestId('rc-details-next'));
+    await screen.findByTestId('document-rc-added');
+    requestLog.length = 0;
+    await fireEvent.press(screen.getByTestId('upload-documents-save'));
+    expect(await screen.findByTestId('my-documents')).toBeTruthy();
+    expect(requestLog.find(r => r.method === 'POST' && r.url.startsWith(urls.table('vdocs_regcertificate')))?.body).toMatchObject({
+      vehicle_id: 'v-1',
+      registration_number: 'TS09EV2345',
+      engine_number: 'EN9',
+      seating_capacity: 5,
+    });
+  });
 });
 
 describe('My Profile', () => {

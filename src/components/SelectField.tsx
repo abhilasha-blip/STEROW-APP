@@ -21,6 +21,8 @@ export type SelectOption = { value: string; label: string };
 
 export type SelectFieldProps = {
   label: string;
+  /** Don't draw the label (it still names the field for screen readers and titles the sheet). */
+  labelHidden?: boolean;
   options: readonly SelectOption[];
   value: string | null;
   onChange: (value: string) => void;
@@ -48,6 +50,7 @@ const s = strings.onboarding.select;
  */
 export default function SelectField({
   label,
+  labelHidden = false,
   options,
   value,
   onChange,
@@ -93,6 +96,7 @@ export default function SelectField({
           <TextField
             variant="light"
             label={label}
+            labelHidden={labelHidden}
             value={selected?.label ?? ''}
             placeholder={placeholder}
             editable={false}

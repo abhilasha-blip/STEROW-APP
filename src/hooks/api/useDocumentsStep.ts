@@ -6,7 +6,13 @@ import {
   type DocumentsStepProgress,
   type DocumentsStepSave,
 } from '@/api/services/documentsStep.service';
-import { createVehicle, listMyVehicles, vehicleDetailsPatch, type MyVehicle } from '@/api/services/vehicle.service';
+import {
+  createVehicle,
+  listMyVehicles,
+  vehicleDetailsPatch,
+  type MyVehicle,
+  type NewVehicleExtras,
+} from '@/api/services/vehicle.service';
 import {
   fetchVehicleCatalog,
   fetchVehicleModelOptions,
@@ -47,11 +53,15 @@ export function useMyVehicles(uid: string | undefined) {
   });
 }
 
-/** "Add new vehicle": creates the minimal vehicle and refreshes the user's list. */
+/** "Add new vehicle": creates the vehicle (minimal row + the extras filled in) and refreshes the user's list. */
 export function useCreateVehicle(uid: string) {
   const queryClient = useQueryClient();
-  return useMutation<{ id: string }, ApiError, { vehicleNumber: string; model: VehicleModelOption }>({
-    mutationFn: ({ vehicleNumber, model }) => createVehicle(vehicleNumber, model),
+  return useMutation<
+    { id: string },
+    ApiError,
+    { vehicleNumber: string; model: VehicleModelOption; extras?: NewVehicleExtras }
+  >({
+    mutationFn: ({ vehicleNumber, model, extras }) => createVehicle(vehicleNumber, model, extras),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.myVehicles(uid) }),
   });
 }

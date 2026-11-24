@@ -27,7 +27,7 @@ function ComingSoonRoute({ navigation, route }: HomeStackScreenProps<'ComingSoon
 }
 
 function AddVehicleRoute({ navigation }: HomeStackScreenProps<'AddVehicle'>) {
-  return <AddVehicleScreen onBack={() => navigation.goBack()} onSaved={() => navigation.goBack()} />;
+  return <AddVehicleScreen showActive onBack={() => navigation.goBack()} onSaved={() => navigation.goBack()} />;
 }
 
 /** The Home tab: the dashboard and the light screens opened from it or from the drawer (tabs stay). */

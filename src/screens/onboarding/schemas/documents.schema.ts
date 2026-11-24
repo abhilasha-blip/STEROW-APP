@@ -1,5 +1,6 @@
 import { DOCUMENT_KEYS, type DocumentKey } from '@/constants/onboarding';
 import type { VehicleDetails } from '@/api/services/vehicle.service';
+import type { RcDetails } from '@/api/services/vehicleDocuments.service';
 import type { UploadedFile } from '@/utils/uploadFile';
 import { parseIsoDate } from '@/utils/validation';
 
@@ -14,6 +15,8 @@ export type DocumentFieldValues = {
   expiry?: string | null;
   /** RC "Add Manually" opens "Your Vehicle details": the vehicle's details as on the RC. */
   vehicle?: VehicleDetails;
+  /** RC "Add Manually": the RC's own columns (dates, address, body type, numbers, weights). */
+  rc?: RcDetails;
 };
 
 /** One card: an uploaded file, typed details, or both. */
@@ -23,7 +26,7 @@ export type DocumentEntry = { file: UploadedFile | null; fields: DocumentFieldVa
 export type DocumentsFormValues = { vehicleId: string | null } & Record<DocumentKey, DocumentEntry>;
 
 /** The sheet's fields (`vehicle` comes from the RC details screen). */
-export type DocumentField = Exclude<keyof DocumentFieldValues, 'vehicle'>;
+export type DocumentField = Exclude<keyof DocumentFieldValues, 'vehicle' | 'rc'>;
 
 /** The fields of each "Add Manually" form, in order; all are required. */
 export const DOCUMENT_FORM_FIELDS: Record<DocumentKey, readonly DocumentField[]> = {

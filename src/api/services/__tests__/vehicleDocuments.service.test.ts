@@ -7,11 +7,12 @@ import {
   createVehicle,
   listMyVehicles,
   minimalVehicleRow,
+  newVehicleRow,
   VEHICLE_DEFAULTS,
   vehicleDetailsOf,
   vehicleDetailsPatch,
 } from '@/api/services/vehicle.service';
-import { documentRow, saveVehicleDocument } from '@/api/services/vehicleDocuments.service';
+import { documentRow, rcDetailsColumns, saveVehicleDocument } from '@/api/services/vehicleDocuments.service';
 import {
   fetchVehicleCatalog,
   fetchVehicleModelOptions,
@@ -117,6 +118,57 @@ describe('vehicle.service (minimal vehicle)', () => {
   it('variant without fuel / transmission (or an unknown value) → the documented defaults', () => {
     const row = minimalVehicleRow('TS09EV1234', { ...MG, fuelType: null, transmissionType: 'CVT' });
     expect(row).toMatchObject({ fuel_type: VEHICLE_DEFAULTS.fuelType, transmission_type: VEHICLE_DEFAULTS.transmissionType });
+  });
+
+  it('Add new vehicle (full form): the filled extras override / extend the minimal row', () => {
+    expect(newVehicleRow('TS09EV1234', MG)).toEqual(minimalVehicleRow('TS09EV1234', MG));
+    expect(
+      newVehicleRow('TS09EV1234', MG, {
+        fuelType: 'Petrol',
+        transmissionType: 'Manual',
+        colour: ' Red ',
+        rcNumber: ' rc-1 ',
+        registrationMonth: 3,
+        registrationYear: 2022,
+        chassisNumber: 'ma1x',
+        currentOdometer: 12000,
+        lastServiceDate: '2026-10-01',
+        isActive: false,
+      }),
+    ).toMatchObject({
+      fuel_type: 'Petrol',
+      transmission_type: 'Manual',
+      color: 'Red',
+      rc_number: 'RC-1',
+      registration_month: 3,
+      registration_year: 2022,
+      chassis_number: 'MA1X',
+      current_odometer: 12000,
+      last_service_date: '2026-10-01',
+      is_active: false,
+    });
+    // Month without year (and unknown fuel / blank strings) are left out.
+    const row = newVehicleRow('TS09EV1234', MG, { registrationMonth: 3, registrationYear: null, fuelType: 'Steam', colour: ' ' });
+    expect(row).not.toHaveProperty('registration_month');
+    expect(row).not.toHaveProperty('color');
+    expect(row.fuel_type).toBe('Electric');
+  });
+
+  it('RC columns: filled ones only; numbers validated, chassis / engine upper-cased', () => {
+    expect(rcDetailsColumns(undefined)).toEqual({});
+    expect(
+      rcDetailsColumns({
+        regDate: '2022-03-21',
+        validUpto: null,
+        address: ' ',
+        bodyType: 'SUV',
+        chassisNumber: 'ab1',
+        engineNumber: ' e2 ',
+        seatingCapacity: '0',
+        grossWeight: '1890.5',
+        unladenWeight: 'x',
+      }),
+    ).toEqual({ reg_date: '2022-03-21', body_type: 'SUV', chassis_number: 'AB1', engine_number: 'E2', gross_weight: 1890.5 });
   });
 
   it('RC "Add Manually": only the vehicle columns that changed are updated; RC row carries the details', async () => {
