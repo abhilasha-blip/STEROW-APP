@@ -81,7 +81,6 @@ afterEach(() => {
   jest.restoreAllMocks();
   require('@/api/services/storage.service').__clearSignedUrlCache();
   require('@/store/onboarding.store').__resetOnboardingStoreForTests();
-  require('@/store/booking.store').__resetBookingStoreForTests();
   server.resetHandlers();
   require('react-native-keychain').__store.clear();
 });

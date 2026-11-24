@@ -6,6 +6,7 @@ import { useTheme } from '@/theme';
 import ChooseCentreScreen from './ChooseCentreScreen';
 import ChooseServiceScreen from './ChooseServiceScreen';
 import ChooseVehicleScreen from './ChooseVehicleScreen';
+import SlotPickupScreen from './SlotPickupScreen';
 
 const Stack = createNativeStackNavigator<BookServiceStackParamList>();
 
@@ -29,6 +30,7 @@ export default function BookServiceNavigator(_: HomeStackScreenProps<'BookServic
       <Stack.Screen name="BookVehicle" component={ChooseVehicleScreen} />
       <Stack.Screen name="BookServices" component={ChooseServiceScreen} />
       <Stack.Screen name="BookCentre" component={ChooseCentreScreen} />
+      <Stack.Screen name="BookSlot" component={SlotPickupScreen} />
     </Stack.Navigator>
   );
 }

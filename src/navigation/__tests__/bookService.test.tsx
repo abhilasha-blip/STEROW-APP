@@ -1,11 +1,15 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { getSupabase, __resetSupabaseForTests } from '@/api/supabase';
 import { strings } from '@/constants/strings';
-import { useBookingStore } from '@/store/booking.store';
+import { __resetBookingStoreForTests, useBookingStore } from '@/store/booking.store';
+import { toIsoDate } from '@/utils/bookingDates';
 import { makeSession, resetMyVehicles, setOnboardingBackend, vehicleRow } from '../../../test/msw/fixtures';
 import { renderApp, resetAppState } from '../../../test/render';
 
-beforeEach(resetAppState);
+beforeEach(() => {
+  resetAppState();
+  __resetBookingStoreForTests(); // before mounting: a reset under a mounted screen re-renders outside act()
+});
 afterEach(resetAppState);
 
 const t = strings.bookService;
@@ -239,5 +243,202 @@ describe('Book a Service – Step 3 Choose Service Center', () => {
     await fireEvent.press(screen.getByTestId('filter-apply'));
     await waitFor(() => expect(order()).toEqual(['c-mg-gachibowli', 'c-mahindra-hitec', 'c-mg-kukatpally', 'c-mahindra-jubilee']));
     expect(screen.getByTestId('centre-filter-dot')).toBeTruthy();
+  });
+});
+
+const tomorrow = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return toIsoDate(d);
+};
+
+/** … → Step 3 (first centre) → Step 4. */
+async function openStep4() {
+  await openStep3();
+  await fireEvent.press(await screen.findByTestId('centre-c-mg-gachibowli'));
+  await fireEvent.press(screen.getByTestId('book-centre-next'));
+  return screen.findByTestId('book-slot');
+}
+
+/** Tomorrow + the first slot (avoids today's already-started slots). */
+async function pickDateAndSlot() {
+  await fireEvent.press(screen.getByTestId(`date-${tomorrow()}`));
+  await fireEvent.press(await screen.findByTestId('slot-slot-9'));
+}
+
+async function pickAddress(sheetOpener: string, optionId = 'a-home') {
+  await fireEvent.press(screen.getByTestId(sheetOpener));
+  await fireEvent.press(await screen.findByTestId(`address-sheet-option-${optionId}`));
+}
+
+describe('Book a Service – Step 4 Slot & Pickup/Drop', () => {
+  const s = t.slot;
+  const checked = (id: string) => screen.getByTestId(id).props.accessibilityState?.checked;
+
+  it('14 date chips from today (no past dates), 3 slots; Submit needs a date and a slot', async () => {
+    await openStep4();
+    expect(screen.getByTestId('booking-stepper-4-current')).toBeTruthy();
+    expect(screen.getByTestId('booking-stepper-3-done')).toBeTruthy();
+    const days = screen.getAllByTestId(/^date-\d{4}-/);
+    expect(days).toHaveLength(14);
+    expect(days[0].props.testID).toBe(`date-${toIsoDate(new Date())}`);
+    expect(await screen.findAllByTestId(/^slot-slot-/)).toHaveLength(3);
+    expect(screen.getByTestId('slot-slot-9')).toHaveTextContent('9 am - 11 am');
+    expect(disabled('book-slot-next')).toBe(true);
+    await fireEvent.press(screen.getByTestId(`date-${tomorrow()}`));
+    expect(checked(`date-${tomorrow()}`)).toBe(true);
+    expect(disabled('book-slot-next')).toBe(true);
+    await fireEvent.press(screen.getByTestId('slot-slot-11'));
+    await fireEvent.press(screen.getByTestId('slot-slot-14'));
+    expect(checked('slot-slot-11')).toBe(false); // single select
+    expect(checked('slot-slot-14')).toBe(true);
+    expect(disabled('book-slot-next')).toBe(false);
+  });
+
+  it('neither ticked: no address fields', async () => {
+    await openStep4();
+    expect(screen.queryByTestId('pickup-section')).toBeNull();
+    expect(screen.queryByTestId('drop-section')).toBeNull();
+    expect(screen.getByTestId('pickup-toggle')).toHaveProp('accessibilityRole', 'checkbox');
+  });
+
+  it('Pickup only: From Address + Change + phone (the user\'s number); Submit needs the address', async () => {
+    await openStep4();
+    await pickDateAndSlot();
+    await fireEvent.press(screen.getByTestId('pickup-toggle'));
+    const section = screen.getByTestId('pickup-section');
+    expect(section).toHaveTextContent(new RegExp(`${s.fromAddress}.*\\(Pickup Location\\).*${s.change}`));
+    expect(screen.getByTestId('pickup-address')).toHaveTextContent(s.selectAddress); // mock never pre-filled
+    expect(screen.getByTestId('pickup-phone').props.value).toBe('9999999999');
+    expect(disabled('book-slot-next')).toBe(true);
+    await pickAddress('pickup-change');
+    await waitFor(() => expect(screen.getByTestId('pickup-address')).toHaveTextContent(/Gachibowli/));
+    expect(disabled('book-slot-next')).toBe(false);
+    await fireEvent.changeText(screen.getByTestId('pickup-phone'), '12345');
+    expect(screen.getByTestId('pickup-phone-error')).toHaveTextContent(s.phoneInvalid);
+    expect(disabled('book-slot-next')).toBe(true);
+  });
+
+  it('Pickup + Drop, "Same as pickup" (default): drop rows mirror the pickup and are disabled', async () => {
+    await openStep4();
+    await pickDateAndSlot();
+    await fireEvent.press(screen.getByTestId('pickup-toggle'));
+    await pickAddress('pickup-address');
+    await fireEvent.press(screen.getByTestId('drop-toggle'));
+    expect(screen.getByTestId('drop-section')).toHaveTextContent(new RegExp(`${s.toAddress}.*\\(Drop Location\\)`));
+    expect(checked('drop-same')).toBe(true);
+    expect(checked('drop-later')).toBe(false);
+    expect(screen.getByTestId('drop-address')).toHaveTextContent(/Gachibowli/);
+    expect(screen.getByTestId('drop-address').props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.getByTestId('drop-phone').props.editable).toBe(false);
+    expect(screen.getByTestId('drop-phone').props.value).toBe('9999999999');
+    expect(screen.queryByTestId('drop-change')).toBeNull();
+    expect(disabled('book-slot-next')).toBe(false);
+  });
+
+  it('Pickup + Drop, own drop address: editable rows; Submit needs the drop address', async () => {
+    await openStep4();
+    await pickDateAndSlot();
+    await fireEvent.press(screen.getByTestId('pickup-toggle'));
+    await pickAddress('pickup-address');
+    await fireEvent.press(screen.getByTestId('drop-toggle'));
+    await fireEvent.press(screen.getByTestId('drop-same'));
+    expect(screen.getByTestId('drop-phone').props.editable).toBe(true);
+    expect(screen.getByTestId('drop-address')).toHaveTextContent(s.selectAddress);
+    expect(disabled('book-slot-next')).toBe(true);
+    await pickAddress('drop-change', 'a-office');
+    await waitFor(() => expect(screen.getByTestId('drop-address')).toHaveTextContent(/Hitec City/));
+    expect(disabled('book-slot-next')).toBe(false);
+  });
+
+  it('"Confirm drop later" and "Same as pickup" are exclusive; confirm-later hides the To Address rows', async () => {
+    await openStep4();
+    await pickDateAndSlot();
+    await fireEvent.press(screen.getByTestId('pickup-toggle'));
+    await pickAddress('pickup-address');
+    await fireEvent.press(screen.getByTestId('drop-toggle'));
+    expect(checked('drop-same')).toBe(true);
+    await fireEvent.press(screen.getByTestId('drop-later'));
+    expect(checked('drop-later')).toBe(true);
+    expect(checked('drop-same')).toBe(false);
+    expect(screen.queryByTestId('drop-fields')).toBeNull();
+    expect(screen.getByTestId('drop-later-help')).toHaveTextContent(s.confirmDropLaterHelp);
+    expect(disabled('book-slot-next')).toBe(false);
+    await fireEvent.press(screen.getByTestId('drop-same'));
+    expect(checked('drop-same')).toBe(true);
+    expect(checked('drop-later')).toBe(false);
+    expect(screen.getByTestId('drop-fields')).toBeTruthy();
+    expect(screen.queryByTestId('drop-later-help')).toBeNull();
+  });
+
+  it('Drop only: no "Same as pickup"; needs its own address, or confirm later', async () => {
+    await openStep4();
+    await pickDateAndSlot();
+    await fireEvent.press(screen.getByTestId('drop-toggle'));
+    expect(screen.queryByTestId('drop-same')).toBeNull();
+    expect(disabled('book-slot-next')).toBe(true);
+    await fireEvent.press(screen.getByTestId('drop-later'));
+    expect(disabled('book-slot-next')).toBe(false);
+    await fireEvent.press(screen.getByTestId('drop-later'));
+    expect(disabled('book-slot-next')).toBe(true);
+    await pickAddress('drop-address');
+    await waitFor(() => expect(disabled('book-slot-next')).toBe(false));
+  });
+
+  it('"Add new address": the text field + map placeholder; Save selects it', async () => {
+    await openStep4();
+    await pickDateAndSlot();
+    await fireEvent.press(screen.getByTestId('pickup-toggle'));
+    await fireEvent.press(screen.getByTestId('pickup-change'));
+    await fireEvent.press(await screen.findByTestId('address-sheet-add'));
+    expect(screen.getByLabelText(t.address.mapPlaceholder)).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('address-sheet-new-input'), 'short');
+    expect(disabled('address-sheet-new-save')).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('address-sheet-new-input'), '  Flat 4B,  Lake View, Kondapur ');
+    await fireEvent.press(screen.getByTestId('address-sheet-new-save'));
+    await waitFor(() => expect(screen.getByTestId('pickup-address')).toHaveTextContent('Flat 4B, Lake View, Kondapur'));
+    expect(useBookingStore.getState().addresses).toHaveLength(1);
+    expect(disabled('book-slot-next')).toBe(false);
+  });
+});
+
+describe('Book a Service – Congratulations', () => {
+  async function book() {
+    await openStep4();
+    await pickDateAndSlot();
+    await fireEvent.press(screen.getByTestId('book-slot-next'));
+    return screen.findByTestId('booking-success');
+  }
+
+  it('shows the check, title, one line and EXACTLY two buttons (no back arrow, no summary)', async () => {
+    const success = await book();
+    expect(within(success).getByText(t.success.title)).toBeTruthy();
+    expect(within(success).getByText(t.success.body)).toBeTruthy();
+    expect(within(success).getByTestId('booking-success-illustration')).toBeTruthy();
+    const buttons = within(success).getAllByRole('button');
+    expect(buttons.map(b => b.props.accessibilityLabel)).toEqual([t.success.myBookings, t.success.bookAnother]);
+    expect(within(success).queryByTestId('light-screen-back')).toBeNull();
+    expect(within(success).queryByText(/MG Service Center|9 am/)).toBeNull();
+    expect(screen.queryByTestId('book-slot')).toBeNull(); // the flow is gone from the stack
+  });
+
+  it('"Go to My Bookings" opens the empty placeholder; Back returns to the dashboard', async () => {
+    await book();
+    await fireEvent.press(screen.getByTestId('booking-success-my-bookings'));
+    expect(await screen.findByTestId('my-bookings-empty')).toHaveTextContent(new RegExp(strings.myBookings.emptyTitle));
+    await fireEvent.press(screen.getByTestId('light-screen-back'));
+    expect(await screen.findByTestId('dashboard')).toBeTruthy();
+    expect(screen.queryByTestId('booking-success')).toBeNull();
+    // UI-only booking: the dashboard keeps the REAL count (no fake booking appears).
+    expect(screen.getByTestId('tile-book-service')).toHaveTextContent(new RegExp(strings.dashboard.records('0')));
+  });
+
+  it('"Book Another Service" resets the booking and starts at Step 1', async () => {
+    await book();
+    await fireEvent.press(screen.getByTestId('booking-success-book-another'));
+    expect(await screen.findByTestId('book-vehicle')).toBeTruthy();
+    expect(screen.getByTestId('booking-stepper-1-current')).toBeTruthy();
+    expect(useBookingStore.getState()).toMatchObject({ vehicleId: null, centreId: null, date: null, slot: null, talkToTechnician: false });
+    expect(screen.getByTestId('book-vehicle-v-1').props.accessibilityState).toMatchObject({ checked: false });
   });
 });

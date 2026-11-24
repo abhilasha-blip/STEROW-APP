@@ -47,7 +47,7 @@ export type VoiceLanguage = { code: string; label: string };
 
 export type BookingRequest = {
   vehicleId: string;
-  serviceMode: 'concern' | 'custom' | null;
+  serviceMode: 'concern' | 'custom';
   concern: string;
   talkToTechnician: boolean;
   services: string[];
