@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, type PropsWithChildren } from 'react';
-import { Platform, ScrollView, Settings, StyleSheet, View } from 'react-native';
+import React, { createContext, useCallback, useContext, useEffect, useRef, type PropsWithChildren } from 'react';
+import { Platform, ScrollView, Settings, StyleSheet, View, type HostInstance } from 'react-native';
 import LightScreen from '@/components/LightScreen';
 import LinkButton from '@/components/LinkButton';
 import PrimaryButton from '@/components/PrimaryButton';
@@ -20,6 +20,18 @@ type Props = PropsWithChildren<{
   showBackLink?: boolean;
   testID: string;
 }>;
+
+type Reveal = (node: HostInstance | null) => void;
+const RevealContext = createContext<Reveal>(() => undefined);
+
+/**
+ * Keyboard-safe inputs: call on focus to scroll the field (textarea, address, phone) into view above the
+ * keyboard. LightScreen's KeyboardAvoidingView shrinks the scroll area; this moves the field into it.
+ */
+export const useRevealOnFocus = () => useContext(RevealContext);
+
+const REVEAL_DELAY_MS = 250;
+const REVEAL_TOP_GAP = 24;
 
 /**
  * DEV ONLY: `-qaScroll end` (or a y offset) scrolls the step after launch, so simulator screenshots can
@@ -69,6 +81,27 @@ export default function BookingLayout({
     return () => clearTimeout(timer);
   }, []);
 
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (revealTimer.current) {
+      clearTimeout(revealTimer.current);
+    }
+  }, []);
+  const reveal = useCallback<Reveal>(node => {
+    if (revealTimer.current) {
+      clearTimeout(revealTimer.current);
+    }
+    // After the keyboard has started to show (the scroll area has shrunk).
+    revealTimer.current = setTimeout(() => {
+      const scroll = scrollRef.current;
+      const inner = scroll?.getInnerViewRef();
+      if (!node || !scroll || !inner) {
+        return;
+      }
+      node.measureLayout(inner, (_x, y) => scroll.scrollTo({ y: Math.max(0, y - REVEAL_TOP_GAP), animated: true }));
+    }, REVEAL_DELAY_MS);
+  }, []);
+
   return (
     <LightScreen
       testID={testID}
@@ -93,7 +126,7 @@ export default function BookingLayout({
         </View>
       }
     >
-      {children}
+      <RevealContext.Provider value={reveal}>{children}</RevealContext.Provider>
     </LightScreen>
   );
 }

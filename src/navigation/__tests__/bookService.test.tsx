@@ -23,7 +23,7 @@ async function launch(vehicles = [vehicleRow('v-1', 'TS09EV2345'), vehicleRow('v
 }
 
 /** Dashboard → "Book Service" tile → Step 1. */
-export async function openFlow(vehicles?: Parameters<typeof launch>[0]) {
+async function openFlow(vehicles?: Parameters<typeof launch>[0]) {
   await launch(vehicles);
   await waitFor(() => expect(disabled('tile-book-service')).toBeFalsy());
   await fireEvent.press(screen.getByTestId('tile-book-service'));
@@ -73,5 +73,105 @@ describe('Book a Service – entry and Step 1', () => {
     await fireEvent.press(screen.getByTestId('dashboard-menu'));
     await fireEvent.press(screen.getByTestId('drawer-services'));
     expect(await screen.findByTestId('book-vehicle')).toBeTruthy();
+  });
+});
+
+/** Step 1 (v-1) → Step 2. */
+async function openStep2() {
+  await openFlow();
+  await fireEvent.press(await screen.findByTestId('book-vehicle-v-1'));
+  await fireEvent.press(screen.getByTestId('book-vehicle-next'));
+  return screen.findByTestId('book-services');
+}
+
+describe('Book a Service – Step 2 Choose Service', () => {
+  const s = t.service;
+
+  it('"Service Packages" is gone: Talk to Technician + exactly the two option cards', async () => {
+    const step = await openStep2();
+    expect(screen.getByTestId('booking-stepper-1-done')).toBeTruthy();
+    expect(screen.getByTestId('booking-stepper-2-current')).toBeTruthy();
+    expect(within(step).queryByText(/Service Packages/i)).toBeNull();
+    expect(within(step).queryByText(/Common service packages/i)).toBeNull();
+    expect(screen.getByTestId('talk-to-technician')).toHaveProp('accessibilityRole', 'radio');
+    expect(screen.getByTestId('talk-to-technician')).toHaveTextContent(s.talkToTechnician);
+    expect(screen.getAllByTestId(/^service-mode-/).map(c => c.props.testID)).toEqual(['service-mode-concern', 'service-mode-custom']);
+    expect(screen.getByTestId('service-mode-concern')).toHaveTextContent(`${s.concernCard}${s.concernCardSubtitle}`);
+    expect(screen.getByTestId('service-mode-custom')).toHaveTextContent(`${s.customCard}${s.customCardSubtitle}`);
+  });
+
+  it('Concern mode: Next needs ≥ 10 characters; live counter; short text shows a hint', async () => {
+    await openStep2();
+    expect(screen.getByTestId('service-mode-concern').props.accessibilityState).toMatchObject({ checked: true });
+    expect(disabled('book-services-next')).toBe(true);
+    expect(screen.getByTestId('concern-counter')).toHaveTextContent('0/500');
+    expect(screen.getByTestId('concern-input')).toHaveProp('maxLength', 500);
+    expect(screen.getByTestId('concern-input')).toHaveProp('placeholder', s.concernPlaceholder);
+    await fireEvent.changeText(screen.getByTestId('concern-input'), 'squeaks');
+    expect(disabled('book-services-next')).toBe(true);
+    expect(screen.getByTestId('concern-error')).toHaveTextContent(s.concernTooShort(10));
+    await fireEvent.changeText(screen.getByTestId('concern-input'), 'Brakes squeak');
+    expect(screen.getByTestId('concern-counter')).toHaveTextContent('13/500');
+    expect(screen.queryByTestId('concern-error')).toBeNull();
+    expect(disabled('book-services-next')).toBe(false);
+  });
+
+  it('Custom mode: Next needs ≥ 1 service (the concern text does not count)', async () => {
+    await openStep2();
+    await fireEvent.changeText(screen.getByTestId('concern-input'), 'Brakes squeak badly');
+    await fireEvent.press(screen.getByTestId('service-mode-custom'));
+    const panel = await screen.findByTestId('custom-panel');
+    expect(await within(panel).findByTestId('service-headlight')).toBeTruthy();
+    expect(within(panel).getAllByRole('checkbox')).toHaveLength(8);
+    expect(disabled('book-services-next')).toBe(true);
+    await fireEvent.press(screen.getByTestId('service-ac'));
+    expect(screen.getByTestId('service-ac').props.accessibilityState).toMatchObject({ checked: true });
+    expect(disabled('book-services-next')).toBe(false);
+    await fireEvent.press(screen.getByTestId('service-ac'));
+    expect(disabled('book-services-next')).toBe(true);
+  });
+
+  it('Talk to Technician alone enables Next, makes the concern optional, and unselects on a second tap', async () => {
+    await openStep2();
+    await fireEvent.press(screen.getByTestId('talk-to-technician'));
+    expect(screen.getByTestId('talk-to-technician').props.accessibilityState).toMatchObject({ checked: true });
+    expect(disabled('book-services-next')).toBe(false);
+    expect(screen.getByTestId('concern-optional')).toHaveTextContent(s.concernOptional);
+    await fireEvent.changeText(screen.getByTestId('concern-input'), 'abc');
+    expect(screen.queryByTestId('concern-error')).toBeNull(); // optional: no length hint
+    await fireEvent.press(screen.getByTestId('service-mode-custom'));
+    expect(disabled('book-services-next')).toBe(false);
+    await fireEvent.press(screen.getByTestId('talk-to-technician'));
+    expect(screen.getByTestId('talk-to-technician').props.accessibilityState).toMatchObject({ checked: false });
+    expect(disabled('book-services-next')).toBe(true);
+  });
+
+  it('voice UI (stub): Speak shows the mic card; the mic toggles listening; the language sheet; examples collapse', async () => {
+    await openStep2();
+    expect(screen.queryByTestId('voice-card')).toBeNull();
+    await fireEvent.press(screen.getByTestId('concern-speak'));
+    expect(screen.getByTestId('voice-card')).toHaveTextContent(new RegExp(s.tapToSpeak));
+    await fireEvent.press(screen.getByTestId('voice-mic'));
+    expect(screen.getByTestId('voice-card')).toHaveTextContent(new RegExp(s.listening));
+    expect(screen.getByTestId('voice-unavailable')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('voice-mic'));
+    expect(screen.queryByTestId('voice-unavailable')).toBeNull();
+    expect(screen.getByTestId('voice-language')).toHaveTextContent('English');
+    await fireEvent.press(screen.getByTestId('voice-language'));
+    await fireEvent.press(await screen.findByTestId('language-hi-IN'));
+    await waitFor(() => expect(screen.getByTestId('voice-language')).toHaveTextContent('हिन्दी'));
+
+    expect(screen.queryByTestId('concern-examples')).toBeNull();
+    await fireEvent.press(screen.getByTestId('concern-examples-toggle'));
+    expect(screen.getByTestId('concern-examples')).toHaveTextContent(/weird noise coming from the front side/);
+    await fireEvent.press(screen.getByTestId('concern-examples-toggle'));
+    expect(screen.queryByTestId('concern-examples')).toBeNull();
+  });
+
+  it('Back returns to Step 1 with the vehicle still chosen', async () => {
+    await openStep2();
+    await fireEvent.press(screen.getByTestId('book-services-back'));
+    expect(await screen.findByTestId('book-vehicle')).toBeTruthy();
+    expect(screen.getByTestId('book-vehicle-v-1').props.accessibilityState).toMatchObject({ checked: true });
   });
 });

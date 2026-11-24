@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { BookServiceStackParamList, HomeStackScreenProps } from '@/navigation/types';
 import { useBookingStore } from '@/store/booking.store';
 import { useTheme } from '@/theme';
+import ChooseServiceScreen from './ChooseServiceScreen';
 import ChooseVehicleScreen from './ChooseVehicleScreen';
 
 const Stack = createNativeStackNavigator<BookServiceStackParamList>();
@@ -25,6 +26,7 @@ export default function BookServiceNavigator(_: HomeStackScreenProps<'BookServic
       }}
     >
       <Stack.Screen name="BookVehicle" component={ChooseVehicleScreen} />
+      <Stack.Screen name="BookServices" component={ChooseServiceScreen} />
     </Stack.Navigator>
   );
 }

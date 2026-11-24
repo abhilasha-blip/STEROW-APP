@@ -242,7 +242,6 @@ export const strings = {
       title: 'Choose Service',
       subtitle: 'Select service type and choose the services required',
       talkToTechnician: 'Talk to Technician',
-      talkToTechnicianHint: 'A technician will call you to understand the issue.',
       concernCard: 'Raise Your Concern',
       concernCardSubtitle: 'Describe your issue',
       customCard: 'Custom Services',
