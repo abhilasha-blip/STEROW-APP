@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw';
+import { StyleSheet } from 'react-native';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { getSupabase, __resetSupabaseForTests } from '@/api/supabase';
 import { strings } from '@/constants/strings';
@@ -88,6 +89,23 @@ describe('Dashboard', () => {
     expect(empty).toHaveTextContent(new RegExp(strings.shareAccess.emptyTitle));
     expect(screen.queryByTestId(/^person-/)).toBeNull();
     expect(screen.getByTestId('share-access-cta')).toHaveTextContent(strings.shareAccess.cta);
+  });
+
+  it('layout: the tab bar sits below the scroll view (in flow), so the last tiles and Quick Links are reachable', async () => {
+    // bottom-tabs lays a custom tabBar out *after* the screens, not over them: the dashboard ScrollView
+    // ends at the tab bar's top edge and needs no tab-bar-height padding. If the tab bar is ever made
+    // absolute / floating (e.g. a blur bar), this fails: then pad the ScrollView by tab bar + safe area.
+    setOnboardingBackend({ hasDrivingLicense: true, vehicleCount: 1 });
+    resetMyVehicles([vehicleRow('v-1', 'TS09EV2345')]);
+    await launch();
+    await screen.findByTestId('dashboard-tiles');
+    const tabBar = screen.getByTestId('tab-bar');
+    expect(StyleSheet.flatten(tabBar.props.style).position).not.toBe('absolute');
+    expect(within(screen.getByTestId('dashboard')).queryByTestId('tab-bar')).toBeNull();
+    // The last content (Quick Links) is inside the scroll view, after the last tile row.
+    const scroll = within(screen.getByTestId('dashboard'));
+    expect(scroll.getByTestId('tile-challans')).toBeTruthy();
+    expect(scroll.getByTestId('quick-link-carpool')).toBeTruthy();
   });
 
   it('no vehicle: Book Service would be disabled; the task list replaces the tiles', async () => {

@@ -20,7 +20,13 @@
 | Side drawer | `png/side-drawer.png` | ![](screens/dashboard/p3-drawer.png) | Matches; on the 874pt-tall phone the last rows (Help, Change Language) scroll (the Figma frame is 1039pt). |
 | My Profile | `my-profile.png` | ![](screens/dashboard/p4-my-profile.png) | DOB / Emergency Contact show "Add" (no backend field yet); completion from the onboarding parts; Home tab selected (the design shows none). |
 | My Documents | `png/my-documents.png` | ![](screens/dashboard/p4-my-documents.png) | Status pills also show "Expiring soon" (orange) / "Expired" (red); "Change" only when there's more than one vehicle. |
-| Share Access | `png/share-access.png` | ![](screens/dashboard/p4-share-access.png) | Matches (mock data; API later). |
+| Share Access | `png/share-access.png` | ![](screens/dashboard/p4-share-access.png) | Seeded dev data (the design's two people); the app reads `vehicle_shares`. No Email button (no e-mail column). |
+| Dashboard, no data (2026-11-24) | — | ![](screens/dashboard/p5-dashboard-empty.png) | A vehicle, no documents / shares / bookings: every tile 0; Challans "0 Pending" in violet (below the fold here). |
+| Dashboard, no data, scrolled to the end (2026-11-24) | — | ![](screens/dashboard/p5-dashboard-empty-bottom.png) | Last tile row (My Documents / Challans "0 Pending"), the health banner (no score) and Quick Links all sit above the tab bar: the tab bar is laid out below the scroll view, not over it (taken with a temporary scrollToEnd, not committed). |
+| Share Access, no shares (2026-11-24) | — | ![](screens/dashboard/p5-share-access-empty.png) | Empty state "No access shared yet" + Share Access. |
+| Dashboard, no vehicle (2026-11-24) | `png/dashboard-incomplete-2.png` | ![](screens/dashboard/p5-dashboard-no-vehicle.png) | "No vehicle added" instead of the design's "N/A". |
+| Add new vehicle (2026-11-24) | — | ![](screens/dashboard/p5-add-vehicle.png) | Seeded master data (MG ZS Essence). |
+| RC → Add Manually (2026-11-24) | — | ![](screens/dashboard/p5-rc-add-manually.png) | "Your Vehicle details", seeded as in User Onboarding - 2b. |
 | My Vehicles | — (no Figma) | ![](screens/dashboard/p4-my-vehicles.png) | Placeholder list using the carousel card + "Add vehicle". |
 
 ## Data per element
@@ -30,9 +36,12 @@
 | Name, email, avatar | `user_details` (profile service) |
 | Vehicles (carousel, Vehicles tile, selector) | `user_vehicles` active, names embedded |
 | My Documents tile, list | `vdocs_*` rows + `user_driving_licenses` |
-| Share Access tile | `vehicle_shares` count (screen: mock people) |
-| Book Service tile | `service_bookings` count |
-| Service History, Challans, health 80%, Quick Links, bell, SOS | **static placeholders / Coming soon (TODO)** |
+| Share Access tile, screen | `vehicle_shares` (owner_id = uid, is_active), grouped per member; tile = number of people |
+| Book Service tile | `service_bookings` count, customer_id = uid, open statuses |
+| Service History tile | `service_bookings` count, customer_id = uid, service_completed … delivered |
+| Challans | no API: "0 Pending" (neutral) |
+| Health score | no API: ring hidden (was a static 80%) |
+| Quick Links, bell, SOS | Coming soon |
 | Profile completion % | onboarding parts done: profile (name + email), licence, a vehicle |
 
 ## Design questions
@@ -47,3 +56,13 @@
 6. **Header bell + SOS:** in the design but not in the brief; they open Coming soon.
 7. **Dog photo:** the dashboard SVG embeds an unrelated dog photo under the carousel car (hidden by the car
    image); not used in the app.
+
+## TODO
+
+- [ ] **Verify `service_bookings.customer_id` with a real booking** (with the Book Service API work).
+  The dashboard's Book Service / Service History counts filter `customer_id = <uid>`. Checked 2026-11-24
+  with `npx tsx scripts/probe-bookings-shares.ts` (read-only, fixed test login): the column exists
+  (an unknown column returns 42703), but the test account has **no booking**, so it's unproven that
+  `customer_id` holds the booking customer's user id (the web's bookings code reads it that way). Once a
+  booking exists for a test account, re-run the probe: it prints `customer_id === uid ?` for the first
+  visible booking. If it's false, fix the filter in `src/api/services/dashboard.service.ts` and its test.
