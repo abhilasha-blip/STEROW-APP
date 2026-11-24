@@ -175,3 +175,69 @@ describe('Book a Service – Step 2 Choose Service', () => {
     expect(screen.getByTestId('book-vehicle-v-1').props.accessibilityState).toMatchObject({ checked: true });
   });
 });
+
+/** … → Step 2 (Talk to Technician) → Step 3. */
+async function openStep3() {
+  await openStep2();
+  await fireEvent.press(screen.getByTestId('talk-to-technician'));
+  await fireEvent.press(screen.getByTestId('book-services-next'));
+  return screen.findByTestId('book-centre');
+}
+
+describe('Book a Service – Step 3 Choose Service Center', () => {
+  const c = t.centre;
+  const order = () => screen.getAllByTestId(/^centre-c-/).map(el => el.props.testID.replace('centre-', ''));
+
+  it('lists the 12 mock centres (Found (12)) with badges, rating and distance; Next needs a choice', async () => {
+    await openStep3();
+    expect(screen.getByTestId('booking-stepper-3-current')).toBeTruthy();
+    const first = await screen.findByTestId('centre-c-mg-gachibowli');
+    expect(screen.getByTestId('centre-found')).toHaveTextContent(c.found(12));
+    expect(order()).toHaveLength(12);
+    expect(first).toHaveTextContent(/MG Service Center-Gachibowli/);
+    expect(first).toHaveTextContent(new RegExp(`${c.badges.authorised}.*4\\.6 \\(320\\).*3\\.2 Km`));
+    expect(first).toHaveProp('accessibilityRole', 'radio');
+    expect(disabled('book-centre-next')).toBe(true);
+    await fireEvent.press(screen.getByTestId('centre-c-bosch-kondapur'));
+    expect(screen.getByTestId('centre-c-bosch-kondapur').props.accessibilityState).toMatchObject({ checked: true });
+    expect(disabled('book-centre-next')).toBe(false);
+  });
+
+  it('chips sort the list (single select): Nearest by distance, Top rated by rating', async () => {
+    await openStep3();
+    await screen.findByTestId('centre-c-mg-gachibowli');
+    expect(order()[0]).toBe('c-mg-gachibowli');
+    expect(screen.getByTestId('centre-sort-best').props.accessibilityState).toMatchObject({ checked: true });
+    await fireEvent.press(screen.getByTestId('centre-sort-rating'));
+    expect(order().slice(0, 2)).toEqual(['c-mg-kukatpally', 'c-mg-gachibowli']);
+    expect(screen.getByTestId('centre-sort-best').props.accessibilityState).toMatchObject({ checked: false });
+    await fireEvent.press(screen.getByTestId('centre-sort-nearest'));
+    expect(order()[0]).toBe('c-mg-gachibowli');
+    expect(order()[11]).toBe('c-mg-lbnagar');
+  });
+
+  it('search narrows the list; no match shows the empty state; a hidden choice disables Next', async () => {
+    await openStep3();
+    await fireEvent.press(await screen.findByTestId('centre-c-mg-gachibowli'));
+    await fireEvent.changeText(screen.getByTestId('centre-search'), 'kondapur');
+    expect(order()).toEqual(['c-bosch-kondapur']);
+    expect(screen.getByTestId('centre-found')).toHaveTextContent(c.found(1));
+    expect(disabled('book-centre-next')).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('centre-search'), 'zzz');
+    expect(screen.getByTestId('centre-empty')).toHaveTextContent(new RegExp(c.emptyTitle));
+    await fireEvent.press(screen.getByTestId('centre-clear'));
+    expect(order()).toHaveLength(12);
+    expect(disabled('book-centre-next')).toBe(false);
+  });
+
+  it('the filter sheet: distance + type, Apply filters the list and marks the button', async () => {
+    await openStep3();
+    await screen.findByTestId('centre-c-mg-gachibowli');
+    await fireEvent.press(screen.getByTestId('centre-filter-open'));
+    await fireEvent.press(await screen.findByTestId('filter-distance-10'));
+    await fireEvent.press(screen.getByTestId('filter-type-authorised'));
+    await fireEvent.press(screen.getByTestId('filter-apply'));
+    await waitFor(() => expect(order()).toEqual(['c-mg-gachibowli', 'c-mahindra-hitec', 'c-mg-kukatpally', 'c-mahindra-jubilee']));
+    expect(screen.getByTestId('centre-filter-dot')).toBeTruthy();
+  });
+});
