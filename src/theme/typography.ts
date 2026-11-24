@@ -137,6 +137,8 @@ export const variants = {
   bookingTitle: v(fontFamily.semiBold, 17, 22),
   /** Service rows ("Headlight Issue"), centre names, option-card titles. */
   rowTitle: v(fontFamily.semiBold, 15, 20),
+  /** Centre names (step3.svg: "MG Service Center-Gachibowli" fits one line beside the radio). */
+  centreName: v(fontFamily.semiBold, 14, 18),
   /** Vehicle numbers, row / option-card subtitles. */
   rowSubtitle: v(fontFamily.regular, 13, 17),
   /** Centre addresses, example prompts, the 0/500 counter. */

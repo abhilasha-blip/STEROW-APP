@@ -275,7 +275,13 @@ export default function SlotPickupScreen({ navigation }: BookServiceStackScreenP
         {slots.isLoading ? (
           <ActivityIndicator color={colors.input.lightSpinner} style={styles.loading} />
         ) : (
-          <View style={styles.slots} accessibilityRole="radiogroup" accessibilityLabel={t.timeA11y}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.slots}
+            accessibilityRole="radiogroup"
+            accessibilityLabel={t.timeA11y}
+          >
             {(slots.data ?? []).map(slot => {
               const past = !!date && isSlotPast(slot, date, now);
               const selected = slot.id === values.slot && !past;
@@ -297,7 +303,7 @@ export default function SlotPickupScreen({ navigation }: BookServiceStackScreenP
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         )}
 
         <View style={styles.divider} />
@@ -404,7 +410,7 @@ const makeStyles = ({ colors, radius }: Theme) =>
     dateText: { alignItems: 'center' },
     dateCheck: { alignSelf: 'flex-start', marginTop: 10, marginLeft: 6 },
     chipSelected: { borderColor: colors.booking.cardSelectedBorder },
-    slots: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    slots: { gap: 8, paddingRight: 4 },
     slotChip: {
       flexDirection: 'row',
       alignItems: 'center',

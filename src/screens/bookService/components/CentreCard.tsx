@@ -74,7 +74,7 @@ function CentreCard({ centre, selected, onSelect }: Props) {
       <Image source={centre.logo} style={styles.logo} accessibilityIgnoresInvertColors />
       <View style={styles.body}>
         <View style={styles.titleRow}>
-          <AppText variant="rowTitle" color="booking.text" style={styles.name} numberOfLines={2}>
+          <AppText variant="centreName" color="booking.text" style={styles.name} numberOfLines={2}>
             {centre.name}
           </AppText>
           <SelectionIndicator kind="radio" selected={selected} />

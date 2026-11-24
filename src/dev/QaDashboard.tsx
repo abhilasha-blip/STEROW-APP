@@ -6,7 +6,8 @@
  *
  * Scenarios: dashboard-complete, dashboard-incomplete (variant 1: a vehicle, no licence),
  * dashboard-incomplete-2 (variant 2: no vehicle), dashboard-empty (a vehicle, every count 0), drawer, the
- * drawer screens (my-profile, my-documents, share-access, share-access-empty, my-vehicles) and add-vehicle. App.tsx only requires this file under __DEV__.
+ * drawer screens (my-profile, my-documents, share-access, share-access-empty, my-vehicles), add-vehicle and
+ * the Book a Service steps (book-*, see BOOK_SERVICE_SCENARIOS). App.tsx only requires this file under __DEV__.
  */
 import React, { useEffect, useRef } from 'react';
 import { Platform, Settings } from 'react-native';
@@ -20,6 +21,8 @@ import { queryKeys } from '@/hooks/api/queryKeys';
 import MainNavigator from '@/navigation/MainNavigator';
 import type { HomeStackParamList } from '@/navigation/types';
 import { useAuthStore } from '@/store/auth.store';
+import { useBookingStore, type BookingValues } from '@/store/booking.store';
+import { toIsoDate } from '@/utils/bookingDates';
 import { QA_CATALOG } from './QaOnboarding';
 import { createNavigationTheme, useTheme } from '@/theme';
 
@@ -58,12 +61,56 @@ const DOCS: MyDocument[] = [
 
 type Scenario = {
   vehicles: MyVehicle[];
+  /** Params for `screen` (e.g. a Book a Service step). */
+  params?: object;
+  /** Booking store values seeded before the flow opens (Book a Service steps). */
+  booking?: () => Partial<BookingValues>;
   dl: typeof DL | null;
   counts: DashboardCounts;
   screen?: keyof HomeStackParamList;
   /** My Documents rows (default: DOCS). */
   docs?: MyDocument[];
   drawer?: boolean;
+};
+
+/**
+ * Book a Service (design/book-service). The booking values are seeded, the vehicles are the scenario's;
+ * add `-qaScroll end` (or a y offset) to scroll a step. Date = tomorrow.
+ */
+const HOME_ADDRESS = { id: 'a-home', label: 'Home', line: 'Survey No. 112, Gachibowli, Hyderabad' };
+const OFFICE_ADDRESS = { id: 'a-office', label: 'Office', line: 'Plot 7, Hitec City Phase 2, Hyderabad' };
+const tomorrow = () => toIsoDate(new Date(Date.now() + 24 * 3600 * 1000));
+const step3 = { vehicleId: 'v1', talkToTechnician: true, centreId: 'c-mg-gachibowli' };
+const slot = () => ({ ...step3, date: tomorrow(), slot: 'slot-9', phoneCountry: 'IN' as const });
+const pickupOn = { enabled: true, address: HOME_ADDRESS, phone: '9876543210' };
+const dropOff = { enabled: false, sameAsPickup: false, confirmLater: false, address: null, phone: '' };
+const book = (step: 'BookVehicle' | 'BookServices' | 'BookCentre' | 'BookSlot', booking?: () => Partial<BookingValues>): Scenario => ({
+  vehicles: VEHICLES,
+  dl: DL,
+  counts: COUNTS,
+  screen: 'BookService',
+  params: { screen: step },
+  booking,
+});
+const BOOK_SERVICE_SCENARIOS: Record<string, Scenario> = {
+  'book-step1': book('BookVehicle', () => ({ vehicleId: 'v1' })),
+  'book-step1-empty': { ...book('BookVehicle'), vehicles: [] },
+  'book-step2-concern': book('BookServices', () => ({ vehicleId: 'v1', concern: 'Brakes squeak when stopping and the AC is not cooling.' })),
+  'book-step2-technician': book('BookServices', () => ({ vehicleId: 'v1', talkToTechnician: true })),
+  'book-step2-custom': book('BookServices', () => ({ vehicleId: 'v1', serviceMode: 'custom', services: ['headlight', 'brake-pads'] })),
+  'book-step3': book('BookCentre', () => step3),
+  'book-step4': book('BookSlot', () => ({ ...step3, date: tomorrow(), slot: 'slot-9' })),
+  'book-step4-pickup': book('BookSlot', () => ({ ...slot(), pickup: pickupOn, drop: dropOff })),
+  'book-step4-same': book('BookSlot', () => ({ ...slot(), pickup: pickupOn, drop: { ...dropOff, enabled: true, sameAsPickup: true } })),
+  'book-step4-own-drop': book('BookSlot', () => ({
+    ...slot(),
+    pickup: pickupOn,
+    drop: { ...dropOff, enabled: true, address: OFFICE_ADDRESS, phone: '9876543211' },
+  })),
+  'book-step4-later': book('BookSlot', () => ({ ...slot(), pickup: pickupOn, drop: { ...dropOff, enabled: true, confirmLater: true } })),
+  'book-step4-drop-only': book('BookSlot', () => ({ ...slot(), drop: { ...dropOff, enabled: true, address: OFFICE_ADDRESS, phone: '9876543210' } })),
+  'book-success': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'BookingSuccess' },
+  'my-bookings': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyBookings' },
 };
 
 export const QA_DASHBOARD_SCENARIOS: Record<string, Scenario> = {
@@ -79,6 +126,7 @@ export const QA_DASHBOARD_SCENARIOS: Record<string, Scenario> = {
   'share-access-empty': { vehicles: VEHICLES.slice(0, 1), dl: DL, counts: ZERO_COUNTS, screen: 'ShareAccess' },
   'add-vehicle': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'AddVehicle' },
   'my-vehicles': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyVehicles' },
+  ...BOOK_SERVICE_SCENARIOS,
 };
 
 export function getQaDashboardScenarioName(): string | null {
@@ -114,6 +162,9 @@ function seed(s: Scenario) {
   queryClient.setQueryDefaults(queryKeys.vehicleCatalog(), fresh);
   queryClient.setQueryData(queryKeys.vehicleCatalog(), QA_CATALOG);
   qaSeeders.forEach(f => f(UID, s));
+  if (s.booking) {
+    useBookingStore.setState(s.booking());
+  }
   useAuthStore.setState({
     user: { id: UID, fullName: PROFILE.fullName, phone: '9876543210', roles: ['user'], permissions: [] },
   });
@@ -135,7 +186,7 @@ export default function QaDashboard({ name }: { name: string }) {
         navRef.dispatch(DrawerActions.openDrawer());
       } else if (scenario.screen) {
         // @ts-expect-error nested navigate from the root ref (dev only)
-        navRef.navigate('Tabs', { screen: 'HomeTab', params: { screen: scenario.screen } });
+        navRef.navigate('Tabs', { screen: 'HomeTab', params: { screen: scenario.screen, params: scenario.params } });
       }
     }, 600);
     return () => clearTimeout(t);
