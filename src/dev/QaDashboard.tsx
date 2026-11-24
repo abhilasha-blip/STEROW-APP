@@ -14,6 +14,7 @@ import { DrawerActions, NavigationContainer, createNavigationContainerRef } from
 import { queryClient } from '@/api/queryClient';
 import type { DashboardCounts } from '@/api/services/dashboard.service';
 import type { MyDocument } from '@/api/services/myDocuments.service';
+import type { SharedPerson } from '@/api/services/shareAccess.service';
 import type { MyVehicle } from '@/api/services/vehicle.service';
 import { queryKeys } from '@/hooks/api/queryKeys';
 import MainNavigator from '@/navigation/MainNavigator';
@@ -39,7 +40,13 @@ const vehicle = (id: string, number: string, make: string, model: string): MyVeh
 const VEHICLES = [vehicle('v1', 'TS09 EV 2345', 'MG', 'ZS EV'), vehicle('v2', 'TS09AB1234', 'Hyundai', 'Creta'), vehicle('v3', 'TS08CD5678', 'Tata', 'Nexon')];
 const PROFILE = { fullName: 'John Cooper', email: 'john.doe@example.com', avatarPath: null, avatarUrl: null };
 const DL = { dlNumber: 'DL0000000000000', documentPath: null, previewUrl: null, issuedOn: '2020-05-15', validUpto: '2040-05-15' };
-const COUNTS: DashboardCounts = { documents: 5, shares: 2, bookings: 5 };
+const COUNTS: DashboardCounts = { documents: 5, shares: 2, bookings: 1, serviceHistory: 3 };
+const ZERO_COUNTS: DashboardCounts = { documents: 0, shares: 0, bookings: 0, serviceHistory: 0 };
+/** share-access.svg's two people (sample data for screenshots only). */
+const SHARED_PEOPLE: SharedPerson[] = [
+  { id: 'p1', name: 'Rajesh Kumar', phone: '9876543210', role: 'driver', verified: true, vehicleIds: ['v1', 'v2'] },
+  { id: 'p2', name: 'Priya Sharma', phone: '9876543211', role: 'family', verified: true, vehicleIds: ['v1', 'v2'] },
+];
 /** my-documents.png's list (expiries chosen to show Active / Expiring soon / Expired). */
 const DOCS: MyDocument[] = [
   { key: 'insurance', id: 'd1', issuer: 'ICICI Lombard', expiry: '2027-01-15', documentPath: 'x/policy.pdf', bucket: 'vehicle-docs' },
@@ -58,8 +65,8 @@ type Scenario = {
 
 export const QA_DASHBOARD_SCENARIOS: Record<string, Scenario> = {
   'dashboard-complete': { vehicles: VEHICLES, dl: DL, counts: COUNTS },
-  'dashboard-incomplete': { vehicles: VEHICLES.slice(0, 1), dl: null, counts: { documents: 0, shares: 0, bookings: 0 } },
-  'dashboard-incomplete-2': { vehicles: [], dl: null, counts: { documents: 0, shares: 0, bookings: 0 } },
+  'dashboard-incomplete': { vehicles: VEHICLES.slice(0, 1), dl: null, counts: ZERO_COUNTS },
+  'dashboard-incomplete-2': { vehicles: [], dl: null, counts: ZERO_COUNTS },
   drawer: { vehicles: VEHICLES, dl: DL, counts: COUNTS, drawer: true },
   'my-profile': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyProfile' },
   'my-documents': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyDocuments' },
@@ -85,6 +92,7 @@ function seed(s: Scenario) {
     queryKeys.drivingLicenceStep(UID),
     queryKeys.myVehicles(UID),
     queryKeys.dashboardCounts(UID),
+    queryKeys.sharedPeople(UID),
   ]) {
     queryClient.setQueryDefaults(key, fresh);
   }
@@ -92,6 +100,7 @@ function seed(s: Scenario) {
   queryClient.setQueryData(queryKeys.drivingLicenceStep(UID), s.dl);
   queryClient.setQueryData(queryKeys.myVehicles(UID), s.vehicles);
   queryClient.setQueryData(queryKeys.dashboardCounts(UID), s.counts);
+  queryClient.setQueryData(queryKeys.sharedPeople(UID), s.counts.shares ? SHARED_PEOPLE : []);
   const docsKey = [...queryKeys.vehicleDocuments(UID), s.vehicles[0]?.id ?? null];
   queryClient.setQueryDefaults(docsKey, fresh);
   queryClient.setQueryData(docsKey, DOCS);

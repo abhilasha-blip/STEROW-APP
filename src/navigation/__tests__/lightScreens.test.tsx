@@ -5,6 +5,7 @@ import {
   makeSession,
   resetMyVehicles,
   setOnboardingBackend,
+  setShareRows,
   setVdocs,
   vehicleRow,
 } from '../../../test/msw/fixtures';
@@ -125,15 +126,32 @@ describe('My Profile', () => {
 });
 
 describe('Share Access and My Vehicles', () => {
-  it('Share Access: person cards (verified, role, Call / Email, vehicle chips) + the button', async () => {
+  it('Share Access: one card per person from vehicle_shares (verified, role, Call, vehicle chips) + the button', async () => {
+    setShareRows([
+      { id: 's1', vehicle_id: 'v-1', member_user_id: 'u-2', member_phone: '9000000001', member_name: 'Asha Rao', member_role: 'driver', status: 'active' },
+      { id: 's2', vehicle_id: 'v-2', member_user_id: 'u-2', member_phone: '9000000001', member_name: 'Asha Rao', member_role: 'driver', status: 'active' },
+      { id: 's3', vehicle_id: 'v-2', member_user_id: null, member_phone: '9000000002', member_name: 'Dev Rao', member_role: 'family', status: 'pending' },
+    ]);
     await openFromDrawer('share');
-    const card = await screen.findByTestId('person-p1');
-    expect(card).toHaveTextContent(/Rajesh Kumar/);
+    const card = await screen.findByTestId('person-s1');
+    expect(card).toHaveTextContent(/Asha Rao/);
     expect(within(card).getByText(strings.shareAccess.verified)).toBeTruthy();
-    expect(within(card).getByText('Personal Driver')).toBeTruthy();
-    expect(within(card).getByText('TS09EV2345')).toBeTruthy();
-    expect(screen.getByTestId('person-p2')).toHaveTextContent(/Family Member/);
+    expect(within(card).getByText(strings.shareAccess.roles.driver)).toBeTruthy();
+    await waitFor(() => expect(within(card).getByText('TS09EV2345')).toBeTruthy());
+    expect(within(card).getByText('TS09AB1234')).toBeTruthy();
+    expect(screen.getByTestId('person-s1-call')).toBeTruthy();
+    const pending = screen.getByTestId('person-s3');
+    expect(pending).toHaveTextContent(new RegExp(strings.shareAccess.roles.family));
+    expect(within(pending).queryByText(strings.shareAccess.verified)).toBeNull();
+    expect(screen.queryByTestId('share-access-empty')).toBeNull();
     expect(screen.getByTestId('share-access-cta')).toHaveTextContent(strings.shareAccess.cta);
+  });
+
+  it('Share Access with no shares: empty state + the button', async () => {
+    await openFromDrawer('share');
+    expect(await screen.findByTestId('share-access-empty')).toHaveTextContent(new RegExp(strings.shareAccess.emptyTitle));
+    expect(screen.queryByText(/Rajesh|Priya/)).toBeNull();
+    expect(screen.getByTestId('share-access-cta')).toBeTruthy();
   });
 
   it('My Vehicles: the vehicle cards + "Add vehicle"', async () => {

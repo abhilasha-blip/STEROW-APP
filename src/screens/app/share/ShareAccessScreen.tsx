@@ -1,55 +1,22 @@
 import React from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import Mail from '@/assets/icons/dashboard/mail.svg';
 import Person from '@/assets/icons/dashboard/person.svg';
 import Phone from '@/assets/icons/dashboard/phone.svg';
 import Share from '@/assets/icons/dashboard/share.svg';
 import AppText from '@/components/AppText';
-import AvatarCircle from '@/components/AvatarCircle';
 import LightScreen from '@/components/LightScreen';
 import PrimaryButton from '@/components/PrimaryButton';
-import type { AvatarId } from '@/constants/avatars';
+import { toUserError } from '@/api/errorMessages';
+import type { SharedPerson } from '@/api/services/shareAccess.service';
 import { strings } from '@/constants/strings';
+import { useMyVehicles } from '@/hooks/api/useDocumentsStep';
+import { useSharedPeople } from '@/hooks/api/useShareAccess';
 import type { HomeStackScreenProps } from '@/navigation/types';
+import { useAuthStore } from '@/store/auth.store';
 import { useTheme, useThemedStyles, type Theme } from '@/theme';
 
 const t = strings.shareAccess;
-
-export type SharedPerson = {
-  id: string;
-  name: string;
-  role: string;
-  verified: boolean;
-  phone: string;
-  email: string;
-  avatar: AvatarId | null;
-  vehicles: string[];
-};
-
-/** TODO(api): vehicle_shares + share invites. Mock people from share-access.svg until then. */
-export const MOCK_SHARED_PEOPLE: SharedPerson[] = [
-  {
-    id: 'p1',
-    name: 'Rajesh Kumar',
-    role: 'Personal Driver',
-    verified: true,
-    phone: '+919876543210',
-    email: 'rajesh@example.com',
-    avatar: null,
-    vehicles: ['TS09EV2345', 'TS09AB1234'],
-  },
-  {
-    id: 'p2',
-    name: 'Priya Sharma',
-    role: 'Family Member',
-    verified: true,
-    phone: '+919876543211',
-    email: 'priya@example.com',
-    avatar: 'avatar-05',
-    vehicles: ['TS09EV2345', 'TS09AB1234'],
-  },
-];
 
 /** The green "Verified" shield (share-access.svg), drawn with theme colours. */
 export function VerifiedShield({ size = 14, color, checkColor }: { size?: number; color: string; checkColor: string }) {
@@ -62,10 +29,16 @@ export function VerifiedShield({ size = 14, color, checkColor }: { size?: number
 }
 
 /**
- * Share Access (design/dashboard/share-access.svg): person cards (avatar, name, Verified, role, Call /
- * Email, the shared vehicle numbers) + "Share Access". UI only: mock data until the share API is wired.
+ * Share Access (design/dashboard/share-access.svg): one card per person the signed-in user shares their
+ * vehicles with (vehicle_shares, owner_id = uid): name, Verified, role, Call, the shared vehicle
+ * numbers; "Share Access" at the bottom. No shares → an empty state.
  */
 export default function ShareAccessScreen({ navigation }: HomeStackScreenProps<'ShareAccess'>) {
+  const { colors } = useTheme();
+  const uid = useAuthStore(s => s.user?.id);
+  const people = useSharedPeople(uid);
+  const vehicles = useMyVehicles(uid);
+  const numberOf = (id: string) => vehicles.data?.find(v => v.id === id)?.vehicleNumber;
   return (
     <LightScreen
       testID="share-access"
@@ -74,11 +47,32 @@ export default function ShareAccessScreen({ navigation }: HomeStackScreenProps<'
       aboveTabs
       footer={<ShareButton onPress={() => navigation.navigate('ComingSoon', { title: t.cta })} />}
     >
-      <View style={styles.list}>
-        {MOCK_SHARED_PEOPLE.map(p => (
-          <PersonCard key={p.id} person={p} />
-        ))}
-      </View>
+      {people.isLoading ? (
+        <ActivityIndicator testID="share-access-loading" color={colors.input.lightSpinner} />
+      ) : people.isError ? (
+        <AppText testID="share-access-error" variant="body" color="text.onLightMuted">
+          {toUserError(people.error).userMessage}
+        </AppText>
+      ) : people.data?.length ? (
+        <View style={styles.list}>
+          {people.data.map(p => (
+            <PersonCard
+              key={p.id}
+              person={p}
+              vehicleNumbers={p.vehicleIds.map(numberOf).filter((n): n is string => !!n)}
+            />
+          ))}
+        </View>
+      ) : (
+        <View testID="share-access-empty" style={styles.empty}>
+          <AppText variant="cardTitle" color="dashboard.sectionTitle">
+            {t.emptyTitle}
+          </AppText>
+          <AppText variant="body" color="text.onLightMuted" style={styles.emptyBody}>
+            {t.emptyBody}
+          </AppText>
+        </View>
+      )}
     </LightScreen>
   );
 }
@@ -97,23 +91,20 @@ function ShareButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-function PersonCard({ person }: { person: SharedPerson }) {
+function PersonCard({ person, vehicleNumbers }: { person: SharedPerson; vehicleNumbers: string[] }) {
   const { colors } = useTheme();
   const s = useThemedStyles(makeStyles);
+  const name = person.name || person.phone || t.unnamed;
   return (
     <View testID={`person-${person.id}`} style={s.card}>
       <View style={s.top}>
-        {person.avatar ? (
-          <AvatarCircle avatar={{ type: 'preset', id: person.avatar }} size={48} />
-        ) : (
-          <View style={s.placeholder}>
-            <Person width={24} height={24} color={colors.dashboard.muted} />
-          </View>
-        )}
+        <View style={s.placeholder}>
+          <Person width={24} height={24} color={colors.dashboard.muted} />
+        </View>
         <View style={s.who}>
           <View style={s.nameRow}>
             <AppText variant="cardTitle" color="dashboard.sectionTitle">
-              {person.name}
+              {name}
             </AppText>
             {person.verified && (
               <View style={s.verified} accessibilityLabel={t.verified}>
@@ -124,54 +115,55 @@ function PersonCard({ person }: { person: SharedPerson }) {
               </View>
             )}
           </View>
-          <AppText variant="cardSubtitle" color="dashboard.muted">
-            {person.role}
-          </AppText>
+          {person.role && (
+            <AppText variant="cardSubtitle" color="dashboard.muted">
+              {t.roles[person.role]}
+            </AppText>
+          )}
         </View>
       </View>
-      <View style={s.actions}>
-        <Pressable
-          testID={`person-${person.id}-call`}
-          style={({ pressed }) => [s.action, pressed && s.pressed]}
-          onPress={() => Linking.openURL(`tel:${person.phone}`)}
-          accessibilityRole="button"
-          accessibilityLabel={`${t.call} ${person.name}`}
-        >
-          <Phone width={18} height={18} color={colors.dashboard.muted} />
-          <AppText variant="cardTitle" color="dashboard.count">
-            {t.call}
-          </AppText>
-        </Pressable>
-        <Pressable
-          testID={`person-${person.id}-email`}
-          style={({ pressed }) => [s.action, pressed && s.pressed]}
-          onPress={() => Linking.openURL(`mailto:${person.email}`)}
-          accessibilityRole="button"
-          accessibilityLabel={`${t.email} ${person.name}`}
-        >
-          <Mail width={18} height={18} color={colors.dashboard.muted} />
-          <AppText variant="cardTitle" color="dashboard.count">
-            {t.email}
-          </AppText>
-        </Pressable>
-      </View>
-      <View style={s.divider} />
-      <View style={s.chips}>
-        {person.vehicles.map(v => (
-          <View key={v} style={s.chip}>
-            <AppText variant="tinyStrong" color="dashboard.tileTitle">
-              {v}
+      {person.phone && (
+        <View style={s.actions}>
+          <Pressable
+            testID={`person-${person.id}-call`}
+            style={({ pressed }) => [s.action, pressed && s.pressed]}
+            onPress={() => Linking.openURL(`tel:${person.phone}`)}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.call} ${name}`}
+          >
+            <Phone width={18} height={18} color={colors.dashboard.muted} />
+            <AppText variant="cardTitle" color="dashboard.count">
+              {t.call}
             </AppText>
+          </Pressable>
+        </View>
+      )}
+      {vehicleNumbers.length > 0 && (
+        <>
+          <View style={s.divider} />
+          <View style={s.chips}>
+            {vehicleNumbers.map(v => (
+              <View key={v} style={s.chip}>
+                <AppText variant="tinyStrong" color="dashboard.tileTitle">
+                  {v}
+                </AppText>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
+        </>
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({ list: { gap: 12 } });
+const styles = StyleSheet.create({
+  list: { gap: 12 },
+  empty: { alignItems: 'center', paddingVertical: 32 },
+  emptyBody: { marginTop: 8, textAlign: 'center' },
+});
 
-/* share-access.svg: card 354×196 (r12), avatar 48, Verified pill (green 16%), Call / Email 157×36 (r8),
+/* share-access.svg: card 354×196 (r12), avatar 48, Verified pill (green 16%), Call / Email 157×36 (r8; Email
+   is not shown: vehicle_shares has no e-mail column),
    chips 24pt (r12, violet 8% + 40% border). */
 const makeStyles = ({ colors, radius }: Theme) =>
   StyleSheet.create({

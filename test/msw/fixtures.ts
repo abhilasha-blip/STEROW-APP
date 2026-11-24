@@ -113,6 +113,16 @@ export function resetCounts(): void {
   }
 }
 
+/** service_bookings HEAD with `status=in.(…serviced…)` (the Service History tile) reads this key. */
+export const SERVICE_HISTORY_COUNT = 'service_bookings:history';
+
+/** vehicle_shares rows (GET, Share Access); reset before each test. Default: none. */
+export const shareRows: Record<string, unknown>[] = [];
+export function setShareRows(rows: Record<string, unknown>[]): void {
+  shareRows.length = 0;
+  shareRows.push(...rows);
+}
+
 /** vdocs rows per table (GET <table>?vehicle_id=eq.<id>); reset before each test. */
 export const vdocsRows: Record<string, Record<string, unknown>[]> = {};
 export function setVdocs(table: string, rows: Record<string, unknown>[]): void {

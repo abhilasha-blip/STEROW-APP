@@ -10,11 +10,12 @@ import ProgressRing from './ProgressRing';
 
 const BANNER = require('@/assets/images/dashboard/health-banner.jpg');
 const t = strings.dashboard.health;
-/** TODO(backend): vehicle health score. Static until there is an API. */
-const HEALTH_PERCENT = 80;
-
-/** dashboard.svg "Check your vehicle health" banner: 354×160 (r20) photo + dark gradient + 80% ring. */
-function HealthBanner({ onPress }: { onPress: () => void }) {
+/**
+ * dashboard.svg "Check your vehicle health" banner: 354×160 (r20) photo + dark gradient + the health ring.
+ * TODO(backend): there is no vehicle health score API yet, so `percent` is null and the ring is hidden
+ * (never a made-up score).
+ */
+function HealthBanner({ percent = null, onPress }: { percent?: number | null; onPress: () => void }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
@@ -22,7 +23,7 @@ function HealthBanner({ onPress }: { onPress: () => void }) {
       testID="health-banner"
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={t.a11y(HEALTH_PERCENT)}
+      accessibilityLabel={percent === null ? t.a11yNoScore : t.a11y(percent)}
       style={({ pressed }) => [styles.banner, pressed && styles.pressed]}
     >
       <Image source={BANNER} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -49,23 +50,25 @@ function HealthBanner({ onPress }: { onPress: () => void }) {
           <ArrowRight width={14} height={12} color={colors.dashboard.banner} />
         </View>
       </View>
-      <View style={styles.ringCircle}>
-        <ProgressRing
-          size={92}
-          strokeWidth={10}
-          percent={HEALTH_PERCENT}
-          trackColor={colors.dashboard.healthRingTrack}
-          fillColor={colors.dashboard.healthRingFill}
-        >
-          <AppText variant="ringValue" color="dashboard.onImage">{`${HEALTH_PERCENT}%`}</AppText>
-          <AppText variant="tinyStrong" color="dashboard.onImage">
-            {t.healthy}
-          </AppText>
-        </ProgressRing>
-        <View style={styles.check}>
-          <CheckCircle width={22} height={22} color={colors.dashboard.healthCheck} />
+      {percent !== null && (
+        <View style={styles.ringCircle}>
+          <ProgressRing
+            size={92}
+            strokeWidth={10}
+            percent={percent}
+            trackColor={colors.dashboard.healthRingTrack}
+            fillColor={colors.dashboard.healthRingFill}
+          >
+            <AppText variant="ringValue" color="dashboard.onImage">{`${percent}%`}</AppText>
+            <AppText variant="tinyStrong" color="dashboard.onImage">
+              {t.healthy}
+            </AppText>
+          </ProgressRing>
+          <View style={styles.check}>
+            <CheckCircle width={22} height={22} color={colors.dashboard.healthCheck} />
+          </View>
         </View>
-      </View>
+      )}
     </Pressable>
   );
 }

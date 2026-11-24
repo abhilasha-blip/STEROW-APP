@@ -2,9 +2,11 @@ import { http, HttpResponse } from 'msw';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { getSupabase, __resetSupabaseForTests } from '@/api/supabase';
 import { strings } from '@/constants/strings';
+import { colors } from '@/theme/colors';
 import { markOnboardingSkipped } from '@/storage/onboardingFlags';
 import {
   UID,
+  SERVICE_HISTORY_COUNT,
   makeSession,
   resetMyVehicles,
   setCounts,
@@ -35,7 +37,7 @@ describe('Dashboard', () => {
   it('complete: header, vehicle carousel, tile grid with real counts, health banner, quick links, tabs', async () => {
     setOnboardingBackend({ hasDrivingLicense: true, vehicleCount: 2 });
     resetMyVehicles([vehicleRow('v-1', 'TS09EV2345'), vehicleRow('v-2', 'TS09AB1234')]);
-    setCounts({ vdocs_insurance: 3, vehicle_shares: 2, service_bookings: 5 });
+    setCounts({ vdocs_insurance: 3, vehicle_shares: 2, service_bookings: 5, [SERVICE_HISTORY_COUNT]: 4 });
     await launch();
     expect(await screen.findByText('Welcome Test!')).toBeTruthy();
     expect(screen.getByTestId('dashboard-email')).toHaveTextContent('test-user@sterow.test');
@@ -45,7 +47,8 @@ describe('Dashboard', () => {
     await waitFor(() => expect(screen.getByTestId('tile-documents')).toHaveTextContent(new RegExp(t.available('4')))); // 3 + DL
     expect(screen.getByTestId('tile-share-access')).toHaveTextContent(new RegExp(t.available('2')));
     expect(screen.getByTestId('tile-book-service')).toHaveTextContent(new RegExp(t.records('5')));
-    expect(screen.getByTestId('tile-challans')).toHaveTextContent(new RegExp(t.pending('1'))); // TODO static
+    expect(screen.getByTestId('tile-service-history')).toHaveTextContent(new RegExp(t.records('4')));
+    expect(screen.getByTestId('tile-challans')).toHaveTextContent(new RegExp(t.pending('0'))); // no API yet
     expect(screen.queryByTestId('profile-pending')).toBeNull(); // 100%
     expect(screen.getByTestId('health-banner')).toBeTruthy();
     expect(screen.getByTestId('quick-link-carpool').props.accessibilityState).toMatchObject({ disabled: true });
@@ -53,6 +56,38 @@ describe('Dashboard', () => {
       expect(screen.getByTestId(`tab-${tab}`)).toBeTruthy();
     }
     expect(screen.getByTestId('tab-HomeTab').props.accessibilityState).toMatchObject({ selected: true });
+  });
+
+  it('empty API responses: every tile shows 0, challans not red, no health score, Share Access empty', async () => {
+    setOnboardingBackend({ hasDrivingLicense: false, vehicleCount: 1 });
+    resetMyVehicles([vehicleRow('v-1', 'TS09EV2345')]);
+    server.use(http.get(urls.drivingLicenses, () => HttpResponse.json([])));
+    await launch(['dl']);
+    await waitFor(() => expect(screen.getByTestId('tile-documents')).toHaveTextContent(new RegExp(t.available('0'))));
+    expect(screen.getByTestId('tile-vehicles')).toHaveTextContent(new RegExp(t.available('1')));
+    expect(screen.getByTestId('tile-share-access')).toHaveTextContent(new RegExp(t.available('0')));
+    expect(screen.getByTestId('tile-book-service')).toHaveTextContent(new RegExp(t.records('0')));
+    expect(screen.getByTestId('tile-service-history')).toHaveTextContent(new RegExp(t.records('0')));
+    const challans = screen.getByTestId('tile-challans');
+    expect(challans).toHaveTextContent(new RegExp(t.pending('0')));
+    const challanCount = within(challans).getByText(t.pending('0'));
+    expect(challanCount).toHaveStyle({ color: colors.dashboard.count });
+    expect(challanCount).not.toHaveStyle({ color: colors.dashboard.countAlert });
+    expect(screen.getByTestId('health-banner').props.accessibilityLabel).toBe(t.health.a11yNoScore);
+    expect(screen.queryByText('80%')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('tile-share-access'));
+    const empty = await screen.findByTestId('share-access-empty');
+    expect(empty).toHaveTextContent(new RegExp(strings.shareAccess.emptyTitle));
+    expect(screen.queryByTestId(/^person-/)).toBeNull();
+    expect(screen.getByTestId('share-access-cta')).toHaveTextContent(strings.shareAccess.cta);
+  });
+
+  it('no vehicle: Book Service would be disabled; the task list replaces the tiles', async () => {
+    setOnboardingBackend({ hasDrivingLicense: true, vehicleCount: 0 });
+    await launch(['documents']);
+    expect(await screen.findByTestId('vehicle-placeholder')).toBeTruthy();
+    expect(screen.queryByTestId('tile-book-service')).toBeNull();
   });
 
   it('incomplete, no vehicle (variant 2): "Your Profile info pending" 67%, N/A card, task list', async () => {

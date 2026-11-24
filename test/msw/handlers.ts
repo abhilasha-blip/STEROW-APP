@@ -20,6 +20,9 @@ import {
   resetMyVehicles,
   countsBackend,
   resetCounts,
+  SERVICE_HISTORY_COUNT,
+  shareRows,
+  setShareRows,
   vdocsRows,
   resetVdocs,
   vehicleRow,
@@ -51,6 +54,7 @@ export function resetHandlerState(): void {
   resetMyVehicles();
   resetCounts();
   resetVdocs();
+  setShareRows([]);
 }
 
 /** Happy-path defaults; tests override with server.use(...). */
@@ -160,8 +164,10 @@ export const handlers = [
   ].map(table =>
     http.head(urls.table(table), async ({ request }) => {
       await log(request);
+      const status = new URL(request.url).searchParams.get('status') ?? '';
+      const key = table === REST.SERVICE_BOOKINGS && status.startsWith('in.') ? SERVICE_HISTORY_COUNT : table;
       const n =
-        countsBackend[table] ??
+        countsBackend[key] ??
         (table === REST.USER_DRIVING_LICENSES ? (onboardingBackend.hasDrivingLicense ? 1 : 0) : 0);
       return new HttpResponse(null, { status: 200, headers: { 'Content-Range': n ? `0-${n - 1}/${n}` : '*/0' } });
     }),
@@ -173,6 +179,10 @@ export const handlers = [
       return HttpResponse.json((vdocsRows[table] ?? []).filter(r => !vehicle || r.vehicle_id === vehicle));
     }),
   ),
+  http.get(urls.table(REST.VEHICLE_SHARES), async ({ request }) => {
+    await log(request);
+    return HttpResponse.json(shareRows);
+  }),
   http.get(urls.userVehicles, async ({ request }) => {
     await log(request);
     return HttpResponse.json(myVehicles);

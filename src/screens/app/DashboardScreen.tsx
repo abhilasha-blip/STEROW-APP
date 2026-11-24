@@ -25,8 +25,8 @@ import { useAuthStore } from '@/store/auth.store';
 
 const t = strings.dashboard;
 
-/** TODO(backend): service history and challans have no API yet: static placeholders. */
-const STATIC_COUNTS = { serviceHistory: 0, challans: 1 };
+/** TODO(backend): challans have no API yet, so the tile shows 0 (neutral, never the red alert). */
+const CHALLANS_PENDING = 0;
 
 const fmt = (n: number | null) => (n === null ? t.unknownCount : String(n));
 
@@ -36,7 +36,8 @@ const fmt = (n: number | null) => (n === null ? t.unknownCount : String(n));
  * - incomplete (profile / licence / vehicle missing): lime "Your Profile info pending" banner first; with
  *   no vehicle, the "N/A" card + task list (variant 2) replaces the carousel + grid. (Variant 1, the grid
  *   with 0 counts, is shown for an incomplete profile that has a vehicle.)
- * Counts: vehicles, documents, shares and bookings are real; service history and challans are TODO.
+ * Counts: vehicles, documents, shares, bookings and service history are real (0 when empty, "–" when a
+ * count can't be read); challans have no API yet and show 0.
  */
 export default function DashboardScreen({ navigation }: HomeStackScreenProps<'Home'>) {
   const styles = useThemedStyles(makeStyles);
@@ -134,7 +135,7 @@ export default function DashboardScreen({ navigation }: HomeStackScreenProps<'Ho
                   testID="tile-service-history"
                   icon={Wrench}
                   title={t.tiles.serviceHistory}
-                  count={t.records(String(STATIC_COUNTS.serviceHistory))}
+                  count={t.records(fmt(data.counts.serviceHistory))}
                   onPress={() => comingSoon(t.tiles.serviceHistory)}
                 />
               </View>
@@ -150,8 +151,7 @@ export default function DashboardScreen({ navigation }: HomeStackScreenProps<'Ho
                   testID="tile-challans"
                   icon={File}
                   title={t.tiles.challans}
-                  count={t.pending(String(STATIC_COUNTS.challans))}
-                  alert={STATIC_COUNTS.challans > 0}
+                  count={t.pending(String(CHALLANS_PENDING))}
                   onPress={() => comingSoon(t.tiles.challans)}
                 />
               </View>

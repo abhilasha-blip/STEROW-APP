@@ -13,4 +13,6 @@ export const queryKeys = {
   /** Document rows per vehicle (My Documents, dashboard counts). */
   vehicleDocuments: (uid: string) => ['vehicles', 'documents', uid] as const,
   dashboardCounts: (uid: string) => ['dashboard', 'counts', uid] as const,
+  /** Shares on the user's own vehicles (Share Access). */
+  sharedPeople: (uid: string) => ['shares', 'people', uid] as const,
 } as const;

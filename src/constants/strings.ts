@@ -87,7 +87,7 @@ export const strings = {
     profilePending: 'Your Profile info pending',
     completeNow: 'Complete Now',
     profilePendingA11y: (p: number) => `Your profile info is pending, ${p}% complete. Complete now`,
-    noVehicleTitle: 'N/A',
+    noVehicleTitle: 'No vehicle added',
     noVehicleSubtitle: 'Update your vehicle info',
     unknownCount: '–',
     tiles: {
@@ -115,6 +115,7 @@ export const strings = {
       cta: 'Check Now',
       healthy: 'Healthy',
       a11y: (p: number) => `Check your vehicle health. ${p}% healthy. Check now`,
+      a11yNoScore: 'Check your vehicle health. Check now',
     },
     quickLinks: {
       title: 'Quick Links',
@@ -204,10 +205,13 @@ export const strings = {
     title: 'Share Access',
     verified: 'Verified',
     call: 'Call',
-    email: 'Email',
     cta: 'Share Access',
-    /** TODO(api): vehicle_shares + invites; mock people until then. */
-    mockNote: 'Sample data',
+    emptyTitle: 'No access shared yet',
+    emptyBody: 'Share your vehicle with family members or a driver.',
+    /** A share without a member name or phone. */
+    unnamed: 'Unnamed member',
+    /** vehicle_shares.member_role */
+    roles: { owner: 'Co-owner', family: 'Family Member', driver: 'Driver', guest: 'Guest' },
   },
   myVehicles: {
     title: 'My Vehicles',

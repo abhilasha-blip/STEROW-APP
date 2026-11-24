@@ -25,7 +25,7 @@ export type DashboardData = {
   loading: boolean;
 };
 
-const EMPTY_COUNTS: DashboardCounts = { documents: null, shares: null, bookings: null };
+const EMPTY_COUNTS: DashboardCounts = { documents: null, shares: null, bookings: null, serviceHistory: null };
 
 export function useDashboardCounts(uid: string | undefined) {
   return useQuery<DashboardCounts, ApiError>({
