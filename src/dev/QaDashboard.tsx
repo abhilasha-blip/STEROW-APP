@@ -5,8 +5,8 @@
  *   xcrun simctl launch booted com.sterow.app -qaScenario dashboard-complete
  *
  * Scenarios: dashboard-complete, dashboard-incomplete (variant 1: a vehicle, no licence),
- * dashboard-incomplete-2 (variant 2: no vehicle), drawer, and the drawer screens (my-profile,
- * my-documents, share-access, my-vehicles). App.tsx only requires this file under __DEV__.
+ * dashboard-incomplete-2 (variant 2: no vehicle), dashboard-empty (a vehicle, every count 0), drawer, the
+ * drawer screens (my-profile, my-documents, share-access, share-access-empty, my-vehicles) and add-vehicle. App.tsx only requires this file under __DEV__.
  */
 import React, { useEffect, useRef } from 'react';
 import { Platform, Settings } from 'react-native';
@@ -20,6 +20,7 @@ import { queryKeys } from '@/hooks/api/queryKeys';
 import MainNavigator from '@/navigation/MainNavigator';
 import type { HomeStackParamList } from '@/navigation/types';
 import { useAuthStore } from '@/store/auth.store';
+import { QA_CATALOG } from './QaOnboarding';
 import { createNavigationTheme, useTheme } from '@/theme';
 
 const UID = 'qa-user';
@@ -60,6 +61,8 @@ type Scenario = {
   dl: typeof DL | null;
   counts: DashboardCounts;
   screen?: keyof HomeStackParamList;
+  /** My Documents rows (default: DOCS). */
+  docs?: MyDocument[];
   drawer?: boolean;
 };
 
@@ -67,10 +70,14 @@ export const QA_DASHBOARD_SCENARIOS: Record<string, Scenario> = {
   'dashboard-complete': { vehicles: VEHICLES, dl: DL, counts: COUNTS },
   'dashboard-incomplete': { vehicles: VEHICLES.slice(0, 1), dl: null, counts: ZERO_COUNTS },
   'dashboard-incomplete-2': { vehicles: [], dl: null, counts: ZERO_COUNTS },
+  /** Profile + licence + one vehicle, but no documents, shares or bookings: every tile 0. */
+  'dashboard-empty': { vehicles: VEHICLES.slice(0, 1), dl: DL, counts: ZERO_COUNTS, docs: [] },
   drawer: { vehicles: VEHICLES, dl: DL, counts: COUNTS, drawer: true },
   'my-profile': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyProfile' },
   'my-documents': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyDocuments' },
   'share-access': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'ShareAccess' },
+  'share-access-empty': { vehicles: VEHICLES.slice(0, 1), dl: DL, counts: ZERO_COUNTS, screen: 'ShareAccess' },
+  'add-vehicle': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'AddVehicle' },
   'my-vehicles': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyVehicles' },
 };
 
@@ -103,7 +110,9 @@ function seed(s: Scenario) {
   queryClient.setQueryData(queryKeys.sharedPeople(UID), s.counts.shares ? SHARED_PEOPLE : []);
   const docsKey = [...queryKeys.vehicleDocuments(UID), s.vehicles[0]?.id ?? null];
   queryClient.setQueryDefaults(docsKey, fresh);
-  queryClient.setQueryData(docsKey, DOCS);
+  queryClient.setQueryData(docsKey, s.docs ?? DOCS);
+  queryClient.setQueryDefaults(queryKeys.vehicleCatalog(), fresh);
+  queryClient.setQueryData(queryKeys.vehicleCatalog(), QA_CATALOG);
   qaSeeders.forEach(f => f(UID, s));
   useAuthStore.setState({
     user: { id: UID, fullName: PROFILE.fullName, phone: '9876543210', roles: ['user'], permissions: [] },

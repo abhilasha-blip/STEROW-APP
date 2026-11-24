@@ -5,12 +5,14 @@ import {
   profileCompletion,
   type DashboardCounts,
   type ProfileCompletion,
+  type ServerCounts,
 } from '@/api/services/dashboard.service';
 import type { MyVehicle } from '@/api/services/vehicle.service';
 import { useAuthStore } from '@/store/auth.store';
 import { useMyVehicles } from './useDocumentsStep';
 import { useDrivingLicenceStepData } from './useDrivingLicenceStep';
 import { useProfileStepData } from './useProfileStep';
+import { useSharedPeople } from './useShareAccess';
 import { queryKeys } from './queryKeys';
 
 export type DashboardData = {
@@ -25,10 +27,10 @@ export type DashboardData = {
   loading: boolean;
 };
 
-const EMPTY_COUNTS: DashboardCounts = { documents: null, shares: null, bookings: null, serviceHistory: null };
+const EMPTY_COUNTS: ServerCounts = { documents: null, bookings: null, serviceHistory: null };
 
 export function useDashboardCounts(uid: string | undefined) {
-  return useQuery<DashboardCounts, ApiError>({
+  return useQuery<ServerCounts, ApiError>({
     queryKey: queryKeys.dashboardCounts(uid ?? ''),
     queryFn: () => fetchDashboardCounts(uid as string),
     enabled: !!uid,
@@ -47,6 +49,8 @@ export function useDashboard(): DashboardData {
   const dl = useDrivingLicenceStepData(uid);
   const vehicles = useMyVehicles(uid);
   const counts = useDashboardCounts(uid);
+  // The Share Access tile counts people, from the same query as the Share Access cards.
+  const shared = useSharedPeople(uid);
 
   const fullName = profile.data?.fullName || storeUser?.fullName || '';
   const email = profile.data?.email ?? '';
@@ -56,7 +60,7 @@ export function useDashboard(): DashboardData {
     email,
     avatarUrl: profile.data?.avatarUrl ?? null,
     vehicles: vehicles.data ?? [],
-    counts: counts.data ?? EMPTY_COUNTS,
+    counts: { ...(counts.data ?? EMPTY_COUNTS), shares: shared.data?.length ?? null },
     completion: profileCompletion({
       profile: !!fullName && !!email,
       drivingLicence: !!dl.data,

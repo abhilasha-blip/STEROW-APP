@@ -29,7 +29,7 @@ type Scenario = {
 const store = () => useOnboardingStore.getState();
 
 /** User Onboarding - 2b's sample vehicle (MG ZS / Essence) as master data. */
-const QA_CATALOG: VehicleCatalog = {
+export const QA_CATALOG: VehicleCatalog = {
   makes: [{ value: 'make-mg', label: 'MG' }],
   models: [{ value: 'model-zs', label: 'ZS', makeId: 'make-mg' }],
   variants: [

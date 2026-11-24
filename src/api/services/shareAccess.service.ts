@@ -41,13 +41,16 @@ const asRole = (r: string | null | undefined): ShareRole | null =>
   ROLES.includes(r as ShareRole) ? (r as ShareRole) : null;
 
 /** Active shares on the user's own vehicles (owner_id = uid; shares *with* the user are excluded). */
-export const ownedActiveShares = (q: any, uid: string) => q.eq('owner_id', uid).eq('is_active', true);
+const ownedActiveShares = (q: any, uid: string) => q.eq('owner_id', uid).eq('is_active', true);
 
-/** Groups share rows by member (signed-up user id, else phone), keeping first-seen order. */
+/**
+ * Groups share rows by member, keeping first-seen order. Keyed by phone first (every share has one), so a
+ * member's pending (no user id yet) and active shares are one person; else the user id, else the row.
+ */
 export function groupShares(rows: ShareRowT[]): SharedPerson[] {
   const people = new Map<string, SharedPerson>();
   for (const r of rows) {
-    const key = r.member_user_id || r.member_phone || r.id;
+    const key = r.member_phone || r.member_user_id || r.id;
     const verified = r.status === 'active' && !!r.member_user_id;
     const existing = people.get(key);
     if (existing) {

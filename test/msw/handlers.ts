@@ -152,14 +152,13 @@ export const handlers = [
     await log(request);
     return HttpResponse.json(vehicleVariants);
   }),
-  // Dashboard counts: vdocs tables, the licence, shares, bookings (HEAD, count=exact).
+  // Dashboard counts: vdocs tables, the licence, bookings (HEAD, count=exact).
   ...[
     REST.VDOCS_RC,
     REST.VDOCS_INSURANCE,
     REST.VDOCS_POLLUTION,
     REST.VDOCS_FASTAG,
     REST.USER_DRIVING_LICENSES,
-    REST.VEHICLE_SHARES,
     REST.SERVICE_BOOKINGS,
   ].map(table =>
     http.head(urls.table(table), async ({ request }) => {

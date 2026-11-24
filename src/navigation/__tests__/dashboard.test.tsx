@@ -11,6 +11,7 @@ import {
   resetMyVehicles,
   setCounts,
   setOnboardingBackend,
+  setShareRows,
   vehicleRow,
 } from '../../../test/msw/fixtures';
 import { server } from '../../../test/msw/server';
@@ -37,7 +38,13 @@ describe('Dashboard', () => {
   it('complete: header, vehicle carousel, tile grid with real counts, health banner, quick links, tabs', async () => {
     setOnboardingBackend({ hasDrivingLicense: true, vehicleCount: 2 });
     resetMyVehicles([vehicleRow('v-1', 'TS09EV2345'), vehicleRow('v-2', 'TS09AB1234')]);
-    setCounts({ vdocs_insurance: 3, vehicle_shares: 2, service_bookings: 5, [SERVICE_HISTORY_COUNT]: 4 });
+    setCounts({ vdocs_insurance: 3, service_bookings: 5, [SERVICE_HISTORY_COUNT]: 4 });
+    // 3 share rows, 2 people (one person has both vehicles): the tile counts people, like the cards.
+    setShareRows([
+      { id: 's1', vehicle_id: 'v-1', member_user_id: 'u-2', member_phone: '9000000001', member_role: 'driver', status: 'active' },
+      { id: 's2', vehicle_id: 'v-2', member_user_id: 'u-2', member_phone: '9000000001', member_role: 'driver', status: 'active' },
+      { id: 's3', vehicle_id: 'v-1', member_user_id: null, member_phone: '9000000002', member_role: 'family', status: 'pending' },
+    ]);
     await launch();
     expect(await screen.findByText('Welcome Test!')).toBeTruthy();
     expect(screen.getByTestId('dashboard-email')).toHaveTextContent('test-user@sterow.test');
@@ -45,7 +52,7 @@ describe('Dashboard', () => {
     expect(screen.getByTestId('vehicle-card-v-2')).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId('tile-vehicles')).toHaveTextContent(new RegExp(t.available('2'))));
     await waitFor(() => expect(screen.getByTestId('tile-documents')).toHaveTextContent(new RegExp(t.available('4')))); // 3 + DL
-    expect(screen.getByTestId('tile-share-access')).toHaveTextContent(new RegExp(t.available('2')));
+    await waitFor(() => expect(screen.getByTestId('tile-share-access')).toHaveTextContent(new RegExp(t.available('2'))));
     expect(screen.getByTestId('tile-book-service')).toHaveTextContent(new RegExp(t.records('5')));
     expect(screen.getByTestId('tile-service-history')).toHaveTextContent(new RegExp(t.records('4')));
     expect(screen.getByTestId('tile-challans')).toHaveTextContent(new RegExp(t.pending('0'))); // no API yet
@@ -65,7 +72,7 @@ describe('Dashboard', () => {
     await launch(['dl']);
     await waitFor(() => expect(screen.getByTestId('tile-documents')).toHaveTextContent(new RegExp(t.available('0'))));
     expect(screen.getByTestId('tile-vehicles')).toHaveTextContent(new RegExp(t.available('1')));
-    expect(screen.getByTestId('tile-share-access')).toHaveTextContent(new RegExp(t.available('0')));
+    await waitFor(() => expect(screen.getByTestId('tile-share-access')).toHaveTextContent(new RegExp(t.available('0'))));
     expect(screen.getByTestId('tile-book-service')).toHaveTextContent(new RegExp(t.records('0')));
     expect(screen.getByTestId('tile-service-history')).toHaveTextContent(new RegExp(t.records('0')));
     const challans = screen.getByTestId('tile-challans');

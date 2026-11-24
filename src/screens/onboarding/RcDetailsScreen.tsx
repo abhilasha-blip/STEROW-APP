@@ -415,7 +415,7 @@ export default function RcDetailsScreen({
   );
 }
 
-/* User Onboarding - 2b: 25.3pt from a field to the next label (as VehicleForm). */
+/* User Onboarding - 2b: 25.3pt from a field to the next label. */
 const styles = StyleSheet.create({
   first: { marginTop: FIRST_LABEL_OFFSET },
   field: { marginTop: 25.3 },

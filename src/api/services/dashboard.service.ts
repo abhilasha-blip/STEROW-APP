@@ -5,17 +5,20 @@ import { ApiError } from '../errors';
 import { unwrap } from '../rest';
 import { parseOrThrow } from '../schemas/auth.schemas';
 import { getSupabase } from '../supabase';
-import { ownedActiveShares } from './shareAccess.service';
 
 const { REST } = ENDPOINTS.SUPABASE;
 const Count = z.number().int().nonnegative();
 
 /** Dashboard tile counts; null = couldn't be read (shown as "–"), never blocks the dashboard. */
-export type DashboardCounts = {
+export type DashboardCounts = ServerCounts & {
+  /** People the user shares their vehicles with (= the Share Access cards; see useSharedPeople). */
+  shares: number | null;
+};
+
+/** The counts read with HEAD + count=exact. */
+export type ServerCounts = {
   /** Vehicle documents (RC, insurance, PUC, FASTag rows) + the driving licence. */
   documents: number | null;
-  /** Active vehicle_shares rows on the user's own vehicles. */
-  shares: number | null;
   /** The user's open service bookings (requested … in service). */
   bookings: number | null;
   /** The user's serviced bookings (service completed … delivered). */
@@ -47,8 +50,8 @@ const orNull = async (what: string, read: () => Promise<number>) => {
 };
 
 /** All counts in parallel (HEAD + count=exact), each scoped to the signed-in user. */
-export async function fetchDashboardCounts(uid: string): Promise<DashboardCounts> {
-  const [documents, shares, bookings, serviceHistory] = await Promise.all([
+export async function fetchDashboardCounts(uid: string): Promise<ServerCounts> {
+  const [documents, bookings, serviceHistory] = await Promise.all([
     orNull('documents', async () => {
       const counts = await Promise.all([
         ...VDOCS.map(t => headCount(t)),
@@ -56,7 +59,6 @@ export async function fetchDashboardCounts(uid: string): Promise<DashboardCounts
       ]);
       return counts.reduce((a, b) => a + b, 0);
     }),
-    orNull('shares', () => headCount(REST.VEHICLE_SHARES, q => ownedActiveShares(q, uid))),
     orNull('bookings', () =>
       headCount(REST.SERVICE_BOOKINGS, q => q.eq('customer_id', uid).not('status', 'in', `(${CLOSED_STATUSES.join(',')})`)),
     ),
@@ -64,7 +66,7 @@ export async function fetchDashboardCounts(uid: string): Promise<DashboardCounts
       headCount(REST.SERVICE_BOOKINGS, q => q.eq('customer_id', uid).in('status', [...SERVICED_STATUSES])),
     ),
   ]);
-  return { documents, shares, bookings, serviceHistory };
+  return { documents, bookings, serviceHistory };
 }
 
 /** The onboarding parts the "profile pending" banner counts. */
