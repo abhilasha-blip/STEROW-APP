@@ -34,7 +34,7 @@ type Row = {
   label: string;
   icon: React.FC<SvgProps>;
   /** A built Home-stack screen; otherwise "Coming soon". */
-  screen?: Exclude<keyof HomeStackParamList, 'ComingSoon' | 'UploadDocuments'>;
+  screen?: Exclude<keyof HomeStackParamList, 'ComingSoon' | 'UploadDocuments' | 'BookingSuccess'>;
 };
 
 /** side-drawer.svg rows, in order. */
@@ -42,7 +42,7 @@ export const DRAWER_ROWS: Row[] = [
   { key: 'profile', label: t.myProfile, icon: Person, screen: 'MyProfile' },
   { key: 'vehicles', label: t.myVehicles, icon: Car, screen: 'MyVehicles' },
   { key: 'documents', label: t.myDocuments, icon: Folder, screen: 'MyDocuments' },
-  { key: 'services', label: t.myServices, icon: Wrench },
+  { key: 'services', label: t.myServices, icon: Wrench, screen: 'BookService' },
   { key: 'share', label: t.shareAccess, icon: ShareAccess, screen: 'ShareAccess' },
   { key: 'find', label: t.findMyVehicles, icon: FindVehicle },
   { key: 'rewards', label: t.myRewards, icon: Gift },

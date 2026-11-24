@@ -4,6 +4,7 @@ import { createDrawerNavigator, type DrawerContentComponentProps } from '@react-
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import DashboardScreen from '@/screens/app/DashboardScreen';
 import ComingSoonScreen from '@/screens/common/ComingSoonScreen';
+import BookServiceNavigator from '@/screens/bookService/BookServiceNavigator';
 import AddVehicleScreen from '@/screens/vehicles/AddVehicleScreen';
 import { useTheme } from '@/theme';
 import DrawerContent from './DrawerContent';
@@ -50,6 +51,9 @@ function HomeStack() {
       <Home.Screen name="MyVehicles" component={screens.MyVehicles} />
       <Home.Screen name="AddVehicle" component={AddVehicleRoute} />
       <Home.Screen name="ComingSoon" component={ComingSoonRoute} />
+      <Home.Screen name="BookService" component={BookServiceNavigator} />
+      <Home.Screen name="BookingSuccess" component={screens.BookingSuccess} />
+      <Home.Screen name="MyBookings" component={screens.MyBookings} />
     </Home.Navigator>
   );
 }

@@ -129,7 +129,7 @@ export default function DashboardScreen({ navigation }: HomeStackScreenProps<'Ho
                   title={t.tiles.bookService}
                   count={t.records(fmt(data.counts.bookings))}
                   disabled={!hasVehicle}
-                  onPress={() => comingSoon(t.tiles.bookService)}
+                  onPress={() => navigation.navigate('BookService')}
                 />
                 <DashboardTile
                   testID="tile-service-history"

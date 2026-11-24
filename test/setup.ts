@@ -65,7 +65,10 @@ jest.mock('react-native-safe-area-context', () =>
   require('react-native-safe-area-context/jest/mock').default,
 );
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'error' });
+  require('@/services/bookingService').__setBookingLatencyForTests(0);
+});
 // The dev logger is verbose by design; keep test output readable (logger.test.ts re-spies).
 beforeEach(() => {
   resetHandlerState();
@@ -78,6 +81,7 @@ afterEach(() => {
   jest.restoreAllMocks();
   require('@/api/services/storage.service').__clearSignedUrlCache();
   require('@/store/onboarding.store').__resetOnboardingStoreForTests();
+  require('@/store/booking.store').__resetBookingStoreForTests();
   server.resetHandlers();
   require('react-native-keychain').__store.clear();
 });

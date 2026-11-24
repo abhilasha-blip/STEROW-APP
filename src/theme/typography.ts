@@ -126,6 +126,25 @@ export const variants = {
   documentTitle: v(fontFamily.semiBold, 17, 22),
   /** "Upload File" / "Add Manually". */
   tileAction: v(fontFamily.semiBold, 15, 20),
+
+  // design/book-service (sizes fitted from the outlined glyph heights, 402pt frames).
+  /** Stepper numbers inside the 32pt circles. */
+  stepNumber: v(fontFamily.semiBold, 14, 18),
+  /** Stepper labels: done / current (SemiBold) and upcoming (Regular). */
+  stepLabel: v(fontFamily.semiBold, 12, 16),
+  stepLabelMuted: v(fontFamily.regular, 12, 16),
+  /** "Choose Vehicle", "Custom Services", "Date & Time". */
+  bookingTitle: v(fontFamily.semiBold, 17, 22),
+  /** Service rows ("Headlight Issue"), centre names, option-card titles. */
+  rowTitle: v(fontFamily.semiBold, 15, 20),
+  /** Vehicle numbers, row / option-card subtitles. */
+  rowSubtitle: v(fontFamily.regular, 13, 17),
+  /** Centre addresses, example prompts, the 0/500 counter. */
+  meta: v(fontFamily.regular, 12, 16),
+  /** Centre badges ("Authorised", "4.6 (320)"). */
+  badge: v(fontFamily.medium, 11, 14),
+  /** Congratulations title. */
+  successTitle: v(fontFamily.semiBold, 24, 30),
 } as const;
 
 export type TypographyVariant = keyof typeof variants;

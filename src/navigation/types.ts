@@ -47,6 +47,20 @@ export type HomeStackParamList = {
   MyVehicles: undefined;
   AddVehicle: undefined;
   ComingSoon: { title: string };
+  /** Book a Service: the 4-step flow (its own stack, tabs stay visible). */
+  BookService: NavigatorScreenParams<BookServiceStackParamList> | undefined;
+  /** "Congratulations!": outside the flow's stack, so Back goes to the dashboard. */
+  BookingSuccess: undefined;
+  /** Placeholder until the bookings API ("No bookings yet"). */
+  MyBookings: undefined;
+};
+
+/** Book a Service steps (design/book-service step1–4.1). */
+export type BookServiceStackParamList = {
+  BookVehicle: undefined;
+  BookServices: undefined;
+  BookCentre: undefined;
+  BookSlot: undefined;
 };
 
 /** Bottom tabs (Home + four "Coming soon" tabs). */
@@ -103,6 +117,11 @@ export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<
 export type HomeStackScreenProps<T extends keyof HomeStackParamList> = CompositeScreenProps<
   NativeStackScreenProps<HomeStackParamList, T>,
   TabScreenProps<keyof TabParamList>
+>;
+
+export type BookServiceStackScreenProps<T extends keyof BookServiceStackParamList> = CompositeScreenProps<
+  NativeStackScreenProps<BookServiceStackParamList, T>,
+  HomeStackScreenProps<'BookService'>
 >;
 
 export type OnboardingStackScreenProps<T extends keyof OnboardingStackParamList> = CompositeScreenProps<

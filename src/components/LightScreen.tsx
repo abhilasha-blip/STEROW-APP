@@ -1,4 +1,4 @@
-import React, { useCallback, type PropsWithChildren, type ReactNode } from 'react';
+import React, { useCallback, type PropsWithChildren, type ReactNode, type Ref } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +14,9 @@ export type LightScreenProps = PropsWithChildren<{
   footer?: ReactNode;
   /** Right side of the header row. */
   headerRight?: ReactNode;
+  /** Pinned under the header, above the scrolling content (e.g. the Book a Service stepper). */
+  subHeader?: ReactNode;
+  scrollRef?: Ref<React.ComponentRef<typeof ScrollView>>;
   /** The screen sits above the bottom tabs: no extra bottom safe-area padding. */
   aboveTabs?: boolean;
   scroll?: boolean;
@@ -29,6 +32,8 @@ export default function LightScreen({
   onBack,
   footer,
   headerRight,
+  subHeader,
+  scrollRef,
   aboveTabs = false,
   scroll = true,
   testID,
@@ -37,7 +42,6 @@ export default function LightScreen({
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const Body = scroll ? ScrollView : View;
   // Dark status bar text on the light background while this screen is focused (tab screens stay mounted).
   useFocusEffect(useCallback(() => StatusBar.setBarStyle('dark-content', true), []));
   return (
@@ -60,17 +64,21 @@ export default function LightScreen({
         </AppText>
         {headerRight}
       </View>
+      {subHeader}
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Body
-          style={styles.flex}
-          {...(scroll && {
-            contentContainerStyle: styles.content,
-            keyboardShouldPersistTaps: 'handled' as const,
-            showsVerticalScrollIndicator: false,
-          })}
-        >
-          {scroll ? children : <View style={[styles.flex, styles.content]}>{children}</View>}
-        </Body>
+        {scroll ? (
+          <ScrollView
+            ref={scrollRef}
+            style={styles.flex}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={[styles.flex, styles.content]}>{children}</View>
+        )}
         {footer && <View style={[styles.footer, !aboveTabs && { paddingBottom: Math.max(insets.bottom, 16) }]}>{footer}</View>}
       </KeyboardAvoidingView>
     </View>

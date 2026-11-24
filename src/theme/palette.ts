@@ -95,6 +95,12 @@ export const palette = {
   /** Verified badges, health check. */
   green500: '#34C759',
 
+  // Book a Service (design/book-service, 2026-11-24).
+  /** Screen / card subtitles ("Select the vehicle you want to service"), upcoming step labels. */
+  grey500: '#8F9098',
+  /** Vehicle numbers, service-row subtitles, centre addresses. */
+  grey550: '#868686',
+
   white,
   black,
   red400: '#FF6B6B',

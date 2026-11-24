@@ -15,4 +15,9 @@ export const queryKeys = {
   dashboardCounts: (uid: string) => ['dashboard', 'counts', uid] as const,
   /** Shares on the user's own vehicles (Share Access). */
   sharedPeople: (uid: string) => ['shares', 'people', uid] as const,
+  /** Book a Service (UI-only mock today, see src/services/bookingService.ts). */
+  bookingServices: () => ['booking', 'services'] as const,
+  serviceCentres: () => ['booking', 'centres'] as const,
+  timeSlots: () => ['booking', 'slots'] as const,
+  savedAddresses: () => ['booking', 'addresses'] as const,
 } as const;
