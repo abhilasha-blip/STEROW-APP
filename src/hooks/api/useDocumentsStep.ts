@@ -22,6 +22,7 @@ import {
 import { DOCUMENT_KEYS } from '@/constants/onboarding';
 import { documentStatus, type DocumentsFormValues } from '@/screens/onboarding/schemas/documents.schema';
 import { queryKeys } from './queryKeys';
+import { invalidateProfileCompletion } from './useProfileCompletionRefresh';
 
 /** Master data changes rarely: one fetch per hour is plenty. */
 const MASTER_STALE_MS = 60 * 60 * 1000;
@@ -62,7 +63,7 @@ export function useCreateVehicle(uid: string) {
     { vehicleNumber: string; model: VehicleModelOption; extras?: NewVehicleExtras }
   >({
     mutationFn: ({ vehicleNumber, model, extras }) => createVehicle(vehicleNumber, model, extras),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.myVehicles(uid) }),
+    onSuccess: () => invalidateProfileCompletion(queryClient, uid),
   });
 }
 
@@ -88,6 +89,6 @@ export function useSaveDocumentsStep(uid: string) {
   const progress = useRef<DocumentsStepProgress>({});
   return useMutation<{ vehicleId: string }, ApiError, { values: DocumentsFormValues; vehicle: MyVehicle }>({
     mutationFn: ({ values, vehicle }) => saveDocumentsStep(uid, toDocumentsStepSave(values, vehicle), progress.current),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.vehicleDocuments(uid) }),
+    onSuccess: () => invalidateProfileCompletion(queryClient, uid),
   });
 }

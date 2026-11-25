@@ -5,12 +5,13 @@
  *   xcrun simctl launch booted com.sterow.app -qaScenario dashboard-complete
  *
  * Scenarios: dashboard-complete, dashboard-incomplete (variant 1: a vehicle, no licence),
- * dashboard-incomplete-2 (variant 2: no vehicle), dashboard-empty (a vehicle, every count 0), drawer, the
+ * dashboard-incomplete-2 (variant 2: no vehicle), dashboard-completion-17 / -67 / -83 (badge levels), dashboard-empty (a vehicle, every count 0), drawer, the
  * drawer screens (my-profile, my-documents, share-access, share-access-empty, my-vehicles) and add-vehicle. App.tsx only requires this file under __DEV__.
  */
 import React, { useEffect, useRef } from 'react';
 import { Platform, Settings } from 'react-native';
 import { DrawerActions, NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { onlineManager } from '@tanstack/react-query';
 import { queryClient } from '@/api/queryClient';
 import type { DashboardCounts } from '@/api/services/dashboard.service';
 import type { MyDocument } from '@/api/services/myDocuments.service';
@@ -39,8 +40,11 @@ const vehicle = (id: string, number: string, make: string, model: string): MyVeh
   colour: null,
 });
 const VEHICLES = [vehicle('v1', 'TS09 EV 2345', 'MG', 'ZS EV'), vehicle('v2', 'TS09AB1234', 'Hyundai', 'Creta'), vehicle('v3', 'TS08CD5678', 'Tata', 'Nexon')];
-const PROFILE = { fullName: 'John Cooper', email: 'john.doe@example.com', avatarPath: null, avatarUrl: null };
-const DL = { dlNumber: 'DL0000000000000', documentPath: null, previewUrl: null, issuedOn: '2020-05-15', validUpto: '2040-05-15' };
+type QaProfile = { fullName: string; email: string; avatarPath: string | null; avatarUrl: string | null };
+/** Complete profile (name, email, photo). avatarUrl stays null so the preset avatar shows (no network). */
+const PROFILE: QaProfile = { fullName: 'John Cooper', email: 'john.doe@example.com', avatarPath: 'qa/avatar.png', avatarUrl: null };
+const NO_PHOTO: QaProfile = { ...PROFILE, avatarPath: null };
+const DL = { dlNumber: 'DL0000000000000', documentPath: 'qa/dl.jpg', previewUrl: null, issuedOn: '2020-05-15', validUpto: '2040-05-15' };
 const COUNTS: DashboardCounts = { documents: 5, shares: 2, bookings: 1, serviceHistory: 3 };
 const ZERO_COUNTS: DashboardCounts = { documents: 0, shares: 0, bookings: 0, serviceHistory: 0 };
 /** share-access.svg's two people (sample data for screenshots only). */
@@ -60,6 +64,10 @@ type Scenario = {
   vehicles: MyVehicle[];
   dl: typeof DL | null;
   counts: DashboardCounts;
+  /** user_details (default: PROFILE, complete). */
+  profile?: QaProfile;
+  /** Vehicle ids that have a document (profile completion; default: all). */
+  vehiclesWithDocs?: string[];
   screen?: keyof HomeStackParamList;
   /** My Documents rows (default: DOCS). */
   docs?: MyDocument[];
@@ -68,8 +76,13 @@ type Scenario = {
 
 export const QA_DASHBOARD_SCENARIOS: Record<string, Scenario> = {
   'dashboard-complete': { vehicles: VEHICLES, dl: DL, counts: COUNTS },
-  'dashboard-incomplete': { vehicles: VEHICLES.slice(0, 1), dl: null, counts: ZERO_COUNTS },
-  'dashboard-incomplete-2': { vehicles: [], dl: null, counts: ZERO_COUNTS },
+  /** Name, email, mobile: 3/6 = 50% (a vehicle without documents, no photo, no licence). */
+  'dashboard-incomplete': { vehicles: VEHICLES.slice(0, 1), dl: null, counts: ZERO_COUNTS, profile: NO_PHOTO, vehiclesWithDocs: [] },
+  'dashboard-incomplete-2': { vehicles: [], dl: null, counts: ZERO_COUNTS, profile: NO_PHOTO },
+  /** Profile-completion levels for the badge screenshots. */
+  'dashboard-completion-17': { vehicles: [], dl: null, counts: ZERO_COUNTS, profile: { fullName: '', email: '', avatarPath: null, avatarUrl: null } },
+  'dashboard-completion-67': { vehicles: VEHICLES.slice(0, 1), dl: DL, counts: ZERO_COUNTS, profile: NO_PHOTO, vehiclesWithDocs: [] },
+  'dashboard-completion-83': { vehicles: VEHICLES.slice(0, 1), dl: DL, counts: COUNTS, profile: NO_PHOTO },
   /** Profile + licence + one vehicle, but no documents, shares or bookings: every tile 0. */
   'dashboard-empty': { vehicles: VEHICLES.slice(0, 1), dl: DL, counts: ZERO_COUNTS, docs: [] },
   drawer: { vehicles: VEHICLES, dl: DL, counts: COUNTS, drawer: true },
@@ -93,6 +106,8 @@ export function getQaDashboardScenarioName(): string | null {
 export const qaSeeders: ((uid: string, s: Scenario) => void)[] = [];
 
 function seed(s: Scenario) {
+  // Seeded data only: queries with their own staleTime (0) would otherwise refetch for the fake user.
+  onlineManager.setOnline(false);
   const fresh = { staleTime: Infinity, gcTime: Infinity };
   for (const key of [
     queryKeys.profileStep(UID),
@@ -103,7 +118,12 @@ function seed(s: Scenario) {
   ]) {
     queryClient.setQueryDefaults(key, fresh);
   }
-  queryClient.setQueryData(queryKeys.profileStep(UID), PROFILE);
+  queryClient.setQueryData(queryKeys.profileStep(UID), s.profile ?? PROFILE);
+  const ids = s.vehicles.map(v => v.id);
+  const withDocs = s.vehiclesWithDocs ?? ids;
+  const docCountsKey = queryKeys.vehicleDocumentCounts(UID, ids);
+  queryClient.setQueryDefaults(docCountsKey, fresh);
+  queryClient.setQueryData(docCountsKey, Object.fromEntries(ids.map(id => [id, withDocs.includes(id) ? 1 : 0])));
   queryClient.setQueryData(queryKeys.drivingLicenceStep(UID), s.dl);
   queryClient.setQueryData(queryKeys.myVehicles(UID), s.vehicles);
   queryClient.setQueryData(queryKeys.dashboardCounts(UID), s.counts);
@@ -115,7 +135,7 @@ function seed(s: Scenario) {
   queryClient.setQueryData(queryKeys.vehicleCatalog(), QA_CATALOG);
   qaSeeders.forEach(f => f(UID, s));
   useAuthStore.setState({
-    user: { id: UID, fullName: PROFILE.fullName, phone: '9876543210', roles: ['user'], permissions: [] },
+    user: { id: UID, fullName: (s.profile ?? PROFILE).fullName, phone: '9876543210', roles: ['user'], permissions: [] },
   });
 }
 

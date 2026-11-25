@@ -14,6 +14,7 @@ import type { LocalFile } from '@/api/services/storage.service';
 import { getAvatar, type AvatarValue } from '@/constants/avatars';
 import type { ProfileFormValues } from '@/screens/onboarding/schemas/profile.schema';
 import { queryKeys } from './queryKeys';
+import { invalidateProfileCompletion } from './useProfileCompletionRefresh';
 
 const TYPES: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', pdf: 'application/pdf' };
 
@@ -74,7 +75,7 @@ export function useSaveProfileStep(uid: string, saved: ProfileStepData | undefin
     mutationFn: values => saveProfileStep(uid, toProfileStepSave(values, saved), progress.current),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap(uid) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.profileStep(uid) });
+      invalidateProfileCompletion(queryClient, uid);
     },
   });
 }

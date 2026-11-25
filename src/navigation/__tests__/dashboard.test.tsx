@@ -13,6 +13,8 @@ import {
   setCounts,
   setOnboardingBackend,
   setShareRows,
+  setUserDetails,
+  setVdocs,
   vehicleRow,
 } from '../../../test/msw/fixtures';
 import { server } from '../../../test/msw/server';
@@ -40,6 +42,9 @@ describe('Dashboard', () => {
     setOnboardingBackend({ hasDrivingLicense: true, vehicleCount: 2 });
     resetMyVehicles([vehicleRow('v-1', 'TS09EV2345'), vehicleRow('v-2', 'TS09AB1234')]);
     setCounts({ vdocs_insurance: 3, service_bookings: 5, [SERVICE_HISTORY_COUNT]: 4 });
+    // 100% profile: photo saved + a vehicle with a document (name, email, mobile, licence are in the fixtures).
+    setUserDetails({ avatar_url: 'uid/avatar.png' });
+    setVdocs('vdocs_insurance', [{ id: 'i1', vehicle_id: 'v-1' }]);
     // 3 share rows, 2 people (one person has both vehicles): the tile counts people, like the cards.
     setShareRows([
       { id: 's1', vehicle_id: 'v-1', member_user_id: 'u-2', member_phone: '9000000001', member_role: 'driver', status: 'active' },
@@ -115,6 +120,7 @@ describe('Dashboard', () => {
     expect(screen.queryByTestId('tile-book-service')).toBeNull();
   });
 
+  // name + email + mobile + licence = 4/6 (no photo, no vehicle with a document)
   it('incomplete, no vehicle (variant 2): "Your Profile info pending" 67%, N/A card, task list', async () => {
     setOnboardingBackend({ hasDrivingLicense: true, vehicleCount: 0 });
     await launch(['documents']);
@@ -129,18 +135,21 @@ describe('Dashboard', () => {
 
   it('"Complete Now" opens the first missing onboarding step (no vehicle → 3/3)', async () => {
     setOnboardingBackend({ hasDrivingLicense: true, vehicleCount: 0 });
+    setUserDetails({ avatar_url: 'uid/avatar.png' });
     await launch(['documents']);
-    await waitFor(() => expect(screen.getByTestId('profile-pending')).toHaveTextContent(/67%/));
+    await waitFor(() => expect(screen.getByTestId('profile-pending')).toHaveTextContent(/83%/));
     await fireEvent.press(screen.getByTestId('profile-pending'));
     expect(await screen.findByTestId('onboarding-documents')).toBeTruthy();
   });
 
   it('incomplete with a vehicle (variant 1): banner + carousel + grid; missing licence → 2/3', async () => {
+    setUserDetails({ avatar_url: 'uid/avatar.png' });
     setOnboardingBackend({ hasDrivingLicense: false, vehicleCount: 1 });
     resetMyVehicles([vehicleRow('v-1', 'TS09EV2345')]);
     // The routing skipped 1/3–2/3 (flags) so the app opens on the dashboard.
     server.use(http.get(urls.drivingLicenses, () => HttpResponse.json([])));
     await launch(['dl']);
+    // name + email + photo + mobile = 4/6 (no licence, no vehicle document)
     await waitFor(() => expect(screen.getByTestId('profile-pending')).toHaveTextContent(/67%/));
     expect(await screen.findByTestId('vehicle-card-v-1')).toBeTruthy();
     expect(screen.getByTestId('dashboard-tiles')).toBeTruthy();
@@ -161,5 +170,54 @@ describe('Dashboard', () => {
     expect(screen.getByTestId('tab-DealersTab').props.accessibilityState).toMatchObject({ selected: true });
     await fireEvent.press(screen.getByTestId('tab-HomeTab'));
     expect(screen.getByTestId('tab-HomeTab').props.accessibilityState).toMatchObject({ selected: true });
+  });
+
+  describe('profile completion (badge, ring, Complete Now)', () => {
+    const setupVehicle = () => {
+      setOnboardingBackend({ hasDrivingLicense: true, vehicleCount: 1 });
+      resetMyVehicles([vehicleRow('v-1', 'TS09EV2345')]);
+    };
+
+    it('photo missing only → 83%; the ring and a11y label use the same percent; Complete Now → 1/3 profile', async () => {
+      setupVehicle();
+      setVdocs('vdocs_regcertificate', [{ id: 'r1', vehicle_id: 'v-1' }]);
+      await launch();
+      const banner = await screen.findByTestId('profile-pending');
+      await waitFor(() => expect(banner).toHaveTextContent(/83%/));
+      expect(banner.props.accessibilityLabel).toBe(t.profilePendingA11y(83));
+      await fireEvent.press(banner);
+      expect(await screen.findByTestId('onboarding-profile')).toBeTruthy();
+    });
+
+    it('vehicle without a document → 83%, Complete Now → 3/3 documents', async () => {
+      setupVehicle();
+      setUserDetails({ avatar_url: 'uid/avatar.png' });
+      await launch();
+      await waitFor(() => expect(screen.getByTestId('profile-pending')).toHaveTextContent(/83%/));
+      await fireEvent.press(screen.getByTestId('profile-pending'));
+      expect(await screen.findByTestId('onboarding-documents')).toBeTruthy();
+    });
+
+    it('100% → the banner is hidden', async () => {
+      setupVehicle();
+      setUserDetails({ avatar_url: 'uid/avatar.png' });
+      setVdocs('vdocs_fastag', [{ id: 'f1', vehicle_id: 'v-1' }]);
+      await launch();
+      await screen.findByTestId('vehicle-card-v-1');
+      await waitFor(() => expect(screen.getByTestId('tile-vehicles')).toHaveTextContent(new RegExp(t.available('1'))));
+      await waitFor(() => expect(screen.queryByTestId('profile-pending')).toBeNull());
+    });
+
+    it('updates live: data saved elsewhere shows when the dashboard regains focus (83% → hidden)', async () => {
+      setupVehicle();
+      setVdocs('vdocs_regcertificate', [{ id: 'r1', vehicle_id: 'v-1' }]);
+      await launch();
+      await waitFor(() => expect(screen.getByTestId('profile-pending')).toHaveTextContent(/83%/));
+      await fireEvent.press(screen.getByTestId('tile-challans'));
+      await screen.findByTestId('coming-soon');
+      setUserDetails({ avatar_url: 'uid/avatar.png' }); // e.g. saved from My Profile / another device
+      await fireEvent.press(screen.getByTestId('light-screen-back'));
+      await waitFor(() => expect(screen.queryByTestId('profile-pending')).toBeNull());
+    });
   });
 });

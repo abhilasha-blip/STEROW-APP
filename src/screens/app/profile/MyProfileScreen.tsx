@@ -22,6 +22,7 @@ import { EMAIL_MAX_LENGTH } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
 import { avatarFile } from '@/hooks/api/useProfileStep';
 import { useDashboard } from '@/hooks/api/useDashboard';
+import { useRefetchProfileCompletionOnFocus } from '@/hooks/api/useProfileCompletionRefresh';
 import { useEditProfile } from '@/hooks/api/useMyDocuments';
 import type { HomeStackScreenProps } from '@/navigation/types';
 import AvatarPickerSheet from '@/screens/onboarding/AvatarPickerSheet';
@@ -36,7 +37,7 @@ type EditField = 'name' | 'email' | null;
 
 /**
  * My Profile (design/dashboard/my-profile.png): avatar + lime verified badge, "Change image" (the avatar
- * sheet), "Your Profile · N% Completed" (the onboarding parts done), Personal Information (Name; Date of
+ * sheet), "Your Profile · N% Completed" (getProfileCompletion, same as the dashboard), Personal Information (Name; Date of
  * Birth pending backend → "Add") and Contact Information (Email with a red ! as it isn't verified, Mobile
  * verified by OTP, Emergency Contact pending backend). Name, email and photo save through user_details.
  */
@@ -46,6 +47,7 @@ export default function MyProfileScreen({ navigation }: HomeStackScreenProps<'My
   const toast = useToast();
   const user = useAuthStore(s => s.user);
   const data = useDashboard();
+  useRefetchProfileCompletionOnFocus(user?.id);
   const edit = useEditProfile(user?.id ?? '');
   const [avatarSheet, setAvatarSheet] = useState(false);
   const [editing, setEditing] = useState<EditField>(null);

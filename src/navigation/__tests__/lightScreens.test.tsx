@@ -108,7 +108,8 @@ describe('My Profile', () => {
     expect(screen.getByTestId('my-profile-mobile')).toHaveTextContent(/\+91 99999 99999/);
     expect(screen.getByTestId('my-profile-dob')).toHaveTextContent(new RegExp(strings.myProfile.add));
     expect(screen.getByTestId('my-profile-emergency')).toHaveTextContent(new RegExp(strings.myProfile.add));
-    expect(screen.getByTestId('my-profile-completion')).toHaveTextContent(/100% Completed/);
+    // Same getProfileCompletion as the dashboard: name, email, mobile, licence = 4/6 (no photo / vehicle doc).
+    await waitFor(() => expect(screen.getByTestId('my-profile-completion')).toHaveTextContent(/67% Completed/));
     await fireEvent.press(screen.getByTestId('my-profile-dob'));
     expect(await screen.findByText(strings.myProfile.pendingBackend)).toBeTruthy();
   });

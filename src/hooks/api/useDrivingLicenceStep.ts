@@ -11,6 +11,7 @@ import {
 import type { DrivingLicenceFormValues } from '@/screens/onboarding/schemas/drivingLicence.schema';
 import { localFileFromUri } from './useProfileStep';
 import { queryKeys } from './queryKeys';
+import { invalidateProfileCompletion } from './useProfileCompletionRefresh';
 
 /** Form values → the save request: a new local file is uploaded, the saved one is kept as is. */
 export function toDrivingLicenceStepSave(
@@ -50,6 +51,6 @@ export function useSaveDrivingLicenceStep(uid: string, saved: DrivingLicenceStep
   const progress = useRef<DrivingLicenceStepProgress>({});
   return useMutation<void, ApiError, DrivingLicenceFormValues>({
     mutationFn: values => saveDrivingLicenceStep(uid, toDrivingLicenceStepSave(values, saved), progress.current),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.drivingLicenceStep(uid) }),
+    onSuccess: () => invalidateProfileCompletion(queryClient, uid),
   });
 }

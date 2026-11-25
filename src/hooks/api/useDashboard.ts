@@ -2,13 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import type { ApiError } from '@/api/errors';
 import {
   fetchDashboardCounts,
-  profileCompletion,
+  fetchVehicleDocumentCounts,
   type DashboardCounts,
-  type ProfileCompletion,
   type ServerCounts,
 } from '@/api/services/dashboard.service';
 import type { MyVehicle } from '@/api/services/vehicle.service';
 import { useAuthStore } from '@/store/auth.store';
+import { getProfileCompletion, type ProfileCompletion } from '@/utils/profileCompletion';
 import { useMyVehicles } from './useDocumentsStep';
 import { useDrivingLicenceStepData } from './useDrivingLicenceStep';
 import { useProfileStepData } from './useProfileStep';
@@ -37,10 +37,21 @@ export function useDashboardCounts(uid: string | undefined) {
   });
 }
 
+/** Documents per vehicle (profile completion: "at least one vehicle with a document"). */
+export function useVehicleDocumentCounts(uid: string | undefined, vehicleIds: readonly string[] | undefined) {
+  const ids = vehicleIds ?? [];
+  return useQuery<Record<string, number>, ApiError>({
+    queryKey: queryKeys.vehicleDocumentCounts(uid ?? '', ids),
+    queryFn: () => fetchVehicleDocumentCounts(ids),
+    enabled: !!uid && ids.length > 0,
+    staleTime: 0,
+  });
+}
+
 /**
  * Everything the dashboard shows that comes from the backend: user_details (name, email, avatar), the
- * licence, the active vehicles and the tile counts. Profile completion = the onboarding parts done
- * (profile name + email, licence, a vehicle).
+ * licence, the active vehicles and the tile counts. Profile completion: getProfileCompletion (name,
+ * email, photo, mobile, licence number + file, a vehicle with a document).
  */
 export function useDashboard(): DashboardData {
   const storeUser = useAuthStore(s => s.user);
@@ -48,6 +59,7 @@ export function useDashboard(): DashboardData {
   const profile = useProfileStepData(uid);
   const dl = useDrivingLicenceStepData(uid);
   const vehicles = useMyVehicles(uid);
+  const vehicleDocs = useVehicleDocumentCounts(uid, vehicles.data?.map(v => v.id));
   const counts = useDashboardCounts(uid);
   // The Share Access tile counts people, from the same query as the Share Access cards.
   const shared = useSharedPeople(uid);
@@ -61,11 +73,11 @@ export function useDashboard(): DashboardData {
     avatarUrl: profile.data?.avatarUrl ?? null,
     vehicles: vehicles.data ?? [],
     counts: { ...(counts.data ?? EMPTY_COUNTS), shares: shared.data?.length ?? null },
-    completion: profileCompletion({
-      profile: !!fullName && !!email,
-      drivingLicence: !!dl.data,
-      vehicle: (vehicles.data?.length ?? 0) > 0,
-    }),
-    loading: profile.isLoading || dl.isLoading || vehicles.isLoading,
+    completion: getProfileCompletion(
+      { fullName, email, avatarPath: profile.data?.avatarPath },
+      dl.data,
+      (vehicles.data ?? []).map(v => ({ documentCount: vehicleDocs.data?.[v.id] ?? 0 })),
+    ),
+    loading: profile.isLoading || dl.isLoading || vehicles.isLoading || vehicleDocs.isLoading,
   };
 }

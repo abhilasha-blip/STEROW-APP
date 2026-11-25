@@ -11,6 +11,8 @@ import {
   permissionsRows,
   TEST_OTP,
   userDetailsRow,
+  userDetailsOverrides,
+  resetUserDetails,
   userRolesRows,
   vehicleMakes,
   vehicleModels,
@@ -54,6 +56,7 @@ export function resetHandlerState(): void {
   resetMyVehicles();
   resetCounts();
   resetVdocs();
+  resetUserDetails();
   setShareRows([]);
 }
 
@@ -92,7 +95,7 @@ export const handlers = [
   }),
   http.get(urls.userDetails, async ({ request }) => {
     await log(request);
-    return HttpResponse.json([userDetailsRow]);
+    return HttpResponse.json([{ ...userDetailsRow, ...userDetailsOverrides }]);
   }),
   http.get(urls.userRoles, async ({ request }) => {
     await log(request);
@@ -174,8 +177,10 @@ export const handlers = [
   ...[REST.VDOCS_RC, REST.VDOCS_INSURANCE, REST.VDOCS_POLLUTION, REST.VDOCS_FASTAG].map(table =>
     http.get(urls.table(table), async ({ request }) => {
       await log(request);
-      const vehicle = new URL(request.url).searchParams.get('vehicle_id')?.replace('eq.', '');
-      return HttpResponse.json((vdocsRows[table] ?? []).filter(r => !vehicle || r.vehicle_id === vehicle));
+      // vehicle_id=eq.<id> (My Documents) or vehicle_id=in.(<id>,<id>) (profile completion).
+      const filter = new URL(request.url).searchParams.get('vehicle_id');
+      const ids = filter?.startsWith('in.(') ? filter.slice(4, -1).split(',') : filter ? [filter.replace('eq.', '')] : null;
+      return HttpResponse.json((vdocsRows[table] ?? []).filter(r => !ids || ids.includes(String(r.vehicle_id))));
     }),
   ),
   http.get(urls.table(REST.VEHICLE_SHARES), async ({ request }) => {

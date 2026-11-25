@@ -10,6 +10,7 @@ import ShareAccess from '@/assets/icons/dashboard/share-access.svg';
 import Wrench from '@/assets/icons/dashboard/wrench.svg';
 import { strings } from '@/constants/strings';
 import { useDashboard } from '@/hooks/api/useDashboard';
+import { useRefetchProfileCompletionOnFocus } from '@/hooks/api/useProfileCompletionRefresh';
 import type { HomeStackScreenProps } from '@/navigation/types';
 import { useThemedStyles, type Theme } from '@/theme';
 import DashboardHeader, { HEADER_HEIGHT } from '../dashboard/components/DashboardHeader';
@@ -45,6 +46,8 @@ export default function DashboardScreen({ navigation }: HomeStackScreenProps<'Ho
   const queryClient = useQueryClient();
   const uid = useAuthStore(s => s.user?.id);
   const [refreshing, setRefreshing] = React.useState(false);
+  // Profile completion updates live: back from onboarding / My Documents / My Profile → refetch.
+  useRefetchProfileCompletionOnFocus(uid);
   // Light status bar text over the dark header (light screens switch it to dark while focused).
   useFocusEffect(React.useCallback(() => StatusBar.setBarStyle('light-content', true), []));
   const hasVehicle = data.vehicles.length > 0;

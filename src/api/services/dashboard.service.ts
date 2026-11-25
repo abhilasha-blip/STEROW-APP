@@ -69,28 +69,23 @@ export async function fetchDashboardCounts(uid: string): Promise<ServerCounts> {
   return { documents, bookings, serviceHistory };
 }
 
-/** The onboarding parts the "profile pending" banner counts. */
-export type ProfileCompletion = {
-  profile: boolean;
-  drivingLicence: boolean;
-  vehicle: boolean;
-  /** 0–100, rounded. */
-  percent: number;
-  /** First incomplete onboarding step ("Complete Now"), or null when complete. */
-  nextStep: 'Step1Profile' | 'Step2DrivingLicence' | 'Step3Documents' | null;
-};
+const VehicleIdRows = z.array(z.object({ vehicle_id: z.string() }));
 
-export function profileCompletion(parts: { profile: boolean; drivingLicence: boolean; vehicle: boolean }): ProfileCompletion {
-  const done = [parts.profile, parts.drivingLicence, parts.vehicle].filter(Boolean).length;
-  return {
-    ...parts,
-    percent: Math.round((done / 3) * 100),
-    nextStep: !parts.profile
-      ? 'Step1Profile'
-      : !parts.drivingLicence
-      ? 'Step2DrivingLicence'
-      : !parts.vehicle
-      ? 'Step3Documents'
-      : null,
-  };
+/**
+ * Documents per vehicle (RC, insurance, PUC, FASTag rows) for the given vehicles: the profile-completion
+ * "vehicle with a document" item. Vehicles without a document are 0.
+ */
+export async function fetchVehicleDocumentCounts(vehicleIds: readonly string[]): Promise<Record<string, number>> {
+  const counts: Record<string, number> = Object.fromEntries(vehicleIds.map(id => [id, 0]));
+  if (!vehicleIds.length) {
+    return counts;
+  }
+  const supabase = getSupabase();
+  const tables = await Promise.all(
+    VDOCS.map(async t => parseOrThrow(VehicleIdRows, unwrap(await supabase.from(t).select('vehicle_id').in('vehicle_id', [...vehicleIds])).data, t)),
+  );
+  for (const row of tables.flat()) {
+    counts[row.vehicle_id] = (counts[row.vehicle_id] ?? 0) + 1;
+  }
+  return counts;
 }

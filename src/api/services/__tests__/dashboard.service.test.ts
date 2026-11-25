@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { getSupabase, __resetSupabaseForTests } from '@/api/supabase';
-import { fetchDashboardCounts, profileCompletion } from '@/api/services/dashboard.service';
-import { makeSession, SERVICE_HISTORY_COUNT, setCounts, setOnboardingBackend, UID } from '../../../../test/msw/fixtures';
+import { fetchDashboardCounts, fetchVehicleDocumentCounts } from '@/api/services/dashboard.service';
+import { makeSession, SERVICE_HISTORY_COUNT, setCounts, setOnboardingBackend, setVdocs, UID } from '../../../../test/msw/fixtures';
 import { requestLog, server } from '../../../../test/msw/server';
 import { urls } from '../../../../test/msw/urls';
 
@@ -45,22 +45,17 @@ describe('dashboard.service', () => {
     await expect(fetchDashboardCounts(UID)).resolves.toMatchObject({ documents: null, bookings: 3 });
   });
 
-  it('profile completion: % of profile / licence / vehicle; "Complete Now" opens the first missing step', () => {
-    expect(profileCompletion({ profile: false, drivingLicence: false, vehicle: false })).toMatchObject({
-      percent: 0,
-      nextStep: 'Step1Profile',
-    });
-    expect(profileCompletion({ profile: true, drivingLicence: false, vehicle: true })).toMatchObject({
-      percent: 67,
-      nextStep: 'Step2DrivingLicence',
-    });
-    expect(profileCompletion({ profile: true, drivingLicence: true, vehicle: false })).toMatchObject({
-      percent: 67,
-      nextStep: 'Step3Documents',
-    });
-    expect(profileCompletion({ profile: true, drivingLicence: true, vehicle: true })).toMatchObject({
-      percent: 100,
-      nextStep: null,
-    });
+  it('documents per vehicle: rows from the four vdocs tables for the given vehicles (0 when none)', async () => {
+    setVdocs('vdocs_insurance', [{ id: 'i1', vehicle_id: 'v-1' }, { id: 'i2', vehicle_id: 'v-9' }]);
+    setVdocs('vdocs_regcertificate', [{ id: 'r1', vehicle_id: 'v-1' }]);
+    await expect(fetchVehicleDocumentCounts(['v-1', 'v-2'])).resolves.toEqual({ 'v-1': 2, 'v-2': 0 });
+    const gets = requestLog.filter(r => r.method === 'GET' && r.url.includes('vdocs_')).map(r => decodeURIComponent(r.url));
+    expect(gets).toHaveLength(4);
+    expect(gets.every(u => u.includes('vehicle_id=in.(v-1,v-2)'))).toBe(true);
+  });
+
+  it('documents per vehicle: no vehicles → no request', async () => {
+    await expect(fetchVehicleDocumentCounts([])).resolves.toEqual({});
+    expect(requestLog.some(r => r.url.includes('vdocs_'))).toBe(false);
   });
 });

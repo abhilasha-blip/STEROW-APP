@@ -48,6 +48,16 @@ export function makeSession(expiresInS = 3600) {
 export const otpRequestData = otpRequestExample.body.data;
 
 export const userDetailsRow = { ...userDetailsExample[0], full_name: 'Test User', phone: TEST_PHONE };
+/** Per-test changes to the user_details row the GET returns (e.g. an avatar); reset before each test. */
+export const userDetailsOverrides: Record<string, unknown> = {};
+export function setUserDetails(patch: Record<string, unknown>): void {
+  Object.assign(userDetailsOverrides, patch);
+}
+export function resetUserDetails(): void {
+  for (const k of Object.keys(userDetailsOverrides)) {
+    delete userDetailsOverrides[k];
+  }
+}
 export const userRolesRows = userRolesExample;
 export const permissionsRows = permissionsExample;
 
@@ -123,7 +133,7 @@ export function setShareRows(rows: Record<string, unknown>[]): void {
   shareRows.push(...rows);
 }
 
-/** vdocs rows per table (GET <table>?vehicle_id=eq.<id>); reset before each test. */
+/** vdocs rows per table (GET <table>?vehicle_id=eq.<id> or in.(<ids>)); reset before each test. */
 export const vdocsRows: Record<string, Record<string, unknown>[]> = {};
 export function setVdocs(table: string, rows: Record<string, unknown>[]): void {
   vdocsRows[table] = rows;

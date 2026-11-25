@@ -3,6 +3,7 @@ import type { ApiError } from '@/api/errors';
 import { listMyDocuments, type MyDocument } from '@/api/services/myDocuments.service';
 import { saveProfileStep, type ProfileStepResult, type ProfileStepSave } from '@/api/services/profileStep.service';
 import { queryKeys } from './queryKeys';
+import { invalidateProfileCompletion } from './useProfileCompletionRefresh';
 
 /** The selected vehicle's documents + the driving licence (My Documents). */
 export function useMyDocuments(uid: string | undefined, vehicleId: string | null) {
@@ -19,7 +20,7 @@ export function useEditProfile(uid: string) {
   return useMutation<ProfileStepResult, ApiError, ProfileStepSave>({
     mutationFn: input => saveProfileStep(uid, input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.profileStep(uid) });
+      invalidateProfileCompletion(queryClient, uid);
       queryClient.invalidateQueries({ queryKey: queryKeys.bootstrap(uid) });
     },
   });

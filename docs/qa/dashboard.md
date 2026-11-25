@@ -42,7 +42,7 @@
 | Challans | no API: "0 Pending" (neutral) |
 | Health score | no API: ring hidden (was a static 80%) |
 | Quick Links, bell, SOS | Coming soon |
-| Profile completion % | onboarding parts done: profile (name + email), licence, a vehicle |
+| Profile completion % | `getProfileCompletion` (src/utils/profileCompletion.ts): name, email, photo, mobile, licence number + file, a vehicle with a document (6 × equal weight) |
 
 ## Design questions
 
