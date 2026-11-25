@@ -93,9 +93,9 @@ export const variants = {
 
   // design/dashboard (sizes fitted from the glyph outlines' heights in the SVG exports).
   /** "Welcome John!" */
-  welcome: v(fontFamily.semiBold, 26, 32),
+  welcome: v(fontFamily.medium, 26, 32, -1),
   /** The email under it, drawer email. */
-  welcomeEmail: v(fontFamily.regular, 15, 20),
+  welcomeEmail: v(fontFamily.regular, 15, 20, -0.55),
   /** Vehicle card name ("MG ZS EV"), tile titles, document names. */
   cardTitle: v(fontFamily.semiBold, 16, 20),
   /** Vehicle number, row subtitles. */
