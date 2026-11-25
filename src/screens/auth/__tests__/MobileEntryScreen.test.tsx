@@ -40,15 +40,46 @@ describe('MobileEntry', () => {
     expect(screen.getByTestId('phone')).toHaveDisplayValue('9876543210');
   });
 
-  it('switches modes in place keeping the typed number', async () => {
+  it('the footer link switches modes with empty fields: name, referral, phone and errors cleared', async () => {
     await start();
-    await fireEvent.changeText(screen.getByTestId('phone'), '9876543210');
     await fireEvent.press(screen.getByTestId('switch-mode'));
     expect(screen.getByText(t.signup.title)).toBeTruthy();
     expect(screen.getByText(t.signup.subtitle)).toBeTruthy();
-    expect(screen.getByTestId('phone')).toHaveDisplayValue('9876543210');
-    await fireEvent.press(screen.getByTestId('switch-mode'));
+    await fireEvent.changeText(screen.getByTestId('full-name'), 'Ravi Kumar');
+    await fireEvent.changeText(screen.getByTestId('phone'), '98765');
+    await fireEvent.changeText(screen.getByTestId('referral'), 'STRAB12');
+    await fireEvent.press(sendOtpButton()); // phone invalid → an error shown
+    expect(screen.getByText(t.invalidMobile.IN)).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('switch-mode')); // → Sign In
     expect(screen.getByText(t.signin.title)).toBeTruthy();
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('');
+    expect(screen.queryByText(t.invalidMobile.IN)).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('switch-mode')); // → Sign Up again: nothing from before
+    expect(screen.getByTestId('full-name')).toHaveDisplayValue('');
+    expect(screen.getByTestId('referral')).toHaveDisplayValue('');
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('');
+    // And nothing old is sent: a fresh sign-up only carries what was typed now.
+    await fireEvent.changeText(screen.getByTestId('full-name'), 'Asha Rao');
+    await fireEvent.changeText(screen.getByTestId('phone'), '9876543210');
+    await fireEvent.press(sendOtpButton());
+    await screen.findByText(strings.verifyOtp.title);
+    expect(otpRequests()[0].body).toEqual({ phone: '9876543210', purpose: 'signup', fullName: 'Asha Rao' });
+  });
+
+  it('leaving and re-entering the screen (log out → Sign In) starts with empty fields', async () => {
+    const first = await renderApp();
+    await screen.findByText(t.signin.title);
+    await fireEvent.press(screen.getByTestId('switch-mode'));
+    await fireEvent.changeText(screen.getByTestId('full-name'), 'Ravi Kumar');
+    await fireEvent.changeText(screen.getByTestId('phone'), '98765');
+    await first.unmount();
+    resetAppState();
+    await start();
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('');
+    await fireEvent.press(screen.getByTestId('switch-mode'));
+    expect(screen.getByTestId('full-name')).toHaveDisplayValue('');
   });
 
   it('sign-up validates name and referral code inline', async () => {
@@ -100,6 +131,9 @@ describe('MobileEntry', () => {
     expect(await screen.findByText(strings.errors.alreadyRegistered)).toBeTruthy();
     expect(screen.getByText(t.signin.title)).toBeTruthy();
     expect(screen.getByTestId('phone')).toHaveDisplayValue('9999999999');
+    // Only the phone is kept: back on Sign Up (footer), the name is gone.
+    await fireEvent.press(screen.getByTestId('switch-mode'));
+    expect(screen.getByTestId('full-name')).toHaveDisplayValue('');
   });
 
   it('"no account" on sign-in → toast + sign-up mode, number kept', async () => {
@@ -109,6 +143,23 @@ describe('MobileEntry', () => {
     await fireEvent.press(sendOtpButton());
     expect(await screen.findByText(strings.errors.noAccount)).toBeTruthy();
     expect(screen.getByText(t.signup.title)).toBeTruthy();
+    expect(screen.getByTestId('phone')).toHaveDisplayValue('9876543210'); // prefilled
+    expect(screen.getByTestId('full-name')).toHaveDisplayValue('');
+    expect(screen.getByTestId('referral')).toHaveDisplayValue('');
+  });
+
+  it('"no account" after a sign-up attempt was abandoned: the old name / referral are not brought back', async () => {
+    server.use(http.post(urls.otpRequest, () => HttpResponse.json(appError(backendMessages.noAccount), { status: 400 })));
+    await start();
+    await fireEvent.press(screen.getByTestId('switch-mode'));
+    await fireEvent.changeText(screen.getByTestId('full-name'), 'Old Name');
+    await fireEvent.changeText(screen.getByTestId('referral'), 'OLD123');
+    await fireEvent.press(screen.getByTestId('switch-mode')); // back to Sign In
+    await fireEvent.changeText(screen.getByTestId('phone'), '9876543210');
+    await fireEvent.press(sendOtpButton());
+    expect(await screen.findByText(strings.errors.noAccount)).toBeTruthy();
+    expect(screen.getByTestId('full-name')).toHaveDisplayValue('');
+    expect(screen.getByTestId('referral')).toHaveDisplayValue('');
     expect(screen.getByTestId('phone')).toHaveDisplayValue('9876543210');
   });
 

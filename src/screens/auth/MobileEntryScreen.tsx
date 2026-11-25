@@ -133,7 +133,18 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
     }
   };
 
-  const switchMode = (next: AuthMode) => {
+  /**
+   * Sign In ⇄ Sign Up. The footer link starts the other form empty (name, referral, phone, errors). The
+   * automatic switch after "already registered" / "no account found" keeps only the phone number.
+   * (The name / referral fields re-mount on Sign Up and read these refs as their initial value.)
+   */
+  const switchMode = (next: AuthMode, { keepPhone = false }: { keepPhone?: boolean } = {}) => {
+    fullName.current = '';
+    referralCode.current = '';
+    if (!keepPhone) {
+      phone.current = '';
+      phoneField.current?.setValue('');
+    }
     setMode(next);
     setErrors({});
   };
@@ -188,9 +199,9 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
         }
         toast.error(e.userMessage);
         if (e.action === 'GO_SIGN_IN') {
-          switchMode('signin');
+          switchMode('signin', { keepPhone: true });
         } else if (e.action === 'GO_SIGN_UP') {
-          switchMode('signup');
+          switchMode('signup', { keepPhone: true });
         }
       },
     });
