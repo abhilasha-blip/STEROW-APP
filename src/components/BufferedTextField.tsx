@@ -28,13 +28,22 @@ export type BufferedTextFieldProps = Omit<TextFieldProps, 'value' | 'onChangeTex
  * letter in a number field) or via `setValue` (e.g. a country switch). For that one render the input
  * gets a `value`; the next keystroke drops it again. The screen reads the text from `onValueChange`
  * (into a ref) or the imperative handle; typing re-renders nothing around the field.
+ *
+ * Dropping `value` must not move the text: React Native sends `text = value ?? defaultValue` to the
+ * native input on every render, so `defaultValue` is moved to the current text in the same update
+ * (a fixed mount-time `defaultValue` made the next keystroke after a correction reset the whole field,
+ * e.g. UAE: a 10th digit trimmed, then backspace → empty).
  */
 const BufferedTextField = forwardRef<BufferedTextFieldHandle, BufferedTextFieldProps>(
   function BufferedTextFieldInner({ initialValue = '', format, onValueChange, ...fieldProps }, ref) {
     const [initial] = useState(() => (format ? format(initialValue) : initialValue));
     const valueRef = useRef(initial);
-    /** A correction to push into the native input; undefined = uncontrolled (the normal state). */
-    const [forced, setForced] = useState<{ text: string } | undefined>(undefined);
+    /**
+     * `forced`: a correction to push into the native input; undefined = uncontrolled (the normal state).
+     * `base`: the defaultValue, i.e. what RN shows when `forced` is undefined. Only changes together with
+     * `forced`, so clean keystrokes still cause no render.
+     */
+    const [state, setState] = useState<{ forced?: string; base: string }>({ base: initial });
     const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
     useImperativeHandle(
@@ -44,7 +53,7 @@ const BufferedTextField = forwardRef<BufferedTextFieldHandle, BufferedTextFieldP
         blur: () => inputRef.current?.blur(),
         setValue: next => {
           valueRef.current = next;
-          setForced({ text: next });
+          setState(prev => ({ ...prev, forced: next }));
         },
         getValue: () => valueRef.current,
       }),
@@ -55,8 +64,14 @@ const BufferedTextField = forwardRef<BufferedTextFieldHandle, BufferedTextFieldP
       (text: string) => {
         const next = format ? format(text) : text;
         valueRef.current = next;
-        // No re-render while the typed text is already clean (state stays undefined → React bails out).
-        setForced(next === text ? undefined : { text: next });
+        setState(prev => {
+          if (next !== text) {
+            return { forced: next, base: prev.base }; // push the corrected text
+          }
+          // Clean keystroke: no render while already uncontrolled (same state → React bails out); after a
+          // correction, go uncontrolled with defaultValue = this text, so the native text doesn't change.
+          return prev.forced === undefined ? prev : { forced: undefined, base: next };
+        });
         onValueChange?.(next);
       },
       [format, onValueChange],
@@ -66,8 +81,8 @@ const BufferedTextField = forwardRef<BufferedTextFieldHandle, BufferedTextFieldP
       <TextField
         ref={inputRef}
         {...fieldProps}
-        defaultValue={initial}
-        value={forced?.text}
+        defaultValue={state.base}
+        value={state.forced}
         onChangeText={onChangeText}
       />
     );

@@ -1,6 +1,8 @@
+import React from 'react';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { http, HttpResponse } from 'msw';
 import { strings } from '@/constants/strings';
+import { normalizeNational } from '@/utils/phone';
 import { appError, backendMessages } from '../../../../test/msw/fixtures';
 import { requestLog, server } from '../../../../test/msw/server';
 import { urls } from '../../../../test/msw/urls';
@@ -277,5 +279,68 @@ describe('MobileEntry: country picker', () => {
     require('react-native-keychain').__store.set('sterow.pref.phoneCountry', { password: 'XX' });
     await start();
     expect(screen.getByText('🇮🇳 +91')).toBeTruthy();
+  });
+});
+
+describe('MobileEntry: rapid typing and backspace (no reset)', () => {
+  const phoneInput = () => screen.getByTestId('phone');
+  /** RN pushes `value ?? defaultValue` into the native input (see BufferedTextField). */
+  const shown = () => {
+    const { value, defaultValue } = phoneInput().props;
+    return typeof value === 'string' ? value : defaultValue;
+  };
+  /** One keystroke: the text RN would push, if it changed, is the typed text — never a reset. */
+  async function key(text: string, expected: string) {
+    const before = shown();
+    await fireEvent.changeText(phoneInput(), text);
+    if (shown() !== before) {
+      expect(shown()).toBe(expected);
+    }
+  }
+
+  it.each([
+    ['IN', '9876543210', '9876543210'],
+    ['AE', '0501234567', '501234567'],
+  ] as const)('%s: type fast (with an extra digit), then backspace one digit at a time', async (country, typed, kept) => {
+    await start();
+    if (country === 'AE') {
+      await chooseCountry('AE');
+    }
+    for (let i = 1; i <= typed.length; i++) {
+      const text = typed.slice(0, i);
+      await key(text, normalizeNational(country, text));
+    }
+    await key(`${kept}9`, kept); // one key too many: trimmed, not reset
+    let digits: string = kept;
+    while (digits.length) {
+      digits = digits.slice(0, -1);
+      await key(digits, digits);
+    }
+    // Still usable: a valid number typed after all that is sent.
+    await key(kept, kept);
+    await fireEvent.press(sendOtpButton());
+    expect(await screen.findByText(strings.verifyOtp.title)).toBeTruthy();
+  });
+
+  it('a saved country that loads after the first keystrokes does not clear them', async () => {
+    const keychain = require('react-native-keychain');
+    keychain.__store.set('sterow.pref.phoneCountry', { password: 'AE' });
+    let release: () => void = () => {};
+    const gate = new Promise<void>(r => {
+      release = r;
+    });
+    const original = keychain.getGenericPassword.getMockImplementation();
+    keychain.getGenericPassword.mockImplementation(async (options: { service: string }) => {
+      if (options.service === 'sterow.pref.phoneCountry') {
+        await gate; // the country read lands after the user starts typing
+      }
+      return keychain.__store.get(options.service) ?? false;
+    });
+    await start();
+    await fireEvent.changeText(phoneInput(), '98765');
+    await React.act(async () => release());
+    expect(phoneInput()).toHaveDisplayValue('98765');
+    expect(screen.getByText('🇮🇳 +91')).toBeTruthy();
+    keychain.getGenericPassword.mockImplementation(original);
   });
 });

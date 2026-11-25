@@ -107,11 +107,13 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
     clearError('phone');
   };
 
-  // Remembered country (default India). Skipped when the route or the user already chose one.
+  // Remembered country (default India). Skipped when the route or the user already chose one, or once
+  // the user has started typing: the Keychain read can land after the first keystrokes, and switching
+  // country then would clear a number that isn't (yet) valid for it. Only an explicit pick resets it.
   useEffect(() => {
     let active = true;
     loadCountry().then(saved => {
-      if (active && !countryTouched.current && saved !== DEFAULT_COUNTRY) {
+      if (active && !countryTouched.current && !phone.current && saved !== DEFAULT_COUNTRY) {
         applyCountry(saved);
       }
     });
