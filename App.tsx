@@ -23,6 +23,9 @@ const qaDashboard = __DEV__
   ? (require('@/dev/QaDashboard') as typeof import('@/dev/QaDashboard'))
   : null;
 const qaDashboardScenario = qaDashboard?.getQaDashboardScenarioName() ?? null;
+/** DEV only: `-qaScenario fields` shows the text inputs with descender text (src/dev/QaFields). */
+const qaFields = __DEV__ ? (require('@/dev/QaFields') as typeof import('@/dev/QaFields')) : null;
+const showQaFields = qaFields?.isQaFieldsScenario() ?? false;
 
 function ThemedNavigation() {
   const theme = useTheme();
@@ -49,6 +52,8 @@ export default function App() {
                 <qa.default name={qaScenario} />
               ) : qaDashboard && qaDashboardScenario ? (
                 <qaDashboard.default name={qaDashboardScenario} />
+              ) : qaFields && showQaFields ? (
+                <qaFields.default />
               ) : (
                 <ThemedNavigation />
               )}

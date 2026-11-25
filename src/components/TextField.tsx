@@ -1,6 +1,7 @@
 import React, { forwardRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   StyleSheet,
   TextInput,
   View,
@@ -9,6 +10,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useThemedStyles, useTheme, type Theme } from '@/theme';
+import { iosInputCentering } from '@/theme/typography';
 import AppText from './AppText';
 
 type InputVariant = 'input' | 'inputLarge' | 'inputSmall';
@@ -121,6 +123,7 @@ const TextField = forwardRef<TextInputRef, TextFieldProps>(function TextFieldInn
           style={[
             styles.input,
             theme.typography.variants[textVariant],
+            Platform.OS === 'ios' && { paddingBottom: iosInputCentering(theme.typography.variants[textVariant]) },
             disabled && { color: isLight ? theme.colors.text.onLightMuted : theme.colors.text.placeholder },
           ]}
           placeholderTextColor={isLight ? theme.colors.text.onLightMuted : theme.colors.text.placeholder}
@@ -181,10 +184,14 @@ const makeStyles = ({ colors, sizes, radius }: Theme) =>
     prefix: { marginRight: 8 },
     leftIcon: { width: 16, alignItems: 'center', marginRight: 16 },
     spinner: { marginLeft: 8, marginRight: 4 },
+    // No fixed height / vertical padding on the input: it stretches to the pill (the whole pill is the
+    // tap target) and the glyphs get the variant's lineHeight, so descenders are never clipped. Android:
+    // centred vertically, no extra font padding (the lineHeight already makes room).
     input: {
       flex: 1,
-      height: '100%',
-      padding: 0,
+      alignSelf: 'stretch',
+      paddingHorizontal: 0,
+      paddingVertical: 0,
       color: colors.text.primary,
       includeFontPadding: false,
       textAlignVertical: 'center',
@@ -217,8 +224,9 @@ const makeLightStyles = ({ colors, sizes, radius }: Theme) =>
     spinner: { marginLeft: 8, marginRight: 6 },
     input: {
       flex: 1,
-      height: '100%',
-      padding: 0,
+      alignSelf: 'stretch',
+      paddingHorizontal: 0,
+      paddingVertical: 0,
       color: colors.text.onLight,
       includeFontPadding: false,
       textAlignVertical: 'center',

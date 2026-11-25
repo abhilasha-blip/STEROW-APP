@@ -19,6 +19,28 @@ export const fontFamily = {
   bold: 'PlusJakartaSans-Bold',
 } as const;
 
+/**
+ * Minimum lineHeight / fontSize for text inputs and the OTP digits. Plus Jakarta Sans declares
+ * ascent + descent = 1.26 em (hhea 1038 / -222 per 1000) but its deepest descenders reach 0.356 em
+ * (OS/2 winDescent), so a line box sized from the font (no lineHeight, includeFontPadding off) cuts the
+ * tails of g, y, p, q, j.
+ */
+export const INPUT_LINE_HEIGHT_RATIO = 1.35;
+/** The font's own line height (hhea ascent + descent) / fontSize. */
+export const FONT_NATURAL_LINE_RATIO = 1.26;
+
+/**
+ * iOS draws a single-line TextInput's extra leading (lineHeight − natural line) above the text, which
+ * moves it down by that much. A bottom padding of twice that re-centres it in the field.
+ */
+export function iosInputCentering(variant: { fontSize?: number; lineHeight?: number }): number {
+  const { fontSize, lineHeight } = variant;
+  if (!fontSize || !lineHeight) {
+    return 0;
+  }
+  return Math.max(0, Math.round(2 * (lineHeight - FONT_NATURAL_LINE_RATIO * fontSize) * 10) / 10);
+}
+
 type Variant = Pick<TextStyle, 'fontFamily' | 'fontSize' | 'lineHeight' | 'letterSpacing'>;
 
 const v = (
@@ -42,10 +64,14 @@ export const variants = {
   bodyLarge: v(fontFamily.regular, 16, 19),
   /** "PIN", "Mobile Number", "Code" */
   label: v(fontFamily.regular, 16, 20),
-  /** PIN field text + placeholder (no lineHeight: it misaligns TextInput) */
-  input: v(fontFamily.regular, 16),
+  /**
+   * Text field text + placeholder. Inputs need an explicit lineHeight ≥ 1.35 × fontSize: without one the
+   * line box comes from the font's ascent/descent (with includeFontPadding off on Android) and the
+   * descenders of g, y, p, q, j can be cut at the bottom. See INPUT_LINE_HEIGHT_RATIO.
+   */
+  input: v(fontFamily.regular, 16, 22),
   /** Mobile field text, placeholder and "+91" prefix */
-  inputLarge: v(fontFamily.regular, 18),
+  inputLarge: v(fontFamily.regular, 18, 25),
   /** Primary button label */
   button: v(fontFamily.medium, 18, 24),
   /** "Or Log in with", "Don't have an account?" */
@@ -59,7 +85,7 @@ export const variants = {
   /** Biometric button labels */
   biometric: v(fontFamily.medium, 16, 20),
   /** OTP box digit */
-  otpDigit: v(fontFamily.semiBold, 22, 28),
+  otpDigit: v(fontFamily.semiBold, 22, 30),
   /** Inline field errors */
   error: v(fontFamily.regular, 13, 18),
 
@@ -70,8 +96,8 @@ export const variants = {
   stepTotal: v(fontFamily.regular, 14, 20),
   /** Light field labels: "DL Number", "Full Name", "Upload your DL"; also "Or" */
   fieldLabel: v(fontFamily.regular, 14, 18),
-  /** Light field text + placeholder (no lineHeight: it misaligns TextInput) */
-  inputSmall: v(fontFamily.regular, 14),
+  /** Light field text + placeholder (lineHeight ≥ 1.35 × fontSize, see `input`) */
+  inputSmall: v(fontFamily.regular, 14, 19),
   /** "Profile image" */
   avatarLabel: v(fontFamily.medium, 16, 20),
   /** "Edit Profile Image" */
