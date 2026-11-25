@@ -86,6 +86,80 @@ describe('VerifyOtp', () => {
     expect(screen.getByTestId('resend')).toBeTruthy();
   });
 
+  describe('too many wrong attempts', () => {
+    const tooMany = 'Too many wrong attempts. Request a new OTP.';
+    const boxesDisabled = () => screen.getByTestId('otp-input').props.editable === false;
+
+    it.each([
+      ['400 + "too many" text', () => HttpResponse.json(appError(tooMany), { status: 400 })],
+      ['429', () => HttpResponse.json({ error: { code: 'too_many_requests', message: 'Rate limit' } }, { status: 429 })],
+    ])('%s → the message (toast + inline), boxes cleared + disabled, Resend now; a resend re-enables', async (_n, reply) => {
+      let verifyCalls = 0;
+      server.use(
+        http.post(urls.otpVerify, () => {
+          verifyCalls += 1;
+          return reply();
+        }),
+      );
+      await start();
+      expect(screen.queryByTestId('resend')).toBeNull(); // 30 s cooldown running
+      await typeOtp('000000');
+      expect(await screen.findByTestId('otp-error')).toHaveTextContent(strings.errors.tooManyAttempts);
+      expect(screen.getAllByText(strings.errors.tooManyAttempts)).toHaveLength(2); // toast + inline
+      expect(screen.queryByText(strings.common.genericError)).toBeNull();
+      expect(screen.getByTestId('otp-input').props.value).toBe('');
+      expect(boxesDisabled()).toBe(true);
+      expect(screen.getByTestId('otp-boxes').props.accessibilityState).toMatchObject({ disabled: true });
+      // Locked: Confirm sends nothing.
+      await fireEvent.press(confirmButton());
+      expect(verifyCalls).toBe(1);
+      // Resend is offered right away; a successful resend re-enables the boxes with the new request.
+      server.resetHandlers(); // verify succeeds again (default handler)
+      await fireEvent.press(screen.getByTestId('resend'));
+      expect(await screen.findByText(t.resent)).toBeTruthy();
+      expect(boxesDisabled()).toBe(false);
+      expect(screen.queryByTestId('otp-error')).toBeNull();
+      await typeOtp(TEST_OTP);
+      await screen.findByTestId('dashboard');
+      expect(bodies(urls.otpVerify).at(-1)?.requestId).toBe('req-2');
+    });
+
+    it('Resend still inside the server cooldown: countdown restarts, the boxes stay locked with the message', async () => {
+      server.use(http.post(urls.otpVerify, () => HttpResponse.json(appError(tooMany), { status: 400 })));
+      await start();
+      await typeOtp('000000');
+      await screen.findByTestId('otp-error');
+      server.use(http.post(urls.otpRequest, () => HttpResponse.json(appError(backendMessages.cooldown), { status: 400 })));
+      await fireEvent.press(screen.getByTestId('resend'));
+      expect(await screen.findByText(strings.errors.cooldown)).toBeTruthy();
+      expect(screen.getByTestId('resend-countdown')).toHaveTextContent(/00:\d\d/);
+      expect(boxesDisabled()).toBe(true);
+      expect(screen.getByTestId('otp-error')).toHaveTextContent(strings.errors.tooManyAttempts);
+    });
+
+    it('Resend refused with "too many requests": the server text (toast + inline)', async () => {
+      const serverText = 'Too many OTP requests for this number. Try again in 30 minutes.';
+      server.use(http.post(urls.otpVerify, () => HttpResponse.json(appError(tooMany), { status: 400 })));
+      await start();
+      await typeOtp('000000');
+      await screen.findByTestId('otp-error');
+      server.use(http.post(urls.otpRequest, () => HttpResponse.json(appError(serverText), { status: 429 })));
+      await fireEvent.press(screen.getByTestId('resend'));
+      expect(await screen.findByTestId('otp-error')).toHaveTextContent(serverText);
+      expect(screen.getAllByText(serverText).length).toBeGreaterThanOrEqual(1);
+      expect(boxesDisabled()).toBe(true);
+    });
+
+    it('a generic 500 on verify still shows "Something went wrong. Please try again." (boxes stay usable)', async () => {
+      server.use(http.post(urls.otpVerify, () => HttpResponse.json({ message: 'boom' }, { status: 500 })));
+      await start();
+      await typeOtp(TEST_OTP);
+      expect(await screen.findByText('Something went wrong. Please try again.')).toBeTruthy();
+      expect(boxesDisabled()).toBe(false);
+      expect(screen.queryByText(strings.errors.tooManyAttempts)).toBeNull();
+    });
+  });
+
   it('Resend after the cooldown replaces the requestId; the next verify uses the new one', async () => {
     await start();
     skipCooldown();

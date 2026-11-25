@@ -192,7 +192,7 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
         navigation.navigate('VerifyOtp', { mode: submittedMode, requestId, ...input });
       },
       onError: error => {
-        const e = toUserError(error);
+        const e = toUserError(error, 'otpRequest');
         if (e.kind === 'cancelled') {
           return;
         }

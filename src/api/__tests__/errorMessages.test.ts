@@ -37,4 +37,47 @@ describe('toUserError', () => {
     expect(toUserError(new ApiError({ kind: 'server', message: 'Internal', status: 500 })).userMessage).toBe(e.generic);
     expect(toUserError(undefined).userMessage).toBe(e.generic);
   });
+
+  describe('too many attempts / requests (never the generic message)', () => {
+    const locked = { userMessage: e.tooManyAttempts, action: 'OTP_LOCKED', field: 'otp' };
+
+    it.each([
+      ['Too many wrong attempts. Request a new OTP.', 400],
+      ['too many attempts', 400],
+      ['TOO MANY REQUESTS, REQUEST A NEW OTP', 400],
+      ['Too many incorrect codes. Please request a new OTP.', 400],
+      ['Rate limited', 429], // any 429
+      ['HTTP 429', 429],
+    ])('verify: "%s" (%s) → "Too many attempts. Please request a new OTP."', (message, status) => {
+      expect(toUserError(v(message, status), 'otpVerify')).toMatchObject(locked);
+      expect(toUserError(v(message, status))).toMatchObject(locked); // default: the verify meaning
+    });
+
+    it.each(['too_many_attempts', 'TOO_MANY_REQUESTS', 'otp_locked', 'over_request_rate_limit', 'rate_limited'])(
+      'verify: dedicated code %s',
+      code => {
+        const err = new ApiError({ kind: 'validation', message: 'Request a new OTP.', status: 400, code });
+        expect(toUserError(err, 'otpVerify')).toMatchObject(locked);
+      },
+    );
+
+    it('OTP request: the server sentence is shown as is', () => {
+      const msg = 'Too many OTP requests for this number. Try again in 30 minutes.';
+      expect(toUserError(v(msg), 'otpRequest')).toMatchObject({ userMessage: msg, action: 'TOO_MANY_REQUESTS' });
+    });
+
+    it('OTP request: a 429 without a usable sentence → our fallback (no JSON / status text)', () => {
+      expect(toUserError(v('HTTP 429', 429), 'otpRequest').userMessage).toBe(e.tooManyRequests);
+      expect(toUserError(v('{"limit":5}', 429), 'otpRequest').userMessage).toBe(e.tooManyRequests);
+      expect(toUserError(new ApiError({ kind: 'validation', message: 'Slow down', status: 400, code: 'rate_limited' }), 'otpRequest').userMessage).toBe(e.tooManyRequests);
+    });
+
+    it('unrelated errors are untouched: a 500 is still generic, a wrong code still "Incorrect OTP."', () => {
+      expect(toUserError(new ApiError({ kind: 'server', message: 'boom', status: 500 }), 'otpVerify').userMessage).toBe(
+        'Something went wrong. Please try again.',
+      );
+      expect(toUserError(v('Incorrect OTP.'), 'otpVerify')).toMatchObject({ userMessage: e.incorrectOtp, field: 'otp' });
+      expect(toUserError(v('Please wait 30 seconds before requesting another OTP.'), 'otpRequest').action).toBe('WAIT_COOLDOWN');
+    });
+  });
 });

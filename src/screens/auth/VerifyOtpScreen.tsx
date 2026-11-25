@@ -41,6 +41,8 @@ export default function VerifyOtpScreen({ route }: AuthStackScreenProps<'VerifyO
   const [requestId, setRequestId] = useState(route.params.requestId);
   const [code, setCode] = useState('');
   const [error, setError] = useState<ErrorState>();
+  /** Too many wrong codes: the boxes stay cleared and disabled until a new OTP is sent. */
+  const [locked, setLocked] = useState(false);
   /** Verified; the auth store is loading the user. Keep the button busy until the stack switches. */
   const [awaitingBootstrap, setAwaitingBootstrap] = useState(false);
   const { remaining, isDone, restart, finish } = useCountdown(RESEND_COOLDOWN_S);
@@ -65,8 +67,21 @@ export default function VerifyOtpScreen({ route }: AuthStackScreenProps<'VerifyO
     otpRef.current?.focus();
   };
 
+  /** Too many wrong codes: message (toast + inline), clear + disable the boxes, Resend available now. */
+  const lockCode = (message: string) => {
+    setLocked(true);
+    setCode('');
+    setError({ message, wrongCode: true });
+    haptics.error();
+    otpRef.current?.shake();
+    toast.error(message);
+    // Resend now; if the server's 30 s request cooldown still applies it answers "wait…" and the
+    // countdown restarts (onResend's WAIT_COOLDOWN), the lock message stays.
+    finish();
+  };
+
   const submit = (value: string) => {
-    if (verify.isPending || resend.isPending || awaitingBootstrap) {
+    if (verify.isPending || resend.isPending || awaitingBootstrap || locked) {
       return;
     }
     if (!isValidOtp(value)) {
@@ -83,11 +98,13 @@ export default function VerifyOtpScreen({ route }: AuthStackScreenProps<'VerifyO
           setAwaitingBootstrap(true);
         },
         onError: err => {
-          const e = toUserError(err);
+          const e = toUserError(err, 'otpVerify');
           if (e.kind === 'cancelled') {
             return;
           }
-          if (e.action === 'RESEND_OTP') {
+          if (e.action === 'OTP_LOCKED') {
+            lockCode(e.userMessage);
+          } else if (e.action === 'RESEND_OTP') {
             finish(); // expired: offer Resend immediately
             showCodeError(e.userMessage);
           } else if (e.field === 'otp') {
@@ -113,19 +130,23 @@ export default function VerifyOtpScreen({ route }: AuthStackScreenProps<'VerifyO
     if (resend.isPending || verify.isPending) {
       return;
     }
-    setError(undefined);
+    if (!locked) {
+      setError(undefined);
+    }
     resend.mutate(
       { country, phone, purpose: mode, fullName, referralCode },
       {
         onSuccess: res => {
           setRequestId(res.requestId);
           setCode('');
+          setLocked(false); // a new code: the boxes work again
+          setError(undefined);
           restart();
           toast.success(t.resent);
           otpRef.current?.focus();
         },
         onError: err => {
-          const e = toUserError(err);
+          const e = toUserError(err, 'otpRequest');
           if (e.kind === 'cancelled') {
             return;
           }
@@ -133,6 +154,8 @@ export default function VerifyOtpScreen({ route }: AuthStackScreenProps<'VerifyO
           toast.error(e.userMessage);
           if (e.action === 'WAIT_COOLDOWN') {
             restart();
+          } else if (e.action === 'TOO_MANY_REQUESTS') {
+            setError({ message: e.userMessage, wrongCode: false });
           }
         },
       },
@@ -162,6 +185,7 @@ export default function VerifyOtpScreen({ route }: AuthStackScreenProps<'VerifyO
         length={OTP_LENGTH}
         gap={s(sizes.otpGap / OTP_GAP_DIVISOR)}
         error={!!error?.wrongCode}
+        disabled={locked}
       />
       {!!error && (
         <AppText
@@ -201,7 +225,7 @@ export default function VerifyOtpScreen({ route }: AuthStackScreenProps<'VerifyO
       </View>
 
       <View ref={buttonRef} collapsable={false} style={{ marginTop: vs(GAP.button) }}>
-        <PrimaryButton label={t.submit} onPress={() => submit(code)} loading={busy} />
+        <PrimaryButton label={t.submit} onPress={() => submit(code)} loading={busy} disabled={locked} />
       </View>
     </ScreenContainer>
   );

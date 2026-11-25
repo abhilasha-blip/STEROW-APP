@@ -1,7 +1,18 @@
 import { strings } from '@/constants/strings';
 import { ApiError, normalizeError } from './errors';
 
-export type UserErrorAction = 'GO_SIGN_IN' | 'GO_SIGN_UP' | 'WAIT_COOLDOWN' | 'RESEND_OTP';
+export type UserErrorAction =
+  | 'GO_SIGN_IN'
+  | 'GO_SIGN_UP'
+  | 'WAIT_COOLDOWN'
+  | 'RESEND_OTP'
+  /** Verify: too many wrong codes. The code is locked: clear + disable it, offer Resend now. */
+  | 'OTP_LOCKED'
+  /** OTP request: too many requests (server: otp_max_resends). */
+  | 'TOO_MANY_REQUESTS';
+
+/** Where the failure happened, when the same backend text means different things. */
+export type ErrorContext = 'otpVerify' | 'otpRequest';
 
 /** What a screen needs to react to a failure. `field` routes the message inline instead of a toast. */
 export type UserError = {
@@ -49,6 +60,26 @@ const RULES: ReadonlyArray<{ match: RegExp; error: Omit<UserError, 'kind'> }> = 
   },
 ];
 
+/**
+ * "Too many" from the backend. The APP server answers 400 { error: { code: "bad_request", message } }
+ * (openapi: /auth/otp/verify and /auth/otp/request list only 400/401), the exact wording isn't
+ * published (the web shows the server text as is), and the web admin sets the limits
+ * (otp_max_wrong_attempts: "After this many wrong codes the user must choose Resend OTP";
+ * otp_max_resends per mobile + purpose in 30 min). So: any "too many" text, HTTP 429, or a dedicated
+ * code (GoTrue / gateway rate limits).
+ */
+const TOO_MANY_TEXT = /too many/i;
+const TOO_MANY_CODES = /^(too_many_(attempts|requests)|rate_limit(ed)?|otp_(locked|attempts_exceeded|max_attempts)|max_attempts_exceeded|over_(request|sms_send|email_send)_rate_limit)$/i;
+
+const isTooMany = (err: ApiError) =>
+  err.status === 429 || TOO_MANY_TEXT.test(err.message) || (!!err.code && TOO_MANY_CODES.test(err.code));
+
+/** The server's own sentence, if it's safe to show (never JSON, HTML or a bare status). */
+const serverText = (message: string): string | undefined => {
+  const m = message.trim();
+  return m && m.length <= 200 && !/^[[{<]/.test(m) && !/^HTTP \d+$/.test(m) ? m : undefined;
+};
+
 /** App-side codes (services) → user copy. Checked before the backend message rules. */
 const CODES: Readonly<Record<string, Omit<UserError, 'kind'>>> = {
   DL_NUMBER_REQUIRED: { userMessage: e.dlNumberRequired, field: 'dlNumber' },
@@ -76,8 +107,11 @@ export const OTP_REQUEST_SUCCESS_MESSAGES = [
   'OTP request ready',
 ] as const;
 
-/** Never returns raw backend text or JSON. */
-export function toUserError(error: unknown): UserError {
+/**
+ * Never returns raw JSON / HTML; never falls through to the generic message for a known case.
+ * `context` tells a too-many-attempts on Verify from a too-many-requests on the OTP request.
+ */
+export function toUserError(error: unknown, context?: ErrorContext): UserError {
   const apiError = normalizeError(error);
   switch (apiError.kind) {
     case 'network':
@@ -88,6 +122,17 @@ export function toUserError(error: unknown): UserError {
       return { userMessage: '', kind: apiError.kind };
     default:
       break;
+  }
+  if (isTooMany(apiError)) {
+    return context === 'otpRequest'
+      ? {
+          userMessage: serverText(apiError.message) && TOO_MANY_TEXT.test(apiError.message)
+            ? serverText(apiError.message)!
+            : e.tooManyRequests,
+          action: 'TOO_MANY_REQUESTS',
+          kind: apiError.kind,
+        }
+      : { userMessage: e.tooManyAttempts, action: 'OTP_LOCKED', field: 'otp', kind: apiError.kind };
   }
   const coded = apiError.code ? CODES[apiError.code] : undefined;
   if (coded) {

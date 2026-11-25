@@ -23,6 +23,8 @@ type OtpInputProps = {
   onChange: (value: string) => void;
   length?: number;
   error?: boolean;
+  /** Locked (e.g. too many wrong codes until a new OTP is requested): no typing, faded boxes. */
+  disabled?: boolean;
   autoFocus?: boolean;
   /** Space between boxes; defaults to the Figma gap (sized for 4 boxes). */
   gap?: number;
@@ -38,7 +40,7 @@ const SHAKE_STEP_MS = 50; // 6 steps = 300ms
  * The input covers the boxes, so tapping any box focuses it.
  */
 const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>(function OtpInputInner(
-  { value, onChange, length = 4, error = false, autoFocus = true, gap, style },
+  { value, onChange, length = 4, error = false, disabled = false, autoFocus = true, gap, style },
   ref,
 ) {
   const { colors } = useTheme();
@@ -81,11 +83,11 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>(function OtpInputInne
   const caretStyle = useAnimatedStyle(() => ({ opacity: caretOpacity.value }));
 
   const activeIndex = Math.min(value.length, length - 1);
-  const showCaret = focused && value.length < length;
+  const showCaret = focused && !disabled && value.length < length;
 
   return (
-    <View style={style}>
-      <Animated.View style={[styles.row, gap !== undefined && { gap }, rowStyle]}>
+    <View style={style} testID="otp-boxes" accessibilityState={{ disabled }}>
+      <Animated.View style={[styles.row, gap !== undefined && { gap }, rowStyle, disabled && styles.disabled]}>
         {Array.from({ length }, (_, i) => {
           const digit = value[i];
           return (
@@ -109,6 +111,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>(function OtpInputInne
         value={value}
         onChangeText={t => onChange(digitsOnly(t).slice(0, length))}
         maxLength={length}
+        editable={!disabled}
         keyboardType="number-pad"
         textContentType="oneTimeCode"
         autoComplete="sms-otp"
@@ -117,6 +120,7 @@ const OtpInput = forwardRef<OtpInputHandle, OtpInputProps>(function OtpInputInne
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         accessibilityLabel={`${strings.verifyOtp.codeLabel}, ${length} digits`}
+        accessibilityState={{ disabled }}
         testID="otp-input"
         style={[StyleSheet.absoluteFill, styles.hiddenInput, { color: colors.text.primary }]}
       />
@@ -141,6 +145,7 @@ const makeStyles = ({ colors, sizes, radius }: Theme) =>
       justifyContent: 'center',
     },
     boxError: { borderColor: colors.status.error },
+    disabled: { opacity: 0.5 },
     caret: {
       position: 'absolute',
       left: 18,

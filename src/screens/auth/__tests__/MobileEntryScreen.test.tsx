@@ -202,6 +202,17 @@ describe('MobileEntry', () => {
     expect(screen.getByText(t.signin.title)).toBeTruthy();
   });
 
+  it('too many OTP requests (429) → the server text as a toast, never the generic message', async () => {
+    const text = 'Too many OTP requests for this number. Try again in 30 minutes.';
+    server.use(http.post(urls.otpRequest, () => HttpResponse.json(appError(text), { status: 429 })));
+    await start();
+    await fireEvent.changeText(screen.getByTestId('phone'), '9876543210');
+    await fireEvent.press(sendOtpButton());
+    expect(await screen.findByText(text)).toBeTruthy();
+    expect(screen.queryByText(strings.common.genericError)).toBeNull();
+    expect(screen.getByText(t.signin.title)).toBeTruthy();
+  });
+
   it('backend validation (raw JSON) → inline phone error, no JSON shown', async () => {
     const raw = JSON.stringify([{ message: backendMessages.invalidPhone }]);
     server.use(http.post(urls.otpRequest, () => HttpResponse.json(appError(raw), { status: 400 })));

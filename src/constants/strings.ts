@@ -488,6 +488,10 @@ export const strings = {
     cooldown: 'Please wait 30 seconds before requesting another OTP.',
     incorrectOtp: 'Incorrect OTP.',
     otpExpired: 'This code has expired. Please request a new one.',
+    /** Too many wrong codes on Verify (server: otp_max_wrong_attempts); the code is locked until a resend. */
+    tooManyAttempts: 'Too many attempts. Please request a new OTP.',
+    /** Too many OTP requests, when the server's own text can't be shown. */
+    tooManyRequests: 'Too many OTP requests. Please try again later.',
     /** Fallback only: MobileEntry replaces it with the selected country's message. */
     invalidPhone: 'Enter a valid 10-digit mobile number',
     network: 'No internet connection. Please try again.',
