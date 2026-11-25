@@ -29,7 +29,7 @@ import AvatarPickerSheet from '@/screens/onboarding/AvatarPickerSheet';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme, useThemedStyles, type Theme } from '@/theme';
 import { display, parseApiPhone } from '@/utils/phone';
-import { isValidEmail, isValidFullName, normalizeFullName } from '@/utils/validation';
+import { fullNameError, isValidEmail, normalizeFullName } from '@/utils/validation';
 import { VerifiedShield } from '../share/ShareAccessScreen';
 
 const t = strings.myProfile;
@@ -272,9 +272,13 @@ function EditSheet({
           showArrow={false}
           loading={saving}
           onPress={() => {
-            const ok = isName ? isValidFullName(value) : isValidEmail(value.trim());
-            if (!ok) {
-              setError(isName ? strings.onboarding.errors.fullName : strings.onboarding.errors.emailInvalid);
+            const invalid = isName
+              ? fullNameError(value)
+              : isValidEmail(value.trim())
+              ? undefined
+              : strings.onboarding.errors.emailInvalid;
+            if (invalid) {
+              setError(invalid);
               return;
             }
             onSave(value);

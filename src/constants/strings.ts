@@ -31,7 +31,6 @@ export const strings = {
     referralLabel: 'Referral Code (optional)',
     referralPlaceholder: 'e.g. STRAB12CD',
     submit: 'Send OTP',
-    invalidFullName: 'Enter your full name',
     invalidMobile: { IN: 'Enter a valid 10-digit mobile number', AE: 'Enter a valid UAE mobile number' },
     invalidReferral: 'Referral code can only contain letters and numbers',
   },
@@ -69,6 +68,13 @@ export const strings = {
     invalidCode: 'Invalid code. Please try again.',
     otpBoxLabel: (index: number, digit?: string) =>
       `Digit ${index + 1}${digit ? `, ${digit}` : ', empty'}`,
+  },
+  /** Full Name validation (Sign Up, onboarding 1/3, My Profile): utils/validation#validateFullName. */
+  fullNameErrors: {
+    required: 'Enter your full name',
+    tooShort: 'Name must be at least 2 characters',
+    invalidChars: "Name can only contain letters, spaces, . ' and -",
+    tooLong: 'Name is too long',
   },
   common: {
     back: 'Go back',
@@ -273,7 +279,6 @@ export const strings = {
       issuedInFuture: "Issued on can't be in the future",
       validUptoBeforeIssued: 'Valid up to must be after Issued on',
       dlInvalid: 'Enter a valid DL number, e.g. TS0112345678901',
-      fullName: 'Enter your full name',
       dobRequired: 'Select your date of birth',
       dobTooYoung: (minAge: number) => `You must be at least ${minAge} years old`,
       emailRequired: 'Enter your email address',

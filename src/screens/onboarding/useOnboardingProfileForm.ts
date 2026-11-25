@@ -52,6 +52,11 @@ export function useOnboardingProfileForm({
     [setValue],
   );
 
+  /** Full Name is validated when the field loses focus (and on Next). */
+  const validateFullNameOnBlur = useCallback(() => {
+    trigger('fullName');
+  }, [trigger]);
+
   /** Email is validated when the field loses focus (once something was typed). */
   const validateEmailOnBlur = useCallback(() => {
     if (getValues('email').trim()) {
@@ -70,6 +75,7 @@ export function useOnboardingProfileForm({
     errors: formState.errors,
     avatar,
     setAvatar,
+    validateFullNameOnBlur,
     validateEmailOnBlur,
     submit,
     skip: onSkip,

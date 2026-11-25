@@ -88,10 +88,36 @@ describe('MobileEntry', () => {
     await fireEvent.changeText(screen.getByTestId('referral'), 'ab-12');
     expect(screen.getByTestId('referral')).toHaveDisplayValue('AB-12');
     await fireEvent.press(sendOtpButton());
-    expect(screen.getByText(t.invalidFullName)).toBeTruthy();
+    expect(screen.getByText(strings.fullNameErrors.required)).toBeTruthy();
     expect(screen.getByText(t.invalidMobile.IN)).toBeTruthy();
     expect(screen.getByText(t.invalidReferral)).toBeTruthy();
     expect(otpRequests()).toHaveLength(0);
+  });
+
+  it('sign-up Full Name: validated on blur and on submit with the specific messages', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('switch-mode'));
+    const name = () => screen.getByTestId('full-name');
+    expect(name().props.autoCapitalize).toBe('words');
+    await fireEvent(name(), 'blur');
+    expect(screen.getByText(strings.fullNameErrors.required)).toBeTruthy();
+    await fireEvent.changeText(name(), 'Ravi 😀');
+    await fireEvent(name(), 'blur');
+    expect(screen.getByText(strings.fullNameErrors.invalidChars)).toBeTruthy();
+    await fireEvent.changeText(name(), 'R');
+    await fireEvent(name(), 'blur');
+    expect(screen.getByText(strings.fullNameErrors.tooShort)).toBeTruthy();
+    await fireEvent.changeText(name(), 'x'.repeat(61));
+    await fireEvent.changeText(screen.getByTestId('phone'), '9876543210');
+    await fireEvent.press(sendOtpButton());
+    expect(screen.getByText(strings.fullNameErrors.tooLong)).toBeTruthy();
+    expect(otpRequests()).toHaveLength(0);
+    await fireEvent.changeText(name(), "  Mary-Jane   O'Neil ");
+    await fireEvent(name(), 'blur');
+    expect(screen.queryByText(strings.fullNameErrors.tooLong)).toBeNull();
+    await fireEvent.press(sendOtpButton());
+    await screen.findByText(strings.verifyOtp.title);
+    expect(otpRequests()[0].body).toMatchObject({ fullName: "Mary-Jane O'Neil" });
   });
 
   it('sign-up sends name + upper-cased referral, toasts and opens Verify OTP', async () => {

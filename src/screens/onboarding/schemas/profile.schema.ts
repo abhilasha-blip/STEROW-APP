@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AVATARS, type AvatarId } from '@/constants/avatars';
 import { strings } from '@/constants/strings';
-import { isValidEmail, isValidFullName } from '@/utils/validation';
+import { fullNameError, isValidEmail } from '@/utils/validation';
 
 const e = strings.onboarding.errors;
 
@@ -27,8 +27,9 @@ export type ProfileFormValues = z.infer<typeof profileFieldsSchema>;
 /** Full Name and Email are required. */
 export function createProfileSchema() {
   return profileFieldsSchema.superRefine((v, ctx) => {
-    if (!isValidFullName(v.fullName)) {
-      ctx.addIssue({ code: 'custom', path: ['fullName'], message: e.fullName });
+    const nameError = fullNameError(v.fullName);
+    if (nameError) {
+      ctx.addIssue({ code: 'custom', path: ['fullName'], message: nameError });
     }
     if (!v.email.trim()) {
       ctx.addIssue({ code: 'custom', path: ['email'], message: e.emailRequired });

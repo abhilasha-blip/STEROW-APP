@@ -18,11 +18,7 @@ import { haptics } from '@/services/haptics';
 import { loadCountry, saveCountry } from '@/storage/countryPreference';
 import { isValidMobile, normalizeNational } from '@/utils/phone';
 import { useScale } from '@/utils/scale';
-import {
-  isValidFullName,
-  isValidReferralCode,
-  normalizeReferralCode,
-} from '@/utils/validation';
+import { fullNameError, isValidReferralCode, normalizeReferralCode } from '@/utils/validation';
 
 const t = strings.mobileEntry;
 
@@ -96,6 +92,13 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
     },
     [clearError],
   );
+  /** Full Name is validated when it loses focus (and again on submit). */
+  const validateFullNameOnBlur = useCallback(() => {
+    const error = fullNameError(fullName.current);
+    if (error !== errorsRef.current.fullName) {
+      setErrors({ ...errorsRef.current, fullName: error });
+    }
+  }, [setErrors]);
   const formatPhone = useCallback((v: string) => normalizeNational(country, v), [country]);
 
   /** Updates maxLength/validation; a number that isn't valid for the new country is cleared. */
@@ -151,8 +154,9 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
 
   const validate = (): FieldErrors => {
     const next: FieldErrors = {};
-    if (mode === 'signup' && !isValidFullName(fullName.current)) {
-      next.fullName = t.invalidFullName;
+    const nameError = mode === 'signup' ? fullNameError(fullName.current) : undefined;
+    if (nameError) {
+      next.fullName = nameError;
     }
     if (!isValidMobile(country, phone.current)) {
       next.phone = t.invalidMobile[country];
@@ -245,6 +249,7 @@ export default function MobileEntryScreen({ navigation, route }: AuthStackScreen
           placeholder={t.fullNamePlaceholder}
           initialValue={fullName.current}
           onValueChange={onFullNameChange}
+          onBlur={validateFullNameOnBlur}
           autoCapitalize="words"
           autoCorrect={false}
           textContentType="name"

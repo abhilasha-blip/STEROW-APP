@@ -81,12 +81,30 @@ describe('OnboardingProfileScreen – validation and actions', () => {
   it('validates Full Name and Email inline; email format on blur', async () => {
     const { onNext } = await renderScreen();
     await fireEvent.press(screen.getByTestId('profile-next'));
-    expect(await screen.findByText(e.fullName)).toBeTruthy();
+    expect(await screen.findByText(strings.fullNameErrors.required)).toBeTruthy();
     expect(screen.getByText(e.emailRequired)).toBeTruthy();
     await fireEvent.changeText(screen.getByTestId('email'), 'john@gmail');
     await fireEvent(screen.getByTestId('email'), 'blur');
     expect(await screen.findByText(e.emailInvalid)).toBeTruthy();
     expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('Full Name is validated on blur with the specific message; Next sends the trimmed, collapsed name', async () => {
+    const { onNext } = await renderScreen();
+    const name = () => screen.getByTestId('full-name');
+    expect(name().props.autoCapitalize).toBe('words');
+    await fireEvent.changeText(name(), 'Ravi2');
+    await fireEvent(name(), 'blur');
+    expect(await screen.findByText(strings.fullNameErrors.invalidChars)).toBeTruthy();
+    await fireEvent.changeText(name(), 'A.');
+    await fireEvent(name(), 'blur');
+    expect(await screen.findByText(strings.fullNameErrors.tooShort)).toBeTruthy();
+    await fireEvent.changeText(name(), '  Ravi    Kumar ');
+    await fireEvent(name(), 'blur');
+    await waitFor(() => expect(screen.queryByText(strings.fullNameErrors.tooShort)).toBeNull());
+    await fireEvent.changeText(screen.getByTestId('email'), 'ravi@example.com');
+    await fireEvent.press(screen.getByTestId('profile-next'));
+    await waitFor(() => expect(onNext).toHaveBeenCalledWith(expect.objectContaining({ fullName: 'Ravi Kumar' })));
   });
 
   it('Next submits normalised values; Skip calls onSkip', async () => {

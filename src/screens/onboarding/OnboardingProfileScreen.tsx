@@ -113,7 +113,10 @@ function ProfileFields({ profile }: { profile: OnboardingProfileForm }) {
               placeholder={p.fullNamePlaceholder}
               value={field.value}
               onChangeText={field.onChange}
-              onBlur={field.onBlur}
+              onBlur={() => {
+                field.onBlur();
+                profile.validateFullNameOnBlur();
+              }}
               onFocus={reveal}
               autoCapitalize="words"
               autoCorrect={false}

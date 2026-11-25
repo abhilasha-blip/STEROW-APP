@@ -4,6 +4,7 @@ import {
   OTP_LENGTH,
   REFERRAL_MAX,
 } from '@/constants/auth';
+import { strings } from '@/constants/strings';
 import {
   DL_BODY_MAX,
   DL_BODY_MIN,
@@ -25,18 +26,45 @@ export const digitsOnly = (value: string): string => value.replace(/\D/g, '');
 export const isValidPin = (pin: string): boolean =>
   new RegExp(`^\\d{${PIN_MIN_LENGTH},${PIN_MAX_LENGTH}}$`).test(pin);
 
-/** Full name: 2–60 chars, letters (incl. combining marks, e.g. Devanagari vowel signs), spaces and . ' - only, starting with a letter. */
-export const isValidFullName = (name: string): boolean => {
-  const n = name.trim().replace(/\s+/g, ' ');
-  return (
-    n.length >= FULL_NAME_MIN &&
-    n.length <= FULL_NAME_MAX &&
-    /^\p{L}[\p{L}\p{M} .'-]*$/u.test(n)
-  );
-};
+/** Why a full name is rejected (messages: strings.fullNameErrors). */
+export type FullNameError = keyof typeof strings.fullNameErrors;
 
 /** Collapses inner whitespace and trims: what we send to the API. */
 export const normalizeFullName = (name: string): string => name.trim().replace(/\s+/g, ' ');
+
+/** Letters: any script (\p{L}) plus combining marks (\p{M}, e.g. Devanagari vowel signs: "प्रिया"). */
+const NAME_CHARS = /^[\p{L}\p{M} .'-]+$/u;
+const LETTER = /\p{L}/gu;
+
+/**
+ * THE full-name rule (Sign Up, onboarding 1/3, My Profile), on the trimmed, space-collapsed value:
+ * required; ≤ 60 characters; only letters, spaces and . ' - (no digits, symbols or emoji); at least 2
+ * characters and at least 2 letters (so not only punctuation, not "A.").
+ */
+export function validateFullName(raw: string): FullNameError | null {
+  const n = normalizeFullName(raw);
+  if (!n) {
+    return 'required';
+  }
+  if (n.length > FULL_NAME_MAX) {
+    return 'tooLong';
+  }
+  if (!NAME_CHARS.test(n)) {
+    return 'invalidChars';
+  }
+  if (n.length < FULL_NAME_MIN || (n.match(LETTER)?.length ?? 0) < FULL_NAME_MIN) {
+    return 'tooShort';
+  }
+  return null;
+}
+
+/** The message for a full name, or undefined when it's valid. */
+export const fullNameError = (raw: string): string | undefined => {
+  const e = validateFullName(raw);
+  return e ? strings.fullNameErrors[e] : undefined;
+};
+
+export const isValidFullName = (name: string): boolean => validateFullName(name) === null;
 
 /** Referral codes are upper-case alphanumerics; spaces are dropped as the user types. */
 export const normalizeReferralCode = (code: string): string =>

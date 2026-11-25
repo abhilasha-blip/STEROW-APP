@@ -14,7 +14,7 @@ const issues = (v: ProfileFormValues) => {
 
 describe('profile schema (1/3: photo, Full Name, Email; no DOB)', () => {
   it('Full Name and Email are required', () => {
-    expect(issues(base)).toEqual({ fullName: e.fullName, email: e.emailRequired });
+    expect(issues(base)).toEqual({ fullName: strings.fullNameErrors.required, email: e.emailRequired });
   });
 
   it('checks the email format', () => {
