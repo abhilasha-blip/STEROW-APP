@@ -172,3 +172,30 @@ export function resetMyVehicles(rows: ReturnType<typeof vehicleRow>[] = []): voi
   myVehicles.length = 0;
   myVehicles.push(...rows);
 }
+
+/**
+ * OCR responses (APP `{ data }` envelope) in the web's shapes (docs/api/ocr-findings.md). Sample values
+ * only: the DL is the dummy test licence.
+ */
+export const ocrFixtures = {
+  dlFull: { data: { dl_number: ' ts01 2011 0012345 ', issued_on: '15/01/2020', valid_upto: '2040-01-14', vehicle_classes: ['LMV', 'MCWG'] } },
+  /** Number only: the dates stay as the user had them. */
+  dlPartial: { data: { dl_number: 'TS0120110012345', issued_on: '', valid_upto: null, vehicle_classes: [] } },
+  insurance: { data: { policy_no: 'OG-27-1901-1800-00012345', insurer: 'ICICI Lombard', end_date: '2027-08-31T00:00:00' } },
+  rc: {
+    data: {
+      registration_number: 'ts09 ev 2345',
+      reg_date: '2023-03-20',
+      valid_upto: '20-03-2038',
+      make: 'MG',
+      model: 'ZS EV',
+      fuel_type: 'electric',
+      chassis_number: 'mz1ab2cd3ef456789',
+      engine_number: 'en12345',
+      colour: 'Starry Black',
+    },
+  },
+  empty: { data: {} },
+  lowConfidence: { data: { dl_number: 'TS01', confidence: 0.2 } },
+  couldNotRead: { error: { code: 'bad_request', message: 'Could not read the document' } },
+};

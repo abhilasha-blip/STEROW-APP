@@ -61,6 +61,14 @@ export type RcDetails = {
   seatingCapacity?: string;
   grossWeight?: string;
   unladenWeight?: string;
+  /**
+   * Read from the RC (autofill): fuel (the web's "Petrol" / "Diesel" / "Electric" / "CNG" / "Hybrid"), colour and the make / model as printed. Fuel and
+   * colour are saved on the row unless "Your Vehicle details" set them; make / model needs matching to
+   * the master ids (as the web does), so it is shown for review only and not saved.
+   */
+  fuelType?: string;
+  colour?: string;
+  makeModel?: string;
 };
 
 /** Body types the web offers for the RC. */
@@ -101,6 +109,8 @@ export function rcDetailsColumns(rc: RcDetails | undefined): Record<string, stri
   text('body_type', rc.bodyType);
   text('chassis_number', rc.chassisNumber, true);
   text('engine_number', rc.engineNumber, true);
+  text('fuel_type', rc.fuelType);
+  text('colour', rc.colour);
   num('seating_capacity', rc.seatingCapacity, true, 1);
   num('gross_weight', rc.grossWeight, false, 0);
   num('unladen_weight', rc.unladenWeight, false, 0);
@@ -142,6 +152,8 @@ export function documentRow(
       return {
         ...base,
         ...links,
+        // The RC's own columns first: "Your Vehicle details" (fuel, colour) wins over values read from the RC.
+        ...rcDetailsColumns(fields.rc),
         ...(v && {
           make_id: v.makeId,
           model_id: v.modelId,
@@ -149,7 +161,6 @@ export function documentRow(
           fuel_type: v.fuelType,
           ...(v.colour.trim() && { colour: v.colour.trim() }),
         }),
-        ...rcDetailsColumns(fields.rc),
         registration_number: upper(fields.registrationNumber?.trim() || vehicle.vehicleNumber),
       };
     }

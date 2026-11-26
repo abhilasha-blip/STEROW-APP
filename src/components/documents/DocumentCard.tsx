@@ -1,5 +1,5 @@
-import React, { memo, useState } from 'react';
-import { Image, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import React, { memo, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { SvgProps } from 'react-native-svg';
 import CheckCircle from '@/assets/icons/check-circle.svg';
 import Close from '@/assets/icons/close.svg';
@@ -22,9 +22,12 @@ import {
   type DocumentEntry,
   type DocumentFieldValues,
 } from '@/screens/onboarding/schemas/documents.schema';
+import { useDocumentAutofill } from '@/hooks/useDocumentAutofill';
 import { useTheme, useThemedStyles, type Theme } from '@/theme';
+import { autofillValuesFromFields, fieldsFromAutofillValues } from '@/utils/documentAutofill';
 import { getDocumentStatus } from '@/utils/documentStatus';
 import { isPdf, validateUpload } from '@/utils/uploadFile';
+import AutofillReviewSheet from './AutofillReviewSheet';
 import DocumentDetailsSheet from './DocumentDetailsSheet';
 import DocumentInfoSheet from './DocumentInfoSheet';
 import { SavedDocumentDetails } from './SavedDocumentCard';
@@ -87,6 +90,10 @@ function DocumentCard({
   const [sourceOpen, setSourceOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const autofill = useDocumentAutofill(documentKey);
+  // The latest entry for the review sheet's Confirm (the file was attached after the read started).
+  const latest = useRef(entry);
+  latest.current = entry;
 
   const prefill: DocumentFieldValues =
     entry.fields ?? (documentKey === 'rc' && vehicleNumber ? { registrationNumber: vehicleNumber } : {});
@@ -145,8 +152,17 @@ function DocumentCard({
                 <AppText variant="tiny" color="documents.tileTitle" numberOfLines={1} style={styles.fileName}>
                   {entry.file.name}
                 </AppText>
+                {autofill.reading && (
+                  <View testID={`${testID}-reading`} style={styles.reading} accessibilityLiveRegion="polite">
+                    <ActivityIndicator color={colors.input.lightSpinner} />
+                    <AppText variant="tiny" color="documents.tileTitle" style={styles.readingLabel}>
+                      {strings.autofill.reading}
+                    </AppText>
+                  </View>
+                )}
                 <Pressable
                   testID={`${testID}-remove`}
+                  disabled={autofill.reading}
                   style={styles.remove}
                   onPress={() => onChange({ ...entry, file: null })}
                   hitSlop={8}
@@ -219,9 +235,24 @@ function DocumentCard({
           if (result.ok) {
             setError(undefined);
             onChange({ ...entry, file: result.file });
+            // OCR on (flag): read the file → the review form; off: nothing more, as before.
+            autofill.start(result.file, autofillValuesFromFields(documentKey, entry.fields, vehicleNumber));
           } else {
             setError(UPLOAD_ERRORS[result.error]);
           }
+        }}
+      />
+      <AutofillReviewSheet
+        testID={`${testID}-autofill`}
+        visible={autofill.state.phase === 'review'}
+        docType={documentKey}
+        values={autofill.state.phase === 'review' ? autofill.state.values : {}}
+        filled={autofill.state.phase === 'review' ? autofill.state.filled : []}
+        onClose={autofill.close}
+        onConfirm={values => {
+          const current = latest.current;
+          onChange({ ...current, fields: fieldsFromAutofillValues(documentKey, values, current.fields) });
+          autofill.close();
         }}
       />
       <DocumentDetailsSheet
@@ -303,5 +334,13 @@ const makeStyles = ({ colors, radius, spacing }: Theme) =>
       justifyContent: 'center',
     },
     hint: { marginTop: spacing.sm },
+    reading: {
+      ...StyleSheet.absoluteFill,
+      borderRadius: radius.md,
+      backgroundColor: colors.documents.readingOverlay,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    readingLabel: { marginTop: 6 },
     pressed: { opacity: 0.85 },
   });

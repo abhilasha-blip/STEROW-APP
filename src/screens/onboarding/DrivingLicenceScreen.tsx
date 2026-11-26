@@ -4,6 +4,7 @@ import { Controller } from 'react-hook-form';
 import Driver from '@/assets/icons/dashboard/driver.svg';
 import type { MyDocument } from '@/api/services/myDocuments.service';
 import AppText from '@/components/AppText';
+import AutofillReviewSheet from '@/components/documents/AutofillReviewSheet';
 import BlockingNotice from '@/components/documents/BlockingNotice';
 import SavedDocumentCard from '@/components/documents/SavedDocumentCard';
 import DateField from '@/components/DateField';
@@ -16,6 +17,7 @@ import TextField from '@/components/TextField';
 import UploadBox from '@/components/UploadBox';
 import { DL_MAX_LENGTH, ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
+import { useDocumentAutofill } from '@/hooks/useDocumentAutofill';
 import { getDocumentStatus } from '@/utils/documentStatus';
 import { normalizeDlNumber } from '@/utils/validation';
 import { showDlOr, type DrivingLicenceFormValues } from './schemas/drivingLicence.schema';
@@ -121,6 +123,7 @@ export function DrivingLicenceFields({ dl, showOr, first = true }: { dl: Driving
   const reveal = useRevealOnFocus();
   const [sourceSheet, setSourceSheet] = useState(false);
   const { control, errors } = dl;
+  const autofill = useDocumentAutofill('dl');
 
   return (
     <>
@@ -164,6 +167,7 @@ export function DrivingLicenceFields({ dl, showOr, first = true }: { dl: Driving
               uri={field.value}
               onPress={() => setSourceSheet(true)}
               onRemove={dl.removeDlImage}
+              busyLabel={autofill.reading ? strings.autofill.reading : undefined}
               error={errors.dlImageUri?.message}
             />
           </View>
@@ -210,7 +214,26 @@ export function DrivingLicenceFields({ dl, showOr, first = true }: { dl: Driving
         testID="dl-photo-source"
         visible={sourceSheet}
         onClose={() => setSourceSheet(false)}
-        onPicked={photo => dl.setDlImage(photo.uri)}
+        onPicked={photo => {
+          dl.setDlImage(photo.uri);
+          // OCR on (flag): read the licence → the review form; off: nothing more, as before.
+          autofill.start(
+            { uri: photo.uri, mimeType: photo.type ?? 'image/jpeg', name: photo.fileName ?? 'licence.jpg' },
+            dl.autofillValues(),
+          );
+        }}
+      />
+      <AutofillReviewSheet
+        testID="dl-autofill"
+        visible={autofill.state.phase === 'review'}
+        docType="dl"
+        values={autofill.state.phase === 'review' ? autofill.state.values : {}}
+        filled={autofill.state.phase === 'review' ? autofill.state.filled : []}
+        onClose={autofill.close}
+        onConfirm={values => {
+          dl.applyAutofill(values);
+          autofill.close();
+        }}
       />
     </>
   );

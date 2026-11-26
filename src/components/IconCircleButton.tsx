@@ -9,6 +9,7 @@ type IconCircleButtonProps = {
   accessibilityLabel: string;
   icon?: React.FC<SvgProps>;
   testID?: string;
+  disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -18,6 +19,7 @@ export default function IconCircleButton({
   accessibilityLabel,
   icon: Icon = CloseIcon,
   testID,
+  disabled,
   style,
 }: IconCircleButtonProps) {
   const { colors } = useTheme();
@@ -26,9 +28,11 @@ export default function IconCircleButton({
     <Pressable
       testID={testID}
       onPress={onPress}
+      disabled={disabled}
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={disabled ? { disabled: true } : undefined}
       style={({ pressed }) => [styles.button, pressed && styles.pressed, style]}
     >
       <Icon width={24} height={24} color={colors.input.lightIcon} />

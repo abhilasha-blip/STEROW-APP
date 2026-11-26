@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { haptics } from '@/services/haptics';
+import type { AutofillValues } from '@/utils/documentAutofill';
 import { normalizeDlNumber } from '@/utils/validation';
 import {
   createDrivingLicenceSchema,
@@ -57,6 +58,29 @@ export function useDrivingLicenceForm({
     }
   }, [setValue, trigger, revalidate]);
 
+  /** The form's values for the autofill review (number, Issued on, Valid up to). */
+  const autofillValues = useCallback(
+    (): AutofillValues => ({
+      dlNumber: getValues('dlNumber'),
+      issuedOn: getValues('issuedOn') ?? '',
+      validUpto: getValues('validUpto') ?? '',
+    }),
+    [getValues],
+  );
+
+  /** The confirmed review form → the fields (DL number normalised as typed; empty dates → none). */
+  const applyAutofill = useCallback(
+    (v: AutofillValues) => {
+      setValue('dlNumber', normalizeDlNumber(v.dlNumber ?? ''), { shouldDirty: true });
+      setValue('issuedOn', v.issuedOn || null, { shouldDirty: true });
+      setValue('validUpto', v.validUpto || null, { shouldDirty: true });
+      if (revalidate) {
+        trigger(['dlNumber', 'issuedOn', 'validUpto']);
+      }
+    },
+    [setValue, trigger, revalidate],
+  );
+
   /** Dates are checked together once one is picked (Valid up to must follow Issued on). */
   const validateDatesOnClose = useCallback(() => {
     if (getValues('issuedOn') || getValues('validUpto')) {
@@ -79,6 +103,8 @@ export function useDrivingLicenceForm({
     maxIssuedOn,
     setDlImage,
     removeDlImage,
+    autofillValues,
+    applyAutofill,
     validateDatesOnClose,
     submit,
     skip: onSkip,

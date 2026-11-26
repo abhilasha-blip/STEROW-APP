@@ -11,6 +11,8 @@ const sb = env.SUPABASE_URL;
 export const urls = {
   otpRequest: `${env.APP_API_BASE_URL}${ENDPOINTS.APP.AUTH.OTP_REQUEST}`,
   otpVerify: `${env.APP_API_BASE_URL}${ENDPOINTS.APP.AUTH.OTP_VERIFY}`,
+  ocrDrivingLicense: `${env.APP_API_BASE_URL}${ENDPOINTS.APP.OCR.DRIVING_LICENSE}`,
+  ocrDocument: `${env.APP_API_BASE_URL}${ENDPOINTS.APP.OCR.DOCUMENT}`,
   sbUser: `${sb}/auth/v1/user`,
   sbToken: `${sb}/auth/v1/token`,
   sbVerify: `${sb}/auth/v1/verify`,

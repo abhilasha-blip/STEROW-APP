@@ -1,0 +1,23 @@
+{
+  "probedAt": "2026-11-26T07:17:35.853Z",
+  "request": {
+    "method": "POST",
+    "path": "/api/public/v1/ocr/driving-license",
+    "auth": "Bearer <test account access token>",
+    "body": {
+      "image": "data:image/png;base64,<132082 bytes: design/onboarding/sample-dl.png (DUMMY)>"
+    }
+  },
+  "response": {
+    "status": 200,
+    "ms": 4927,
+    "shape": {
+      "data": {
+        "dl_number": "string",
+        "issued_on": "string (empty)",
+        "valid_upto": "string (empty)",
+        "vehicle_classes": []
+      }
+    }
+  }
+}

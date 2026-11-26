@@ -13,6 +13,15 @@ export const ENDPOINTS = {
       OTP_REQUEST: '/auth/otp/request',
       OTP_VERIFY: '/auth/otp/verify',
     },
+    /**
+     * Smart OCR (Bearer). Body `{ image: "data:<mime>;base64,…" }` (+ `table` for DOCUMENT); see
+     * docs/api/ocr-findings.md. Called only from ocrService, behind the OCR_ENABLED flag.
+     */
+    OCR: {
+      DRIVING_LICENSE: '/ocr/driving-license',
+      RC: '/ocr/rc',
+      DOCUMENT: '/ocr/document',
+    },
   },
   /** Supabase (`SUPABASE_URL`), called through supabase-js: table, RPC and storage names only. */
   SUPABASE: {

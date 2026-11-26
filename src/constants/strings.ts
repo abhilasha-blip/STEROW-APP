@@ -230,6 +230,31 @@ export const strings = {
       validUpto: 'Valid up to',
     },
   },
+  /** Autofill from an uploaded document (OCR). */
+  autofill: {
+    reading: 'Reading your document…',
+    title: 'Check the details',
+    subtitle: 'We read these from your document. Please check them before you confirm.',
+    autoFilled: 'Auto-filled – please check',
+    confirm: 'Confirm',
+    couldNotRead: 'Could not read the document. Please enter the details.',
+    fields: {
+      dlNumber: 'DL Number',
+      issuedOn: 'Issued on',
+      validUpto: 'Valid up to',
+      registrationNumber: 'Registration Number',
+      regDate: 'Registration Date',
+      makeModel: 'Make / Model',
+      fuelType: 'Fuel',
+      chassisNumber: 'Chassis Number',
+      engineNumber: 'Engine Number',
+      colour: 'Colour',
+      policyNo: 'Policy Number',
+      insurer: 'Insurer',
+      certificateNo: 'Certificate Number',
+      fastagId: 'FASTag ID',
+    },
+  },
   /** The licence can't be saved because of the backend soft-delete bug (42501 "Hide deleted rows"). */
   dlBlocked: {
     title: "Licence can't be saved yet",

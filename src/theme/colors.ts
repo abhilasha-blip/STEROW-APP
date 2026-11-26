@@ -189,9 +189,14 @@ export const colors = {
     /** Read-only saved document: the details panel and its divider. */
     savedPanel: palette.mist50,
     savedDivider: alpha(palette.black, 0.06),
+    /** "Auto-filled – please check" (OCR) next to a pre-filled field. */
+    autofillHint: palette.orange400,
+    autofillHintBackground: alpha(palette.orange400, 0.12),
     /** Blocking notice (e.g. the licence can't be replaced): red tint + border. */
     noticeBackground: alpha(palette.red500, 0.06),
     noticeBorder: alpha(palette.red500, 0.3),
+    /** "Reading your document…" overlay on the upload tile. */
+    readingOverlay: alpha(palette.white, 0.85),
   },
   statusBar: 'light-content',
 } as const;

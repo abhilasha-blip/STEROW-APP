@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import FileIcon from '@/assets/icons/file.svg';
 import UploadIcon from '@/assets/icons/upload.svg';
 import { strings } from '@/constants/strings';
@@ -22,6 +22,8 @@ type UploadBoxProps = {
   hint?: string;
   browseLabel?: string;
   error?: string;
+  /** Over the preview: a spinner + this label (e.g. "Reading your document…"); remove is disabled. */
+  busyLabel?: string;
   /** Corner radius of the image preview (step 1's DL: 15; steps 2–3: 10). */
   previewRadius?: number;
   /** Screen-reader labels (defaults: step 1's driving licence). */
@@ -52,6 +54,7 @@ export default function UploadBox({
   hint = t.uploadHint,
   browseLabel = t.uploadBrowse,
   error,
+  busyLabel,
   previewRadius,
   uploadA11yLabel = t.uploadA11y,
   previewA11yLabel = t.uploadedPreviewA11y,
@@ -115,8 +118,17 @@ export default function UploadBox({
               />
             </Pressable>
           )}
+          {!!busyLabel && (
+            <View testID={`${testID}-busy`} style={styles.busy} accessibilityLiveRegion="polite">
+              <ActivityIndicator color={colors.input.lightSpinner} />
+              <AppText variant="hint" color="text.onLight" style={styles.busyLabel}>
+                {busyLabel}
+              </AppText>
+            </View>
+          )}
           <IconCircleButton
             testID={`${testID}-remove`}
+            disabled={!!busyLabel}
             onPress={onRemove}
             accessibilityLabel={removeA11yLabel}
             style={styles.remove}
@@ -165,6 +177,14 @@ const containSize = (image: Size, box: Size): Size => {
 
 const makeStyles = ({ colors, radius, sizes }: Theme) =>
   StyleSheet.create({
+    busy: {
+      ...StyleSheet.absoluteFill,
+      borderRadius: radius.field,
+      backgroundColor: colors.documents.readingOverlay,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    busyLabel: { marginTop: 8 },
     box: {
       height: sizes.uploadBoxHeight,
       borderRadius: radius.field,

@@ -78,10 +78,13 @@ export function getAppClient(): AxiosInstance {
 export async function appPost(
   path: string,
   body: unknown,
-  options: { signal?: AbortSignal } = {},
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
 ): Promise<unknown> {
   try {
-    const response = await getAppClient().post<unknown>(path, body, { signal: options.signal });
+    const response = await getAppClient().post<unknown>(path, body, {
+      signal: options.signal,
+      ...(options.timeoutMs !== undefined && { timeout: options.timeoutMs }),
+    });
     return response.data;
   } catch (e) {
     throw e instanceof ApiError ? e : normalizeError(e);

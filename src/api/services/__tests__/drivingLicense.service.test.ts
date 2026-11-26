@@ -94,9 +94,9 @@ describe('drivingLicense.service (C2)', () => {
 });
 
 describe('ocr.service', () => {
-  it('DL OCR is unavailable: the user types the number', async () => {
+  it('DL OCR is off by default (OCR_ENABLED=false): the user types the number', async () => {
     expect(ocrService.isAvailable('dl')).toBe(false);
-    await expect(ocrService.readDl(JPG)).resolves.toEqual({ status: 'unavailable' });
+    await expect(ocrService.read('dl', JPG)).resolves.toEqual({ status: 'unavailable' });
     expect(requestLog).toHaveLength(0);
   });
 });
