@@ -99,7 +99,7 @@ export const SavedDocumentDetails = memo(function SavedDocumentDetailsView({
             <AppText variant="cardSubtitle" color="dashboard.muted">
               {row.label}
             </AppText>
-            <AppText variant="cardTitle" color="dashboard.sectionTitle" numberOfLines={1} style={styles.value}>
+            <AppText variant="cardTitle" color="dashboard.sectionTitle" numberOfLines={2} style={styles.value}>
               {row.value}
             </AppText>
           </View>

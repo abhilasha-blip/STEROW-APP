@@ -23,6 +23,9 @@ const qaDashboard = __DEV__
   ? (require('@/dev/QaDashboard') as typeof import('@/dev/QaDashboard'))
   : null;
 const qaDashboardScenario = qaDashboard?.getQaDashboardScenarioName() ?? null;
+/** DEV only: `-qaScenario dl-locked` etc. opens a document state (src/dev/QaDocuments). */
+const qaDocuments = __DEV__ ? (require('@/dev/QaDocuments') as typeof import('@/dev/QaDocuments')) : null;
+const qaDocumentsScenario = qaDocuments?.getQaDocumentsScenarioName() ?? null;
 /** DEV only: `-qaScenario fields` shows the text inputs with descender text (src/dev/QaFields). */
 const qaFields = __DEV__ ? (require('@/dev/QaFields') as typeof import('@/dev/QaFields')) : null;
 const showQaFields = qaFields?.isQaFieldsScenario() ?? false;
@@ -52,6 +55,8 @@ export default function App() {
                 <qa.default name={qaScenario} />
               ) : qaDashboard && qaDashboardScenario ? (
                 <qaDashboard.default name={qaDashboardScenario} />
+              ) : qaDocuments && qaDocumentsScenario ? (
+                <qaDocuments.default name={qaDocumentsScenario} />
               ) : qaFields && showQaFields ? (
                 <qaFields.default />
               ) : (

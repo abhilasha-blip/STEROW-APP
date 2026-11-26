@@ -6,7 +6,9 @@
  *
  * Scenarios: dashboard-complete, dashboard-incomplete (variant 1: a vehicle, no licence),
  * dashboard-incomplete-2 (variant 2: no vehicle), dashboard-completion-17 / -67 / -83 (badge levels), dashboard-empty (a vehicle, every count 0), drawer, the
- * drawer screens (my-profile, my-documents, share-access, share-access-empty, my-vehicles) and add-vehicle. App.tsx only requires this file under __DEV__.
+ * drawer screens (my-profile, my-documents, share-access, share-access-empty, my-vehicles) and add-vehicle,
+ * and My Documents → Upload documents with saved documents in each status (upload-documents-locked,
+ * upload-documents-expired). App.tsx only requires this file under __DEV__.
  */
 import React, { useEffect, useRef } from 'react';
 import { Platform, Settings } from 'react-native';
@@ -60,6 +62,34 @@ const DOCS: MyDocument[] = [
   { key: 'drivingLicence', id: 'd4', issuer: null, number: 'DL0000000000000', expiry: '2040-05-15', documentPath: 'x/dl.pdf', bucket: 'driving-licenses' },
 ];
 
+/** "YYYY-MM-DD" this many days from today (statuses stay right whenever the screenshot is taken). */
+const fromToday = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const vdoc = (key: MyDocument['key'], number: string, expiry: string | null, issuer: string | null = null): MyDocument => ({
+  key,
+  id: `qa-${key}`,
+  issuer,
+  number,
+  expiry,
+  documentPath: `qa/${key}.jpg`,
+  bucket: 'vehicle-docs',
+});
+/** Insurance Active and RC Expiring soon (both read-only); Pollution Expired (uploadable); no FASTag. */
+const LOCKED_DOCS: MyDocument[] = [
+  vdoc('insurance', 'OG-27-1901-1800-00012345', fromToday(200), 'ICICI Lombard'),
+  vdoc('rc', 'TS09EV2345', fromToday(12)),
+  vdoc('pollution', 'TS0090012345', fromToday(-5)),
+];
+/** Insurance and RC Expired (upload is back); FASTag saved with no expiry → Active (read-only). */
+const EXPIRED_DOCS: MyDocument[] = [
+  vdoc('insurance', 'OG-25-1901-1800-00054321', fromToday(-20), 'HDFC Ergo'),
+  vdoc('rc', 'TS09EV2345', fromToday(-2)),
+  vdoc('fastag', '34161FA82033D8D0C0E8A1B2', null),
+];
+
 type Scenario = {
   vehicles: MyVehicle[];
   dl: typeof DL | null;
@@ -69,6 +99,7 @@ type Scenario = {
   /** Vehicle ids that have a document (profile completion; default: all). */
   vehiclesWithDocs?: string[];
   screen?: keyof HomeStackParamList;
+  params?: object;
   /** My Documents rows (default: DOCS). */
   docs?: MyDocument[];
   drawer?: boolean;
@@ -92,6 +123,8 @@ export const QA_DASHBOARD_SCENARIOS: Record<string, Scenario> = {
   'share-access-empty': { vehicles: VEHICLES.slice(0, 1), dl: DL, counts: ZERO_COUNTS, screen: 'ShareAccess' },
   'add-vehicle': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'AddVehicle' },
   'my-vehicles': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'MyVehicles' },
+  'upload-documents-locked': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'UploadDocuments', params: { vehicleId: 'v1' }, docs: LOCKED_DOCS },
+  'upload-documents-expired': { vehicles: VEHICLES, dl: DL, counts: COUNTS, screen: 'UploadDocuments', params: { vehicleId: 'v1' }, docs: EXPIRED_DOCS },
 };
 
 export function getQaDashboardScenarioName(): string | null {
@@ -155,7 +188,7 @@ export default function QaDashboard({ name }: { name: string }) {
         navRef.dispatch(DrawerActions.openDrawer());
       } else if (scenario.screen) {
         // @ts-expect-error nested navigate from the root ref (dev only)
-        navRef.navigate('Tabs', { screen: 'HomeTab', params: { screen: scenario.screen } });
+        navRef.navigate('Tabs', { screen: 'HomeTab', params: { screen: scenario.screen, params: scenario.params } });
       }
     }, 600);
     return () => clearTimeout(t);
