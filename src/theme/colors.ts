@@ -189,6 +189,9 @@ export const colors = {
     /** Read-only saved document: the details panel and its divider. */
     savedPanel: palette.mist50,
     savedDivider: alpha(palette.black, 0.06),
+    /** Blocking notice (e.g. the licence can't be replaced): red tint + border. */
+    noticeBackground: alpha(palette.red500, 0.06),
+    noticeBorder: alpha(palette.red500, 0.3),
   },
   statusBar: 'light-content',
 } as const;

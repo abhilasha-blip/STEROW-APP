@@ -210,6 +210,7 @@ function Step2DrivingLicenceForm({
   // An expired licence is shown above an empty form: the new one replaces it (no prefill from it).
   const expired = !!savedLicence && getDocumentStatus(savedLicence.expiry) === 'expired';
   const save = useSaveDrivingLicenceStep(uid ?? '', expired ? undefined : saved);
+  const [blocked, setBlocked] = useState<string | undefined>();
   useLoadFailedToast(loadFailed);
 
   const next = (values: DrivingLicenceFormValues) => {
@@ -227,7 +228,15 @@ function Step2DrivingLicenceForm({
         toast.success(strings.onboarding.saved.drivingLicence);
         navigation.navigate('Step3Documents');
       },
-      onError: error => toast.error(toUserError(error).userMessage),
+      onError: error => {
+        const e = toUserError(error, 'dlSave');
+        // The hidden soft-deleted row (42501): no toast, no retry; an inline card offers "Skip for now".
+        if (e.action === 'DL_DELETED_BLOCKED') {
+          setBlocked(e.userMessage);
+        } else {
+          toast.error(e.userMessage);
+        }
+      },
     });
   };
 
@@ -239,6 +248,7 @@ function Step2DrivingLicenceForm({
       saving={save.isPending}
       ocrAvailable={ocrService.isAvailable('dl')}
       savedLicence={savedLicence}
+      blockedMessage={blocked}
       onContinue={() => navigation.navigate('Step3Documents')}
       onNext={next}
       onSkip={() => {

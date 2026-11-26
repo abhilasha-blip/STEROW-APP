@@ -4,6 +4,7 @@ import { Controller } from 'react-hook-form';
 import Driver from '@/assets/icons/dashboard/driver.svg';
 import type { MyDocument } from '@/api/services/myDocuments.service';
 import AppText from '@/components/AppText';
+import BlockingNotice from '@/components/documents/BlockingNotice';
 import SavedDocumentCard from '@/components/documents/SavedDocumentCard';
 import DateField from '@/components/DateField';
 import LinkButton from '@/components/LinkButton';
@@ -42,6 +43,8 @@ export type DrivingLicenceScreenProps = {
   savedLicence?: MyDocument | null;
   /** Next on a read-only (locked) licence: nothing to save. */
   onContinue?: () => void;
+  /** The save was refused for good (42501 "Hide deleted rows"): an inline card with "Skip for now". */
+  blockedMessage?: string;
 };
 
 /** The saved licence blocks a new upload until it expires. */
@@ -63,6 +66,7 @@ export default function DrivingLicenceScreen({
   ocrAvailable = false,
   savedLicence,
   onContinue,
+  blockedMessage,
 }: DrivingLicenceScreenProps) {
   const dl = useDrivingLicenceForm({ initialValues, onNext, onSkip, onValuesChange, today });
   const locked = isLicenceLocked(savedLicence);
@@ -89,16 +93,26 @@ export default function DrivingLicenceScreen({
         </>
       }
     >
+      {!!blockedMessage && (
+        <BlockingNotice
+          testID="dl-blocked"
+          title={strings.dlBlocked.title}
+          message={blockedMessage}
+          actionLabel={strings.dlBlocked.skip}
+          onAction={dl.skip}
+          style={styles.first}
+        />
+      )}
       {savedLicence && (
         <SavedDocumentCard
           testID="dl-saved"
           doc={savedLicence}
           title={d.savedTitle}
           icon={Driver}
-          style={styles.first}
+          style={blockedMessage ? styles.field : styles.first}
         />
       )}
-      {!locked && <DrivingLicenceFields dl={dl} showOr={showDlOr(ocrAvailable)} first={!savedLicence} />}
+      {!locked && <DrivingLicenceFields dl={dl} showOr={showDlOr(ocrAvailable)} first={!savedLicence && !blockedMessage} />}
     </OnboardingLayout>
   );
 }

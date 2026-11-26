@@ -9,10 +9,16 @@ export type UserErrorAction =
   /** Verify: too many wrong codes. The code is locked: clear + disable it, offer Resend now. */
   | 'OTP_LOCKED'
   /** OTP request: too many requests (server: otp_max_resends). */
-  | 'TOO_MANY_REQUESTS';
+  | 'TOO_MANY_REQUESTS'
+  /**
+   * Licence save refused for good: a soft-deleted user_driving_licenses row is hidden from the user by
+   * the RLS policy "Hide deleted rows" but still owns user_id (42501 on upsert, 23505 on insert). A
+   * backend fix is needed (docs/api/dl-hidden-row-42501.md): show it inline, offer "Skip for now", never retry.
+   */
+  | 'DL_DELETED_BLOCKED';
 
 /** Where the failure happened, when the same backend text means different things. */
-export type ErrorContext = 'otpVerify' | 'otpRequest';
+export type ErrorContext = 'otpVerify' | 'otpRequest' | 'dlSave';
 
 /** What a screen needs to react to a failure. `field` routes the message inline instead of a toast. */
 export type UserError = {
@@ -94,7 +100,7 @@ const CODES: Readonly<Record<string, Omit<UserError, 'kind'>>> = {
 /** Storage / PostgREST messages → user copy. */
 const STORAGE_RULES: ReadonlyArray<{ match: RegExp; error: Omit<UserError, 'kind'> }> = [
   // Before the generic RLS rule: the DL row was soft-deleted and now blocks saves (backend bug O6).
-  { match: /policy "Hide deleted rows".*user_driving_licenses|user_driving_licenses_user_id_key/i, error: { userMessage: e.dlDeletedBlocked } },
+  { match: /"?Hide deleted rows"?|user_driving_licenses_user_id_key/i, error: { userMessage: e.dlDeletedBlocked, action: 'DL_DELETED_BLOCKED' } },
   { match: /payload too large|exceeded the maximum allowed size|entity too large/i, error: { userMessage: e.fileTooLarge } },
   { match: /mime type .* is not supported|invalid_mime_type/i, error: { userMessage: e.unsupportedFile } },
   { match: /row-level security|permission denied/i, error: { userMessage: e.notAllowed } },
@@ -133,6 +139,11 @@ export function toUserError(error: unknown, context?: ErrorContext): UserError {
           kind: apiError.kind,
         }
       : { userMessage: e.tooManyAttempts, action: 'OTP_LOCKED', field: 'otp', kind: apiError.kind };
+  }
+  // Licence save: any RLS refusal (42501) is the hidden soft-deleted row (the user can always write
+  // their own licence otherwise), even when the message is generic.
+  if (context === 'dlSave' && apiError.code === '42501') {
+    return { userMessage: e.dlDeletedBlocked, action: 'DL_DELETED_BLOCKED', kind: apiError.kind };
   }
   const coded = apiError.code ? CODES[apiError.code] : undefined;
   if (coded) {

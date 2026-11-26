@@ -81,3 +81,28 @@ describe('toUserError', () => {
     });
   });
 });
+
+describe('licence save: the hidden soft-deleted row (42501 "Hide deleted rows")', () => {
+  const rls = (message: string, code = '42501') => new ApiError({ kind: 'server', message, code, status: 403 });
+  const HIDDEN = 'new row violates row-level security policy "Hide deleted rows" for table "user_driving_licenses"';
+
+  it('the policy name maps to the support message + DL_DELETED_BLOCKED (any context)', () => {
+    expect(toUserError(rls(HIDDEN))).toEqual({ userMessage: e.dlDeletedBlocked, action: 'DL_DELETED_BLOCKED', kind: 'server' });
+    expect(toUserError(rls(HIDDEN), 'dlSave').action).toBe('DL_DELETED_BLOCKED');
+  });
+
+  it('the insert twin (23505 on user_driving_licenses_user_id_key) means the same', () => {
+    const dup = new ApiError({ kind: 'server', code: '23505', status: 409, message: 'duplicate key value violates unique constraint "user_driving_licenses_user_id_key"' });
+    expect(toUserError(dup).action).toBe('DL_DELETED_BLOCKED');
+  });
+
+  it('on the licence save any 42501 is that row; elsewhere a bare 42501 stays "not allowed"', () => {
+    expect(toUserError(rls('permission denied for table user_driving_licenses'), 'dlSave')).toMatchObject({
+      userMessage: e.dlDeletedBlocked,
+      action: 'DL_DELETED_BLOCKED',
+    });
+    const other = toUserError(rls('new row violates row-level security policy for table "vdocs_insurance"'));
+    expect(other.userMessage).toBe(e.notAllowed);
+    expect(other.action).toBeUndefined();
+  });
+});

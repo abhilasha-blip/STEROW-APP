@@ -261,3 +261,53 @@ describe('driving licence: per user, locked until it expires', () => {
     expect(screen.getByTestId('dl-upload-empty')).toBeTruthy();
   });
 });
+
+describe('licence save refused: 42501 "Hide deleted rows" (backend bug)', () => {
+  const HIDDEN_ROW = {
+    code: '42501',
+    details: null,
+    hint: null,
+    message: 'new row violates row-level security policy "Hide deleted rows" for table "user_driving_licenses"',
+  };
+
+  async function fillAndSubmitOnStep2() {
+    setOnboardingBackend({ hasDrivingLicense: false, vehicleCount: 0 });
+    await renderApp();
+    await goToVerify();
+    await typeOtp(TEST_OTP);
+    await fireEvent.press(await screen.findByTestId('profile-skip'));
+    await screen.findByTestId('onboarding-dl');
+    await fireEvent.changeText(screen.getByTestId('dl-number'), 'ts0120110012345');
+    mockedLibrary.mockResolvedValueOnce({ assets: [{ uri: 'file:///tmp/dl.jpg', type: 'image/jpeg', fileName: 'dl.jpg', fileSize: 2048 }] });
+    await fireEvent.press(screen.getByTestId('dl-upload-empty'));
+    await fireEvent.press(await screen.findByTestId('dl-photo-source-gallery'));
+    await screen.findByTestId('dl-upload-image');
+    requestLog.length = 0;
+    await fireEvent.press(screen.getByTestId('dl-next'));
+  }
+
+  it('shows the inline card (no toast), sends the upsert once (no retry), "Skip for now" → 3/3', async () => {
+    let upserts = 0;
+    server.use(
+      http.post(urls.drivingLicenses, () => {
+        upserts += 1;
+        return HttpResponse.json(HIDDEN_ROW, { status: 403 });
+      }),
+    );
+    await fillAndSubmitOnStep2();
+    const notice = await screen.findByTestId('dl-blocked');
+    expect(screen.getByTestId('dl-blocked-message')).toHaveTextContent(strings.errors.dlDeletedBlocked);
+    expect(screen.getAllByText(strings.errors.dlDeletedBlocked)).toHaveLength(1); // inline only, no error toast
+    await act(() => new Promise<void>(r => setTimeout(r, 300)));
+    expect(upserts).toBe(1);
+    await fireEvent.press(within(notice).getByTestId('dl-blocked-action'));
+    expect(await screen.findByTestId('onboarding-documents')).toBeTruthy();
+    expect(upserts).toBe(1);
+  });
+
+  it('a bare 42501 on the licence save means the same (the message may be generic)', async () => {
+    server.use(http.post(urls.drivingLicenses, () => HttpResponse.json({ code: '42501', message: 'permission denied' }, { status: 403 })));
+    await fillAndSubmitOnStep2();
+    expect(await screen.findByTestId('dl-blocked-message')).toHaveTextContent(strings.errors.dlDeletedBlocked);
+  });
+});

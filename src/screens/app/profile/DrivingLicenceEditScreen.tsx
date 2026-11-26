@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
 import Driver from '@/assets/icons/dashboard/driver.svg';
 import { toUserError } from '@/api/errorMessages';
 import { ocrService } from '@/api/services/ocr.service';
+import BlockingNotice from '@/components/documents/BlockingNotice';
 import SavedDocumentCard from '@/components/documents/SavedDocumentCard';
 import LightScreen from '@/components/LightScreen';
 import PrimaryButton from '@/components/PrimaryButton';
@@ -24,7 +25,7 @@ const t = strings.myProfile;
 
 /**
  * My Profile → Driving Licence: the saved licence (read-only until it expires) and, when there is none
- * or it has expired, the same form as onboarding 2/3 (number, file, dates) and the same save.
+ * or it has expired, the same form as onboarding 2/3 (number, file, dates). Same save, same 42501 card.
  */
 export default function DrivingLicenceEditScreen({ navigation }: HomeStackScreenProps<'DrivingLicence'>) {
   const uid = useAuthStore(s => s.user?.id);
@@ -54,6 +55,7 @@ function DrivingLicenceEditForm({
   const locked = isLicenceLocked(doc);
   // A new licence replaces the expired one: the form starts empty.
   const save = useSaveDrivingLicenceStep(uid ?? '', undefined);
+  const [blocked, setBlocked] = useState<string | undefined>();
   const dl = useDrivingLicenceForm({
     onSkip: onDone,
     onNext: values =>
@@ -62,7 +64,14 @@ function DrivingLicenceEditForm({
           toast.success(strings.onboarding.saved.drivingLicence);
           onDone();
         },
-        onError: error => toast.error(toUserError(error).userMessage),
+        onError: error => {
+          const e = toUserError(error, 'dlSave');
+          if (e.action === 'DL_DELETED_BLOCKED') {
+            setBlocked(e.userMessage);
+          } else {
+            toast.error(e.userMessage);
+          }
+        },
       }),
   });
 
@@ -86,6 +95,16 @@ function DrivingLicenceEditForm({
         )
       }
     >
+      {!!blocked && (
+        <BlockingNotice
+          testID="dl-blocked"
+          title={strings.dlBlocked.title}
+          message={blocked}
+          actionLabel={strings.dlBlocked.skip}
+          onAction={onDone}
+          style={styles.notice}
+        />
+      )}
       {doc && <SavedDocumentCard testID="dl-saved" doc={doc} title={t.drivingLicence} icon={Driver} />}
       {!locked && <DrivingLicenceFields dl={dl} showOr={showDlOr(ocrService.isAvailable('dl'))} first={!doc} />}
     </LightScreen>
@@ -94,4 +113,5 @@ function DrivingLicenceEditForm({
 
 const styles = StyleSheet.create({
   loading: { marginVertical: 24 },
+  notice: { marginBottom: 16 },
 });

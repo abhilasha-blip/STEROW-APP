@@ -230,7 +230,11 @@ export const strings = {
       validUpto: 'Valid up to',
     },
   },
-
+  /** The licence can't be saved because of the backend soft-delete bug (42501 "Hide deleted rows"). */
+  dlBlocked: {
+    title: "Licence can't be saved yet",
+    skip: 'Skip for now',
+  },
   shareAccess: {
     title: 'Share Access',
     verified: 'Verified',
