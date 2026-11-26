@@ -44,6 +44,7 @@ function HomeStack() {
     >
       <Home.Screen name="Home" component={DashboardScreen} />
       <Home.Screen name="MyProfile" component={screens.MyProfile} />
+      <Home.Screen name="DrivingLicence" component={screens.DrivingLicence} />
       <Home.Screen name="MyDocuments" component={screens.MyDocuments} />
       <Home.Screen name="UploadDocuments" component={screens.UploadDocuments} />
       <Home.Screen name="ShareAccess" component={screens.ShareAccess} />

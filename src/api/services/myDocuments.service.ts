@@ -17,28 +17,14 @@ export type MyDocument = {
   id: string;
   /** Insurer (insurance) – the subtitle's first part. */
   issuer: string | null;
+  /** The document's own number: registration / policy / certificate no., FASTag ID, DL number. */
+  number: string | null;
   /** "YYYY-MM-DD" or null. */
   expiry: string | null;
   documentPath: string | null;
   /** The file's bucket (vehicle-docs, or driving-licenses for the licence). */
   bucket: string;
 };
-
-export type DocumentStatus = 'active' | 'expiringSoon' | 'expired';
-/** Expiring soon = expires within this many days (inclusive). */
-export const EXPIRING_SOON_DAYS = 30;
-
-/** Active / Expiring soon (≤ 30 days) / Expired from the expiry date; no expiry → active. */
-export function documentStatusFor(expiry: string | null, today: Date = new Date()): DocumentStatus {
-  if (!expiry) {
-    return 'active';
-  }
-  const [y, m, d] = expiry.split('-').map(Number);
-  const end = new Date(y, m - 1, d).getTime();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const days = Math.round((end - start) / 86_400_000);
-  return days < 0 ? 'expired' : days <= EXPIRING_SOON_DAYS ? 'expiringSoon' : 'active';
-}
 
 /** The expiry column of each table (the web's expiryKey). FASTag has none. */
 const EXPIRY_COLUMN: Record<DocumentKey, string | null> = {
@@ -52,6 +38,14 @@ const Row = z.record(z.string(), z.unknown()).and(z.object({ id: z.string() }));
 const str = (v: unknown) => (typeof v === 'string' && v ? v : null);
 /** Dates may come back as timestamps; keep the calendar date. */
 const day = (v: unknown) => (typeof v === 'string' && v ? v.slice(0, 10) : null);
+
+/** The number column of each table (the web's card title). */
+const NUMBER_COLUMN: Record<DocumentKey, string> = {
+  rc: 'registration_number',
+  insurance: 'policy_no',
+  pollution: 'certificate_no',
+  fastag: 'fastag_id',
+};
 
 /** Display order (my-documents.png): Insurance, Pollution, RC, FASTag, then the driving licence. */
 const ORDER: DocumentKey[] = ['insurance', 'pollution', 'rc', 'fastag'];
@@ -68,13 +62,14 @@ export async function listMyDocuments(vehicleId: string, uid: string): Promise<M
         supabase.from(DOCUMENT_TABLES[key]).select('*').eq('vehicle_id', vehicleId).order('create_at', { ascending: false }),
       ),
     ),
-    supabase.from(REST.USER_DRIVING_LICENSES).select('id,valid_upto,document_path').eq('user_id', uid).limit(1),
+    supabase.from(REST.USER_DRIVING_LICENSES).select('id,dl_number,valid_upto,document_path').eq('user_id', uid).limit(1),
   ]);
   const docs: MyDocument[] = ORDER.flatMap((key, i) =>
     parseOrThrow(z.array(Row), unwrap(vdocs[i]).data, DOCUMENT_TABLES[key]).map(r => ({
       key,
       id: r.id,
       issuer: key === 'insurance' ? str(r.insurer) : null,
+      number: str(r[NUMBER_COLUMN[key]]),
       expiry: EXPIRY_COLUMN[key] ? day(r[EXPIRY_COLUMN[key]!]) : null,
       documentPath: str(r.document_path),
       bucket: STORAGE.VEHICLE_DOCS,
@@ -86,6 +81,7 @@ export async function listMyDocuments(vehicleId: string, uid: string): Promise<M
       key: 'drivingLicence',
       id: licence.id,
       issuer: null,
+      number: str(licence.dl_number),
       expiry: day(licence.valid_upto),
       documentPath: str(licence.document_path),
       bucket: STORAGE.DRIVING_LICENSES,
@@ -97,3 +93,15 @@ export async function listMyDocuments(vehicleId: string, uid: string): Promise<M
 /** A temporary URL to open a document's file. */
 export const documentFileUrl = (doc: MyDocument) =>
   doc.documentPath ? getSignedUrl(doc.bucket, doc.documentPath) : Promise.resolve(null);
+
+/**
+ * The saved document per type (the newest row; the list is newest first): what decides whether a card is
+ * locked (read-only) or can take a new upload.
+ */
+export function latestSavedDocuments(docs: readonly MyDocument[] | undefined): Partial<Record<MyDocumentKey, MyDocument>> {
+  const out: Partial<Record<MyDocumentKey, MyDocument>> = {};
+  for (const doc of docs ?? []) {
+    out[doc.key] ??= doc;
+  }
+  return out;
+}

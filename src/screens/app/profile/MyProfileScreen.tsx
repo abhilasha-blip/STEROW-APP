@@ -6,12 +6,15 @@ import AlertCircle from '@/assets/icons/dashboard/alert-circle.svg';
 import AlertTriangle from '@/assets/icons/dashboard/alert-triangle.svg';
 import Mail from '@/assets/icons/dashboard/mail.svg';
 import Person from '@/assets/icons/dashboard/person.svg';
+import Driver from '@/assets/icons/dashboard/driver.svg';
 import Phone from '@/assets/icons/dashboard/phone.svg';
+import Upload from '@/assets/icons/dashboard/upload.svg';
 import Pencil from '@/assets/icons/pencil.svg';
 import { toUserError } from '@/api/errorMessages';
 import AppText from '@/components/AppText';
 import AvatarCircle from '@/components/AvatarCircle';
 import BottomSheet from '@/components/BottomSheet';
+import SavedDocumentCard from '@/components/documents/SavedDocumentCard';
 import LightScreen from '@/components/LightScreen';
 import PrimaryButton from '@/components/PrimaryButton';
 import TextField from '@/components/TextField';
@@ -22,10 +25,12 @@ import { EMAIL_MAX_LENGTH } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
 import { avatarFile } from '@/hooks/api/useProfileStep';
 import { useDashboard } from '@/hooks/api/useDashboard';
+import { savedLicenceDocument, useDrivingLicenceStepData } from '@/hooks/api/useDrivingLicenceStep';
 import { useRefetchProfileCompletionOnFocus } from '@/hooks/api/useProfileCompletionRefresh';
 import { useEditProfile } from '@/hooks/api/useMyDocuments';
 import type { HomeStackScreenProps } from '@/navigation/types';
 import AvatarPickerSheet from '@/screens/onboarding/AvatarPickerSheet';
+import { isLicenceLocked } from '@/screens/onboarding/DrivingLicenceScreen';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme, useThemedStyles, type Theme } from '@/theme';
 import { display, parseApiPhone } from '@/utils/phone';
@@ -51,6 +56,7 @@ export default function MyProfileScreen({ navigation }: HomeStackScreenProps<'My
   const edit = useEditProfile(user?.id ?? '');
   const [avatarSheet, setAvatarSheet] = useState(false);
   const [editing, setEditing] = useState<EditField>(null);
+  const licence = savedLicenceDocument(useDrivingLicenceStepData(user?.id).data ?? undefined);
 
   const avatar: AvatarValue = data.avatarUrl
     ? { type: 'photo', uri: data.avatarUrl }
@@ -134,6 +140,24 @@ export default function MyProfileScreen({ navigation }: HomeStackScreenProps<'My
       />
       <Row icon={AlertTriangle} label={t.emergency} value={t.add} onPress={pending} testID="my-profile-emergency" />
 
+      {/* The licence: read-only until it expires (per user); an upload only when none / expired. */}
+      <Section title={t.drivingLicence} testID="my-profile-dl" />
+      {licence && <SavedDocumentCard testID="my-profile-dl-saved" doc={licence} title={t.drivingLicence} icon={Driver} />}
+      {!licence && (
+        <AppText variant="cardSubtitle" color="dashboard.muted" style={styles.noLicence}>
+          {t.noLicence}
+        </AppText>
+      )}
+      {!isLicenceLocked(licence) && (
+        <Row
+          icon={Upload}
+          label={licence ? t.uploadNewLicence : t.uploadLicence}
+          value=""
+          onPress={() => navigation.navigate('DrivingLicence')}
+          testID="my-profile-dl-upload"
+        />
+      )}
+
       <AvatarPickerSheet
         visible={avatarSheet}
         value={avatar}
@@ -162,7 +186,7 @@ export default function MyProfileScreen({ navigation }: HomeStackScreenProps<'My
   );
 }
 
-function Section({ title, onEdit, testID }: { title: string; onEdit: () => void; testID: string }) {
+function Section({ title, onEdit, testID }: { title: string; onEdit?: () => void; testID: string }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
@@ -170,19 +194,21 @@ function Section({ title, onEdit, testID }: { title: string; onEdit: () => void;
       <AppText variant="sectionTitleSmall" color="dashboard.sectionTitle" accessibilityRole="header" style={styles.flex}>
         {title}
       </AppText>
-      <Pressable
-        testID={`${testID}-edit`}
-        onPress={onEdit}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={`${t.edit} ${title}`}
-        style={styles.edit}
-      >
-        <Pencil width={16} height={16} color={colors.dashboard.count} />
-        <AppText variant="cardTitle" color="dashboard.count">
-          {t.edit}
-        </AppText>
-      </Pressable>
+      {onEdit && (
+        <Pressable
+          testID={`${testID}-edit`}
+          onPress={onEdit}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`${t.edit} ${title}`}
+          style={styles.edit}
+        >
+          <Pencil width={16} height={16} color={colors.dashboard.count} />
+          <AppText variant="cardTitle" color="dashboard.count">
+            {t.edit}
+          </AppText>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -296,6 +322,7 @@ const sheetStyles = StyleSheet.create({ body: { paddingTop: 8, paddingBottom: 16
 const makeStyles = ({ colors, radius }: Theme) =>
   StyleSheet.create({
     flex: { flex: 1 },
+    noLicence: { marginBottom: 8 },
     top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     badge: {
       position: 'absolute',

@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Controller } from 'react-hook-form';
+import Driver from '@/assets/icons/dashboard/driver.svg';
+import type { MyDocument } from '@/api/services/myDocuments.service';
 import AppText from '@/components/AppText';
+import SavedDocumentCard from '@/components/documents/SavedDocumentCard';
 import DateField from '@/components/DateField';
 import LinkButton from '@/components/LinkButton';
 import OnboardingLayout, { FIRST_LABEL_OFFSET, useRevealOnFocus } from '@/components/OnboardingLayout';
@@ -12,6 +15,7 @@ import TextField from '@/components/TextField';
 import UploadBox from '@/components/UploadBox';
 import { DL_MAX_LENGTH, ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
+import { getDocumentStatus } from '@/utils/documentStatus';
 import { normalizeDlNumber } from '@/utils/validation';
 import { showDlOr, type DrivingLicenceFormValues } from './schemas/drivingLicence.schema';
 import { useDrivingLicenceForm, type DrivingLicenceForm } from './useDrivingLicenceForm';
@@ -31,7 +35,18 @@ export type DrivingLicenceScreenProps = {
   saving?: boolean;
   /** OCR reads the number from the upload → show "Or" (phase 1: false, ocrService is unavailable). */
   ocrAvailable?: boolean;
+  /**
+   * The licence saved for this user (API). Until it expires the step shows it read-only (details,
+   * status, View) and Next just continues; once expired the form is back for the new one.
+   */
+  savedLicence?: MyDocument | null;
+  /** Next on a read-only (locked) licence: nothing to save. */
+  onContinue?: () => void;
 };
+
+/** The saved licence blocks a new upload until it expires. */
+export const isLicenceLocked = (saved: MyDocument | null | undefined) =>
+  !!saved && getDocumentStatus(saved.expiry) !== 'expired';
 
 /**
  * Onboarding 2/3 "Driving Licence": DL Number, the licence photo (both required), Issued on and
@@ -46,8 +61,11 @@ export default function DrivingLicenceScreen({
   today,
   saving = false,
   ocrAvailable = false,
+  savedLicence,
+  onContinue,
 }: DrivingLicenceScreenProps) {
   const dl = useDrivingLicenceForm({ initialValues, onNext, onSkip, onValuesChange, today });
+  const locked = isLicenceLocked(savedLicence);
 
   return (
     <OnboardingLayout
@@ -65,18 +83,27 @@ export default function DrivingLicenceScreen({
             labelVariant="buttonStrong"
             loading={saving}
             disabled={saving}
-            onPress={dl.submit}
+            onPress={locked ? onContinue ?? onSkip : dl.submit}
           />
           <LinkButton testID="dl-skip" label={t.skip} onPress={dl.skip} disabled={saving} style={styles.skip} />
         </>
       }
     >
-      <DrivingLicenceFields dl={dl} showOr={showDlOr(ocrAvailable)} />
+      {savedLicence && (
+        <SavedDocumentCard
+          testID="dl-saved"
+          doc={savedLicence}
+          title={d.savedTitle}
+          icon={Driver}
+          style={styles.first}
+        />
+      )}
+      {!locked && <DrivingLicenceFields dl={dl} showOr={showDlOr(ocrAvailable)} first={!savedLicence} />}
     </OnboardingLayout>
   );
 }
 
-function DrivingLicenceFields({ dl, showOr }: { dl: DrivingLicenceForm; showOr: boolean }) {
+export function DrivingLicenceFields({ dl, showOr, first = true }: { dl: DrivingLicenceForm; showOr: boolean; first?: boolean }) {
   const reveal = useRevealOnFocus();
   const [sourceSheet, setSourceSheet] = useState(false);
   const { control, errors } = dl;
@@ -91,7 +118,7 @@ function DrivingLicenceFields({ dl, showOr }: { dl: DrivingLicenceForm; showOr: 
             ref={field.ref}
             testID="dl-number"
             variant="light"
-            style={styles.first}
+            style={first ? styles.first : styles.field}
             label={d.dlNumberLabel}
             placeholder={d.dlNumberPlaceholder}
             value={field.value}

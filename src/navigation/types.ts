@@ -40,6 +40,8 @@ export type OnboardingStackParamList = {
 export type HomeStackParamList = {
   Home: undefined;
   MyProfile: undefined;
+  /** My Profile → Driving Licence: the saved licence; a new upload once it has expired (or none yet). */
+  DrivingLicence: undefined;
   MyDocuments: { vehicleId?: string } | undefined;
   /** My Documents → "Upload documents": the document cards for one vehicle. */
   UploadDocuments: { vehicleId: string };

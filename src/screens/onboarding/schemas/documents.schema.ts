@@ -1,6 +1,8 @@
 import { DOCUMENT_KEYS, type DocumentKey } from '@/constants/onboarding';
 import type { VehicleDetails } from '@/api/services/vehicle.service';
 import type { RcDetails } from '@/api/services/vehicleDocuments.service';
+import type { MyDocument } from '@/api/services/myDocuments.service';
+import { canReplaceDocument, getDocumentStatus } from '@/utils/documentStatus';
 import type { UploadedFile } from '@/utils/uploadFile';
 import { parseIsoDate } from '@/utils/validation';
 
@@ -93,3 +95,25 @@ export const canProceedDocuments = (v: DocumentsFormValues): boolean =>
   !!v.vehicleId &&
   addedDocuments(v).length > 0 &&
   DOCUMENT_KEYS.every(k => documentStatus(k, v[k]) !== 'needsDetails');
+
+/** Saved documents per type (newest row each), from the API. */
+export type SavedDocuments = Partial<Record<DocumentKey, MyDocument>>;
+
+/** Pollution is always uploadable (it only shows its status). */
+export const ALWAYS_UPLOADABLE: Partial<Record<DocumentKey, true>> = { pollution: true };
+
+/** Read-only card: a saved document that hasn't expired yet (Pollution never is). */
+export const isDocumentLocked = (key: DocumentKey, saved: MyDocument | undefined): boolean =>
+  !!saved && !canReplaceDocument(getDocumentStatus(saved.expiry), !!ALWAYS_UPLOADABLE[key]);
+
+/**
+ * The form without the locked documents' entries: a locked card shows the saved document, so nothing
+ * typed or picked earlier for it (e.g. before a vehicle switch) may be saved.
+ */
+export function withoutLocked(values: DocumentsFormValues, saved: SavedDocuments | undefined): DocumentsFormValues {
+  const locked = DOCUMENT_KEYS.filter(k => isDocumentLocked(k, saved?.[k]));
+  if (!locked.length) {
+    return values;
+  }
+  return { ...values, ...Object.fromEntries(locked.map(k => [k, EMPTY_ENTRY])) };
+}

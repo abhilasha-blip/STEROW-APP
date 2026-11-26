@@ -8,6 +8,8 @@ import {
   type DrivingLicenceStepProgress,
   type DrivingLicenceStepSave,
 } from '@/api/services/drivingLicenceStep.service';
+import { ENDPOINTS } from '@/api/endpoints';
+import type { MyDocument } from '@/api/services/myDocuments.service';
 import type { DrivingLicenceFormValues } from '@/screens/onboarding/schemas/drivingLicence.schema';
 import { localFileFromUri } from './useProfileStep';
 import { queryKeys } from './queryKeys';
@@ -33,6 +35,20 @@ export const drivingLicencePrefill = (saved: DrivingLicenceStepData | undefined)
   saved
     ? { dlNumber: saved.dlNumber, dlImageUri: saved.previewUrl, issuedOn: saved.issuedOn, validUpto: saved.validUpto }
     : {};
+
+/** The saved licence as a document (status, read-only card, View). */
+export const savedLicenceDocument = (saved: DrivingLicenceStepData | undefined): MyDocument | null =>
+  saved
+    ? {
+        key: 'drivingLicence',
+        id: saved.documentPath ?? saved.dlNumber,
+        issuer: null,
+        number: saved.dlNumber,
+        expiry: saved.validUpto,
+        documentPath: saved.documentPath,
+        bucket: ENDPOINTS.SUPABASE.STORAGE.DRIVING_LICENSES,
+      }
+    : null;
 
 /** Onboarding 2/3: the saved licence (prefill). Disabled without a user (dev QA screens). */
 export function useDrivingLicenceStepData(uid: string | undefined) {

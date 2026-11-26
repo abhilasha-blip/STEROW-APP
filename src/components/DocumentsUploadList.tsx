@@ -1,5 +1,6 @@
 import React, { memo, type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import type { MyDocument } from '@/api/services/myDocuments.service';
 import { DOCUMENT_KEYS, type DocumentKey } from '@/constants/onboarding';
 import type { DocumentEntry } from '@/screens/onboarding/schemas/documents.schema';
 import DocumentCard from './documents/DocumentCard';
@@ -17,6 +18,8 @@ export type DocumentsUploadListProps = {
   header?: ReactNode;
   /** Per document: "Add Manually" opens a screen instead of the details sheet. */
   onManual?: Partial<Record<DocumentKey, () => void>>;
+  /** The selected vehicle's saved documents (newest per type): a card stays read-only until it expires. */
+  saved?: Partial<Record<DocumentKey, MyDocument>>;
   style?: StyleProp<ViewStyle>;
   testIDPrefix?: string;
 };
@@ -31,6 +34,7 @@ function DocumentsUploadList({
   vehicleNumber,
   header,
   onManual,
+  saved,
   style,
   testIDPrefix = 'document',
 }: DocumentsUploadListProps) {
@@ -45,6 +49,7 @@ function DocumentsUploadList({
           entry={values[key]}
           vehicleNumber={vehicleNumber}
           onManual={onManual?.[key]}
+          saved={saved?.[key]}
           onChange={entry => onChange(key, entry)}
         />
       ))}

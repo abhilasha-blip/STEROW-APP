@@ -54,10 +54,10 @@ const SHARED_PEOPLE: SharedPerson[] = [
 ];
 /** my-documents.png's list (expiries chosen to show Active / Expiring soon / Expired). */
 const DOCS: MyDocument[] = [
-  { key: 'insurance', id: 'd1', issuer: 'ICICI Lombard', expiry: '2027-01-15', documentPath: 'x/policy.pdf', bucket: 'vehicle-docs' },
-  { key: 'pollution', id: 'd2', issuer: null, expiry: '2026-12-10', documentPath: 'x/puc.jpg', bucket: 'vehicle-docs' },
-  { key: 'rc', id: 'd3', issuer: null, expiry: '2038-03-20', documentPath: 'x/rc.jpg', bucket: 'vehicle-docs' },
-  { key: 'drivingLicence', id: 'd4', issuer: null, expiry: '2040-05-15', documentPath: 'x/dl.pdf', bucket: 'driving-licenses' },
+  { key: 'insurance', id: 'd1', issuer: 'ICICI Lombard', number: 'OG-27-1901-1800-00012345', expiry: '2027-01-15', documentPath: 'x/policy.pdf', bucket: 'vehicle-docs' },
+  { key: 'pollution', id: 'd2', issuer: null, number: 'TS0090012345', expiry: '2026-12-10', documentPath: 'x/puc.jpg', bucket: 'vehicle-docs' },
+  { key: 'rc', id: 'd3', issuer: null, number: 'TS09EV2345', expiry: '2038-03-20', documentPath: 'x/rc.jpg', bucket: 'vehicle-docs' },
+  { key: 'drivingLicence', id: 'd4', issuer: null, number: 'DL0000000000000', expiry: '2040-05-15', documentPath: 'x/dl.pdf', bucket: 'driving-licenses' },
 ];
 
 type Scenario = {

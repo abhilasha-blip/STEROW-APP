@@ -186,6 +186,9 @@ export const colors = {
     selectorBorder: alpha(palette.violet500, 0.6),
     added: palette.green500,
     addedBackground: alpha(palette.green500, 0.12),
+    /** Read-only saved document: the details panel and its divider. */
+    savedPanel: palette.mist50,
+    savedDivider: alpha(palette.black, 0.06),
   },
   statusBar: 'light-content',
 } as const;

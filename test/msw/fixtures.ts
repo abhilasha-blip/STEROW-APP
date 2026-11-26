@@ -89,11 +89,19 @@ export const drivingLicenseRow = {
  * one active vehicle) so auth tests land on the Dashboard; routing tests switch it per test.
  */
 export const onboardingBackend = { hasDrivingLicense: true, vehicleCount: 1 };
+/** Per-test changes to the saved licence (e.g. valid_upto for its status). */
+export const drivingLicenseOverrides: Partial<Record<keyof typeof drivingLicenseRow, unknown>> = {};
+export function setDrivingLicense(next: Partial<Record<keyof typeof drivingLicenseRow, unknown>>): void {
+  Object.assign(drivingLicenseOverrides, next);
+}
 export function setOnboardingBackend(next: Partial<typeof onboardingBackend>): void {
   Object.assign(onboardingBackend, next);
 }
 export function resetOnboardingBackend(): void {
   Object.assign(onboardingBackend, { hasDrivingLicense: true, vehicleCount: 1 });
+  for (const k of Object.keys(drivingLicenseOverrides) as (keyof typeof drivingLicenseOverrides)[]) {
+    delete drivingLicenseOverrides[k];
+  }
 }
 
 /** Vehicle master data: two makes, two models, two variants (+ one inactive variant). */

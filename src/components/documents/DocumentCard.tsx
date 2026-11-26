@@ -12,18 +12,23 @@ import ShieldCheck from '@/assets/icons/dashboard/shield-check.svg';
 import Tag from '@/assets/icons/dashboard/tag.svg';
 import Pencil from '@/assets/icons/pencil.svg';
 import AppText from '@/components/AppText';
+import type { MyDocument } from '@/api/services/myDocuments.service';
 import PhotoSourceSheet, { PICKER_ERROR_MESSAGES } from '@/components/PhotoSourceSheet';
 import type { DocumentKey } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
 import {
   documentStatus,
+  isDocumentLocked,
   type DocumentEntry,
   type DocumentFieldValues,
 } from '@/screens/onboarding/schemas/documents.schema';
 import { useTheme, useThemedStyles, type Theme } from '@/theme';
+import { getDocumentStatus } from '@/utils/documentStatus';
 import { isPdf, validateUpload } from '@/utils/uploadFile';
 import DocumentDetailsSheet from './DocumentDetailsSheet';
 import DocumentInfoSheet from './DocumentInfoSheet';
+import { SavedDocumentDetails } from './SavedDocumentCard';
+import StatusPill from './StatusPill';
 
 const d = strings.onboarding.documents;
 const u = strings.onboarding.upload;
@@ -43,6 +48,11 @@ export type DocumentCardProps = {
   vehicleNumber?: string;
   /** "Add Manually" / "Edit details" opens this instead of the details sheet (3/3 RC → Your Vehicle details). */
   onManual?: () => void;
+  /**
+   * The document already saved for this vehicle (newest row, from the API). Until it expires the card is
+   * read-only (details, status, View); Pollution stays uploadable and only shows its status.
+   */
+  saved?: MyDocument;
   testID?: string;
   style?: StyleProp<ViewStyle>;
 };
@@ -52,14 +62,27 @@ const UPLOAD_ERRORS = { unsupported_type: u.unsupportedType, too_large: u.tooLar
 /**
  * One document on 3/3 (design/dashboard/vehicle-documents-step.jpeg): icon tile, title, (i); then
  * "Upload File" and "Add Manually" side by side. An uploaded file replaces the upload tile with its
- * preview (+ remove); saved details turn "Add Manually" into "Edit details". "✓ Added" once it can be saved.
+ * preview (+ remove: a local file, not saved yet); saved details turn "Add Manually" into "Edit details".
+ * "✓ Added" once it can be saved. A document saved earlier shows its status; until it expires the tiles
+ * are replaced by its read-only details.
  */
-function DocumentCard({ documentKey, entry, onChange, vehicleNumber, onManual, testID = `document-${documentKey}`, style }: DocumentCardProps) {
+function DocumentCard({
+  documentKey,
+  entry,
+  onChange,
+  vehicleNumber,
+  onManual,
+  saved,
+  testID = `document-${documentKey}`,
+  style,
+}: DocumentCardProps) {
   const { colors, sizes } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const card = d.cards[documentKey];
   const Icon = DOCUMENT_ICONS[documentKey];
   const status = documentStatus(documentKey, entry);
+  const savedStatus = saved ? getDocumentStatus(saved.expiry) : null;
+  const locked = isDocumentLocked(documentKey, saved);
   const [infoOpen, setInfoOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -78,7 +101,10 @@ function DocumentCard({ documentKey, entry, onChange, vehicleNumber, onManual, t
           <AppText variant="documentTitle" color="documents.tileTitle" numberOfLines={2}>
             {card.title}
           </AppText>
-          {status === 'added' && (
+          {savedStatus && !(status === 'added' && !locked) && (
+            <StatusPill testID={`${testID}-status`} status={savedStatus} style={styles.statusPill} />
+          )}
+          {status === 'added' && !locked && (
             <View testID={`${testID}-added`} style={styles.addedBadge}>
               <CheckCircle width={14} height={14} color={colors.documents.added} />
               <AppText variant="tinyStrong" color="documents.added">
@@ -98,67 +124,78 @@ function DocumentCard({ documentKey, entry, onChange, vehicleNumber, onManual, t
         </Pressable>
       </View>
 
-      <View style={styles.tiles}>
-        {entry.file ? (
-          <View testID={`${testID}-file`} style={[styles.tile, styles.uploadTile, styles.fileTile]}>
-            {isPdf(entry.file) ? (
-              <DocPdf width={28} height={28} color={colors.documents.tileIcon} />
+      {locked && saved ? (
+        <SavedDocumentDetails doc={saved} title={card.title} showStatus={false} testID={`${testID}-saved`} />
+      ) : (
+        <>
+          <View style={styles.tiles}>
+            {entry.file ? (
+              <View testID={`${testID}-file`} style={[styles.tile, styles.uploadTile, styles.fileTile]}>
+                {isPdf(entry.file) ? (
+                  <DocPdf width={28} height={28} color={colors.documents.tileIcon} />
+                ) : (
+                  <Image
+                    testID={`${testID}-preview`}
+                    source={{ uri: entry.file.uri }}
+                    style={styles.preview}
+                    resizeMode="cover"
+                    accessibilityIgnoresInvertColors
+                  />
+                )}
+                <AppText variant="tiny" color="documents.tileTitle" numberOfLines={1} style={styles.fileName}>
+                  {entry.file.name}
+                </AppText>
+                <Pressable
+                  testID={`${testID}-remove`}
+                  style={styles.remove}
+                  onPress={() => onChange({ ...entry, file: null })}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={d.removeA11y(card.title)}
+                >
+                  <Close width={sizes.iconSmall - 4} height={sizes.iconSmall - 4} color={colors.input.lightIcon} />
+                </Pressable>
+              </View>
             ) : (
-              <Image
-                testID={`${testID}-preview`}
-                source={{ uri: entry.file.uri }}
-                style={styles.preview}
-                resizeMode="cover"
-                accessibilityIgnoresInvertColors
-              />
+              <Pressable
+                testID={`${testID}-upload`}
+                style={({ pressed }) => [styles.tile, styles.uploadTile, pressed && styles.pressed]}
+                onPress={() => setSourceOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={d.uploadA11y(card.title)}
+                accessibilityHint={d.uploadHint}
+              >
+                <CloudUpload width={28} height={28} color={colors.documents.tileIcon} />
+                <AppText variant="tileAction" color="documents.tileTitle" style={styles.tileLabel}>
+                  {d.uploadFile}
+                </AppText>
+                <AppText variant="tiny" color="text.onLightMuted">
+                  {d.uploadHint}
+                </AppText>
+              </Pressable>
             )}
-            <AppText variant="tiny" color="documents.tileTitle" numberOfLines={1} style={styles.fileName}>
-              {entry.file.name}
-            </AppText>
             <Pressable
-              testID={`${testID}-remove`}
-              style={styles.remove}
-              onPress={() => onChange({ ...entry, file: null })}
-              hitSlop={8}
+              testID={`${testID}-manual`}
+              style={({ pressed }) => [styles.tile, styles.manualTile, pressed && styles.pressed]}
+              onPress={() => (onManual ? onManual() : setDetailsOpen(true))}
               accessibilityRole="button"
-              accessibilityLabel={d.removeA11y(card.title)}
+              accessibilityLabel={d.manualA11y(card.title)}
             >
-              <Close width={sizes.iconSmall - 4} height={sizes.iconSmall - 4} color={colors.input.lightIcon} />
+              <Pencil width={24} height={24} color={colors.documents.tileIcon} />
+              <AppText variant="tileAction" color="text.link" style={styles.tileLabel}>
+                {entry.fields ? d.editDetails : status === 'needsDetails' ? d.addDetails : d.addManually}
+              </AppText>
             </Pressable>
           </View>
-        ) : (
-          <Pressable
-            testID={`${testID}-upload`}
-            style={({ pressed }) => [styles.tile, styles.uploadTile, pressed && styles.pressed]}
-            onPress={() => setSourceOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel={d.uploadA11y(card.title)}
-            accessibilityHint={d.uploadHint}
-          >
-            <CloudUpload width={28} height={28} color={colors.documents.tileIcon} />
-            <AppText variant="tileAction" color="documents.tileTitle" style={styles.tileLabel}>
-              {d.uploadFile}
+          {savedStatus === 'expired' && status === 'empty' && (
+            <AppText testID={`${testID}-expired-hint`} variant="hint" color="text.onLightMuted" style={styles.hint}>
+              {strings.savedDocument.expired}
             </AppText>
-            <AppText variant="tiny" color="text.onLightMuted">
-              {d.uploadHint}
-            </AppText>
-          </Pressable>
-        )}
-        <Pressable
-          testID={`${testID}-manual`}
-          style={({ pressed }) => [styles.tile, styles.manualTile, pressed && styles.pressed]}
-          onPress={() => (onManual ? onManual() : setDetailsOpen(true))}
-          accessibilityRole="button"
-          accessibilityLabel={d.manualA11y(card.title)}
-        >
-          <Pencil width={24} height={24} color={colors.documents.tileIcon} />
-          <AppText variant="tileAction" color="text.link" style={styles.tileLabel}>
-            {entry.fields ? d.editDetails : status === 'needsDetails' ? d.addDetails : d.addManually}
-          </AppText>
-        </Pressable>
-      </View>
+          )}
+        </>
+      )}
 
-      {status === 'needsDetails' && (
+      {status === 'needsDetails' && !locked && (
         <AppText testID={`${testID}-needs-details`} variant="error" color="status.errorOnLight" style={styles.hint}>
           {d.needsDetails}
         </AppText>
@@ -222,6 +259,7 @@ const makeStyles = ({ colors, radius, spacing }: Theme) =>
       justifyContent: 'center',
     },
     titleBlock: { flex: 1, marginHorizontal: spacing.md },
+    statusPill: { marginTop: 4 },
     addedBadge: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -7,7 +7,13 @@ import OnboardingLayout from '@/components/OnboardingLayout';
 import PrimaryButton from '@/components/PrimaryButton';
 import { ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS, type DocumentKey } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
-import { canProceedDocuments, type DocumentEntry, type DocumentsFormValues } from './schemas/documents.schema';
+import {
+  canProceedDocuments,
+  withoutLocked,
+  type DocumentEntry,
+  type DocumentsFormValues,
+  type SavedDocuments,
+} from './schemas/documents.schema';
 
 const t = strings.onboarding;
 const d = t.documents;
@@ -22,6 +28,8 @@ export type VehicleDocumentsScreenProps = {
   /** RC "Add Manually" / "Edit details" → "Your Vehicle details". */
   onRcManual: () => void;
   saving?: boolean;
+  /** The selected vehicle's saved documents (API): read-only cards until they expire. */
+  saved?: SavedDocuments;
   onNext: (values: DocumentsFormValues) => void;
   onSkip: () => void;
   onBack?: () => void;
@@ -41,6 +49,7 @@ export default function VehicleDocumentsScreen({
   onAddVehicle,
   onRcManual,
   saving = false,
+  saved,
   onNext,
   onSkip,
   onBack,
@@ -50,7 +59,9 @@ export default function VehicleDocumentsScreen({
     [onChange, values],
   );
   const selected = vehicles.find(v => v.id === values.vehicleId);
-  const canProceed = canProceedDocuments(values);
+  // Locked cards show the saved document: their local entries are neither counted nor saved.
+  const toSave = withoutLocked(values, saved);
+  const canProceed = canProceedDocuments(toSave);
 
   return (
     <OnboardingLayout
@@ -70,7 +81,7 @@ export default function VehicleDocumentsScreen({
             labelVariant="buttonStrong"
             loading={saving}
             disabled={!canProceed || saving}
-            onPress={() => onNext(values)}
+            onPress={() => onNext(toSave)}
             style={styles.footerItem}
           />
           <LinkButton testID="documents-skip" label={t.skip} onPress={onSkip} disabled={saving} style={styles.skip} />
@@ -82,6 +93,7 @@ export default function VehicleDocumentsScreen({
         onChange={setEntry}
         vehicleNumber={selected?.vehicleNumber}
         onManual={{ rc: onRcManual }}
+        saved={saved}
         header={
           <VehicleSelectCard
             vehicles={vehicles}

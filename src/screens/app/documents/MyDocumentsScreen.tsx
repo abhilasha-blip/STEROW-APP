@@ -5,13 +5,9 @@ import DocImage from '@/assets/icons/dashboard/doc-image.svg';
 import DocPdf from '@/assets/icons/dashboard/doc-pdf.svg';
 import Upload from '@/assets/icons/dashboard/upload.svg';
 import { toUserError } from '@/api/errorMessages';
-import {
-  documentFileUrl,
-  documentStatusFor,
-  type DocumentStatus,
-  type MyDocument,
-} from '@/api/services/myDocuments.service';
+import { documentFileUrl, type MyDocument } from '@/api/services/myDocuments.service';
 import AppText from '@/components/AppText';
+import StatusPill, { STATUS_LABEL } from '@/components/documents/StatusPill';
 import VehiclePickerSheet from '@/components/documents/VehiclePickerSheet';
 import LightScreen from '@/components/LightScreen';
 import PrimaryButton from '@/components/PrimaryButton';
@@ -22,18 +18,11 @@ import { useMyDocuments } from '@/hooks/api/useMyDocuments';
 import type { HomeStackScreenProps } from '@/navigation/types';
 import { useAuthStore } from '@/store/auth.store';
 import { useTheme, useThemedStyles, type Theme } from '@/theme';
+import { formatExpiry, getDocumentStatus } from '@/utils/documentStatus';
 import VehicleCard from '../../dashboard/components/VehicleCard';
 import { vehicleName } from '../../dashboard/components/VehicleCarousel';
 
 const t = strings.myDocuments;
-
-/** "15/01/2025" (my-documents.png). */
-export const formatExpiry = (iso: string) => {
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
-};
-
-const STATUS_LABEL: Record<DocumentStatus, string> = { active: t.active, expiringSoon: t.expiringSoon, expired: t.expired };
 
 /**
  * My Documents (design/dashboard/my-documents.png): the selected vehicle (Change → vehicle sheet), the
@@ -152,12 +141,10 @@ export default function MyDocumentsScreen({ navigation, route }: HomeStackScreen
 function DocumentRow({ doc, onPress }: { doc: MyDocument; onPress: () => void }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const status = documentStatusFor(doc.expiry);
+  const status = getDocumentStatus(doc.expiry);
   const Icon = doc.documentPath?.toLowerCase().endsWith('.pdf') ? DocPdf : DocImage;
   const name = t.names[doc.key];
   const subtitle = [doc.issuer, doc.expiry ? t.expires(formatExpiry(doc.expiry)) : null].filter(Boolean).join(' • ');
-  const statusColor =
-    status === 'expired' ? 'dashboard.statusExpired' : status === 'expiringSoon' ? 'dashboard.statusExpiring' : 'dashboard.statusActive';
   return (
     <Pressable
       testID={`my-document-${doc.key}`}
@@ -175,12 +162,7 @@ function DocumentRow({ doc, onPress }: { doc: MyDocument; onPress: () => void })
           <AppText variant="cardTitle" color="dashboard.sectionTitle">
             {name}
           </AppText>
-          <View testID={`my-document-${doc.key}-status`} style={styles.pill}>
-            <View style={[styles.dot, { backgroundColor: colors.dashboard[statusColor.split('.')[1] as 'statusActive'] }]} />
-            <AppText variant="tinyStrong" color={statusColor}>
-              {STATUS_LABEL[status]}
-            </AppText>
-          </View>
+          <StatusPill testID={`my-document-${doc.key}-status`} status={status} />
         </View>
         {!!subtitle && (
           <AppText variant="cardSubtitle" color="dashboard.muted" numberOfLines={1} style={styles.subtitle}>
@@ -219,18 +201,6 @@ const makeStyles = ({ colors, radius }: Theme) =>
     },
     rowText: { flex: 1, marginLeft: 12 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-    pill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      height: 19,
-      paddingHorizontal: 8,
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: colors.dashboard.pillBorder,
-      backgroundColor: colors.dashboard.card,
-    },
-    dot: { width: 6, height: 6, borderRadius: 3 },
     subtitle: { marginTop: 4 },
     pressed: { opacity: 0.85 },
   });

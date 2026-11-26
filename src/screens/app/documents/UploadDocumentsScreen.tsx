@@ -9,11 +9,13 @@ import { useToast } from '@/components/Toast';
 import type { DocumentKey } from '@/constants/onboarding';
 import { strings } from '@/constants/strings';
 import { useMyVehicles, useSaveDocumentsStep } from '@/hooks/api/useDocumentsStep';
+import { useSavedVehicleDocuments } from '@/hooks/api/useMyDocuments';
 import type { HomeStackScreenProps } from '@/navigation/types';
 import RcDetailsScreen from '@/screens/onboarding/RcDetailsScreen';
 import {
   canProceedDocuments,
   EMPTY_DOCUMENTS,
+  withoutLocked,
   type DocumentEntry,
   type DocumentsFormValues,
 } from '@/screens/onboarding/schemas/documents.schema';
@@ -32,7 +34,10 @@ export default function UploadDocumentsScreen({ navigation, route }: HomeStackSc
   const vehicle = vehicles.data?.find(v => v.id === route.params.vehicleId);
   const save = useSaveDocumentsStep(uid ?? '');
   const [values, setValues] = useState<DocumentsFormValues>({ ...EMPTY_DOCUMENTS, vehicleId: route.params.vehicleId });
-  const canSave = !!vehicle && canProceedDocuments(values) && !save.isPending;
+  const { saved } = useSavedVehicleDocuments(uid, route.params.vehicleId);
+  // Read-only (locked) cards are never saved.
+  const toSave = withoutLocked(values, saved);
+  const canSave = !!vehicle && canProceedDocuments(toSave) && !save.isPending;
   const [rcOpen, setRcOpen] = useState(false);
 
   // Android back closes the RC form first.
@@ -82,7 +87,7 @@ export default function UploadDocumentsScreen({ navigation, route }: HomeStackSc
           onPress={() =>
             vehicle &&
             save.mutate(
-              { values, vehicle },
+              { values: toSave, vehicle },
               {
                 onSuccess: () => {
                   toast.success(strings.onboarding.documents.saved);
@@ -98,6 +103,7 @@ export default function UploadDocumentsScreen({ navigation, route }: HomeStackSc
       <DocumentsUploadList
         values={values}
         vehicleNumber={vehicle?.vehicleNumber}
+        saved={saved}
         onManual={vehicle ? { rc: () => setRcOpen(true) } : undefined}
         onChange={(key: DocumentKey, entry: DocumentEntry) => setValues(v => ({ ...v, [key]: entry }))}
       />

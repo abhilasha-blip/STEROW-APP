@@ -1,6 +1,7 @@
 import type React from 'react';
 import MyDocumentsScreen from '@/screens/app/documents/MyDocumentsScreen';
 import UploadDocumentsScreen from '@/screens/app/documents/UploadDocumentsScreen';
+import DrivingLicenceEditScreen from '@/screens/app/profile/DrivingLicenceEditScreen';
 import MyProfileScreen from '@/screens/app/profile/MyProfileScreen';
 import ShareAccessScreen from '@/screens/app/share/ShareAccessScreen';
 import MyVehiclesScreen from '@/screens/app/vehicles/MyVehiclesScreen';
@@ -13,6 +14,7 @@ type Screens = { [K in Name]: React.ComponentType<HomeStackScreenProps<K>> };
 export function homeScreens(): Screens {
   return {
     MyProfile: MyProfileScreen,
+    DrivingLicence: DrivingLicenceEditScreen,
     MyDocuments: MyDocumentsScreen,
     UploadDocuments: UploadDocumentsScreen,
     ShareAccess: ShareAccessScreen,

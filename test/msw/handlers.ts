@@ -4,6 +4,7 @@ import {
   authUser,
   backendMessages,
   drivingLicenseRow,
+  drivingLicenseOverrides,
   makeSession,
   onboardingBackend,
   resetOnboardingBackend,
@@ -113,7 +114,7 @@ export const handlers = [
   // Post-login routing (select=id, limit 1) and onboarding 2/3 (select=*, maybeSingle).
   http.get(urls.drivingLicenses, async ({ request }) => {
     await log(request);
-    return HttpResponse.json(onboardingBackend.hasDrivingLicense ? [drivingLicenseRow] : []);
+    return HttpResponse.json(onboardingBackend.hasDrivingLicense ? [{ ...drivingLicenseRow, ...drivingLicenseOverrides }] : []);
   }),
   // Upsert on_conflict=user_id (.select().single() → one object).
   http.post(urls.drivingLicenses, async ({ request }) => {

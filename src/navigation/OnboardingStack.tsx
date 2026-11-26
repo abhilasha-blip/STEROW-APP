@@ -12,10 +12,12 @@ import { DOCUMENT_KEYS, ONBOARDING_STEP, ONBOARDING_TOTAL_STEPS } from '@/consta
 import { strings } from '@/constants/strings';
 import {
   drivingLicencePrefill,
+  savedLicenceDocument,
   useDrivingLicenceStepData,
   useSaveDrivingLicenceStep,
 } from '@/hooks/api/useDrivingLicenceStep';
 import { useCreateVehicle, useMyVehicles, useSaveDocumentsStep } from '@/hooks/api/useDocumentsStep';
+import { useSavedVehicleDocuments } from '@/hooks/api/useMyDocuments';
 import { savedAvatar, useProfileStepData, useSaveProfileStep } from '@/hooks/api/useProfileStep';
 import { useOnboardingSkip } from '@/hooks/useOnboardingSkip';
 import DrivingLicenceScreen from '@/screens/onboarding/DrivingLicenceScreen';
@@ -32,6 +34,7 @@ import type {
 import { useAuthStore } from '@/store/auth.store';
 import { selectOnboardingValues, useOnboardingStore } from '@/store/onboarding.store';
 import { useTheme } from '@/theme';
+import { getDocumentStatus } from '@/utils/documentStatus';
 import { logger } from '@/utils/logger';
 import type { OnboardingStackParamList, OnboardingStackScreenProps } from './types';
 
@@ -203,7 +206,10 @@ function Step2DrivingLicenceForm({
   const setDrivingLicence = useOnboardingStore(s => s.setDrivingLicence);
   const markSkipped = useOnboardingSkip();
   const snapshot = useInitialSnapshot();
-  const save = useSaveDrivingLicenceStep(uid ?? '', saved);
+  const savedLicence = savedLicenceDocument(saved);
+  // An expired licence is shown above an empty form: the new one replaces it (no prefill from it).
+  const expired = !!savedLicence && getDocumentStatus(savedLicence.expiry) === 'expired';
+  const save = useSaveDrivingLicenceStep(uid ?? '', expired ? undefined : saved);
   useLoadFailedToast(loadFailed);
 
   const next = (values: DrivingLicenceFormValues) => {
@@ -227,11 +233,13 @@ function Step2DrivingLicenceForm({
 
   return (
     <DrivingLicenceScreen
-      initialValues={{ ...drivingLicencePrefill(saved), ...snapshot.drivingLicence }}
+      initialValues={{ ...(expired ? {} : drivingLicencePrefill(saved)), ...snapshot.drivingLicence }}
       onBack={backIfPossible(navigation)}
       onValuesChange={setDrivingLicence}
       saving={save.isPending}
       ocrAvailable={ocrService.isAvailable('dl')}
+      savedLicence={savedLicence}
+      onContinue={() => navigation.navigate('Step3Documents')}
       onNext={next}
       onSkip={() => {
         logger.info('onboarding 2/3: skip');
@@ -253,6 +261,7 @@ function Step3DocumentsRoute({ navigation, route }: OnboardingStackScreenProps<'
   const markSkipped = useOnboardingSkip();
   const vehicles = useMyVehicles(uid);
   const save = useSaveDocumentsStep(uid ?? '');
+  const savedDocs = useSavedVehicleDocuments(uid, values.vehicleId);
 
   // Preselect: the vehicle just added (back from "Add new vehicle"), else the first one.
   const addedId = route.params?.vehicleId;
@@ -308,6 +317,7 @@ function Step3DocumentsRoute({ navigation, route }: OnboardingStackScreenProps<'
       onAddVehicle={() => navigation.navigate('Step3AddVehicle')}
       onRcManual={() => navigation.navigate('Step3RcDetails')}
       saving={save.isPending}
+      saved={savedDocs.saved}
       onBack={backIfPossible(navigation)}
       onNext={next}
       onSkip={() => {

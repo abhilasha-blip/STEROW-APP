@@ -184,6 +184,11 @@ export const strings = {
     save: 'Save',
     saved: 'Profile saved',
     photoUpdated: 'Photo updated',
+    drivingLicence: 'Driving Licence',
+    noLicence: 'No licence added yet.',
+    uploadLicence: 'Upload licence',
+    uploadNewLicence: 'Upload new licence',
+    saveLicence: 'Save licence',
   },
   myDocuments: {
     title: 'My Documents',
@@ -207,6 +212,25 @@ export const strings = {
     uploadTitle: 'Upload documents',
     save: 'Save documents',
   },
+  /** Saved documents: status, the read-only (locked) card and its details. */
+  savedDocument: {
+    locked: 'Already uploaded. You can upload a new one once it expires.',
+    expired: 'This document has expired. Upload the new one.',
+    view: 'View',
+    viewA11y: (title: string) => `View ${title}`,
+    statusA11y: (status: string) => `Status: ${status}`,
+    notGiven: 'Not added',
+    labels: {
+      dlNumber: 'DL Number',
+      registrationNumber: 'Registration Number',
+      policyNo: 'Policy Number',
+      insurer: 'Insurer',
+      certificateNo: 'Certificate Number',
+      fastagId: 'FASTag ID',
+      validUpto: 'Valid up to',
+    },
+  },
+
   shareAccess: {
     title: 'Share Access',
     verified: 'Verified',
@@ -265,6 +289,7 @@ export const strings = {
       validUptoLabel: 'Valid up to',
       validUptoPickerA11y: 'Choose the date the licence is valid up to',
       datePlaceholder: 'DD-MM-YYYY',
+      savedTitle: 'Driving Licence',
     },
     saved: {
       profile: 'Profile saved',
